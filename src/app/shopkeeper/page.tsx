@@ -176,10 +176,15 @@ export default function ShopkeeperDashboard() {
         shopkeeperApi.getStats().catch(() => ({ stats: null })),
       ]);
 
-      setOrders(ordersRes?.orders || []);
-      setProducts(prodsRes?.products || []);
-      setCategories(catsRes?.categories || []);
+      const incomingCats = Array.isArray(catsRes) ? catsRes : (catsRes?.categories || []);
+      const incomingProds = Array.isArray(prodsRes) ? prodsRes : (prodsRes?.products || []);
+      const incomingOrders = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.orders || []);
+
+      setOrders(Array.isArray(incomingOrders) ? incomingOrders : []);
+      setProducts(Array.isArray(incomingProds) ? incomingProds : []);
+      setCategories(Array.isArray(incomingCats) ? incomingCats : []);
       if (statsRes?.stats) setStats(statsRes.stats);
+      else if (statsRes && !('stats' in statsRes)) setStats(statsRes as any);
     } catch (err: any) {
       console.error('Failed to load shopkeeper data:', err);
     } finally {

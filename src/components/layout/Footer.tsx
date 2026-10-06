@@ -73,7 +73,7 @@ export default function Footer() {
               Node.js • Express • TypeScript • Prisma ORM • Aiven PostgreSQL • Razorpay • Socket.io
             </p>
             <div className="mt-3 text-[11px] text-slate-500">
-              REST API listening on port 5001 with OpenAPI documentation at <a href="http://localhost:5001/api-docs" target="_blank" rel="noreferrer" className="text-amber-400 underline">/api-docs</a>.
+              REST API with OpenAPI documentation at <a href={typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5001/api-docs' : 'https://scanpayeat-backend.vercel.app/api-docs'} target="_blank" rel="noreferrer" className="text-amber-400 underline">/api-docs</a>.
             </div>
           </div>
         </div>

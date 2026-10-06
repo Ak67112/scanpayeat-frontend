@@ -136,9 +136,15 @@ export default function AdminDashboard() {
       ]);
 
       if (dashRes?.stats) setStats(dashRes.stats);
-      setShops(shopsRes?.shops || []);
-      setShopkeepers((keepersRes?.shopkeepers as any) || []);
-      setOrders(ordersRes?.orders || []);
+      else if (dashRes && !('stats' in dashRes) && (dashRes as any).totalShops !== undefined) setStats(dashRes as any);
+
+      const incomingShops = Array.isArray(shopsRes) ? shopsRes : (shopsRes?.shops || []);
+      const incomingKeepers = Array.isArray(keepersRes) ? keepersRes : (keepersRes?.shopkeepers || []);
+      const incomingOrders = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.orders || []);
+
+      setShops(Array.isArray(incomingShops) ? incomingShops : []);
+      setShopkeepers(Array.isArray(incomingKeepers) ? incomingKeepers as any : []);
+      setOrders(Array.isArray(incomingOrders) ? incomingOrders : []);
     } catch (err: any) {
       console.error('Failed to load admin data:', err);
     } finally {
@@ -716,7 +722,7 @@ export default function AdminDashboard() {
         </div>
 
         <a
-          href="http://localhost:5001/api-docs"
+          href={typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5001/api-docs' : 'https://scanpayeat-backend.vercel.app/api-docs'}
           target="_blank"
           rel="noreferrer"
           className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800/70 hover:text-white transition"
@@ -2181,43 +2187,49 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 inline-block mx-auto">
-              {/* High-res generated QR code representation */}
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                  `http://localhost:3000/shop/${selectedQrShop.slug}`
-                )}`}
-                alt="Shop QR Code"
-                className="w-52 h-52 mx-auto rounded-lg shadow-xs"
-              />
-            </div>
+            {(() => {
+              const liveOrigin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://scanpayeat-frontend.vercel.app';
+              const shopUrl = `${liveOrigin}/shop/${selectedQrShop.slug}`;
+              return (
+                <>
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 inline-block mx-auto">
+                    {/* High-res generated QR code representation */}
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(shopUrl)}`}
+                      alt="Shop QR Code"
+                      className="w-52 h-52 mx-auto rounded-lg shadow-xs"
+                    />
+                  </div>
 
-            <div>
-              <p className="text-xs font-bold text-slate-800">
-                Scan to Open Shop Menu
-              </p>
-              <p className="text-[11px] font-mono text-purple-700 mt-1">
-                http://localhost:3000/shop/{selectedQrShop.slug}
-              </p>
-            </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">
+                      Scan to Open Shop Menu
+                    </p>
+                    <p className="text-[11px] font-mono text-purple-700 mt-1 break-all select-all">
+                      {shopUrl}
+                    </p>
+                  </div>
 
-            <div className="pt-2 flex items-center gap-2">
-              <a
-                href={`http://localhost:3000/shop/${selectedQrShop.slug}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition inline-flex items-center justify-center gap-1"
-              >
-                <span>Open in Browser</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </a>
-              <button
-                onClick={() => setSelectedQrShop(null)}
-                className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
+                  <div className="pt-2 flex items-center gap-2">
+                    <a
+                      href={shopUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition inline-flex items-center justify-center gap-1"
+                    >
+                      <span>Open in Browser</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </a>
+                    <button
+                      onClick={() => setSelectedQrShop(null)}
+                      className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
