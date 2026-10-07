@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import {
@@ -14,6 +13,8 @@ import {
   ShoppingBag,
   Menu,
   X,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -22,21 +23,21 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">
+    <header className="sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#E8DFC8] shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-20">
           {/* Brand Logo */}
           <div className="flex items-center space-x-3">
-            <a href="/" className="flex items-center space-x-2.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center text-white shadow-md shadow-rose-500/20">
+            <a href="/" className="flex items-center space-x-3 group">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-red-700 to-rose-600 flex items-center justify-center text-white shadow-md shadow-red-700/25 group-hover:scale-105 transition-transform duration-200">
                 <UtensilsCrossed className="w-5 h-5" />
               </div>
               <div className="flex flex-col">
-                <span className="font-extrabold text-xl tracking-tight text-slate-900 leading-none">
-                  Scan<span className="text-amber-600">Pay</span>Eat
+                <span className="font-extrabold text-2xl tracking-tight text-[#18181B] font-display leading-none">
+                  Scan<span className="text-red-700">Pay</span>Eat
                 </span>
-                <span className="text-[10px] text-slate-500 font-medium tracking-wide">
-                  MULTI-SHOP QR FOOD
+                <span className="text-[10px] text-red-900/60 font-bold uppercase tracking-widest mt-0.5">
+                  Culinary QR Platform
                 </span>
               </div>
             </a>
@@ -44,12 +45,12 @@ export default function Navbar() {
             {/* Role indicator pill */}
             {user && (
               <span
-                className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                className={`hidden lg:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
                   user.role === 'ADMIN'
-                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                    ? 'bg-purple-100 text-purple-900 border border-purple-300'
                     : user.role === 'SHOPKEEPER'
-                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                    : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                 }`}
               >
                 {user.role === 'ADMIN' && <ShieldAlert className="w-3.5 h-3.5" />}
@@ -66,15 +67,16 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center space-x-6">
             <a
               href="/shop/abc"
-              className="text-sm font-medium text-slate-600 hover:text-amber-600 transition"
+              className="text-xs font-bold uppercase tracking-wider text-stone-700 hover:text-red-700 transition flex items-center gap-1"
             >
-              Demo Shop (ABC)
+              <span>Demo Menu (ABC)</span>
+              <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-800 text-[9px] font-extrabold">LIVE</span>
             </a>
 
             {user?.role === 'CUSTOMER' && (
               <a
                 href="/my-orders"
-                className="text-sm font-medium text-slate-600 hover:text-amber-600 transition"
+                className="text-xs font-bold uppercase tracking-wider text-stone-700 hover:text-red-700 transition"
               >
                 My Orders
               </a>
@@ -83,7 +85,7 @@ export default function Navbar() {
             {user?.role === 'SHOPKEEPER' && (
               <a
                 href="/shopkeeper"
-                className="text-sm font-medium text-amber-700 font-semibold bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 hover:bg-amber-100 transition"
+                className="text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-100/80 px-3.5 py-2 rounded-xl border border-amber-300 hover:bg-amber-200 transition"
               >
                 Kitchen Dashboard
               </a>
@@ -92,21 +94,22 @@ export default function Navbar() {
             {user?.role === 'ADMIN' && (
               <a
                 href="/admin"
-                className="text-sm font-medium text-purple-700 font-semibold bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-200 hover:bg-purple-100 transition"
+                className="text-xs font-bold uppercase tracking-wider text-purple-900 bg-purple-100/80 px-3.5 py-2 rounded-xl border border-purple-300 hover:bg-purple-200 transition"
               >
                 Admin Console
               </a>
             )}
 
-            {/* Cart Button */}
+            {/* Cart Button with trending pill style */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2 text-slate-700 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition cursor-pointer"
+              className="relative flex items-center gap-2 px-3.5 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl transition cursor-pointer border border-[#E8DFC8]"
               aria-label="View Cart"
             >
-              <ShoppingCart className="w-6 h-6" />
+              <ShoppingCart className="w-4 h-4 text-red-700" />
+              <span className="text-xs font-bold">Cart</span>
               {totalItems > 0 && (
-                <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[11px] font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                <span className="bg-red-700 text-white text-[11px] font-black rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center animate-pulse">
                   {totalItems}
                 </span>
               )}
@@ -114,57 +117,58 @@ export default function Navbar() {
 
             {/* User Profile / Auth Action */}
             {user ? (
-              <div className="flex items-center space-x-3 pl-3 border-l border-slate-200">
+              <div className="flex items-center space-x-3 pl-3 border-l border-[#E8DFC8]">
                 <div className="flex flex-col text-right">
-                  <span className="text-sm font-semibold text-slate-800 line-clamp-1">
+                  <span className="text-xs font-bold text-stone-900 line-clamp-1">
                     {user.name}
                   </span>
-                  <span className="text-xs text-slate-500">{user.email}</span>
+                  <span className="text-[10px] text-stone-500">{user.email}</span>
                 </div>
                 <button
                   onClick={() => logout()}
                   title="Logout"
-                  className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                  className="p-2 text-stone-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition cursor-pointer"
                 >
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
+              <div className="flex items-center space-x-2 pl-2 border-l border-[#E8DFC8]">
                 <a
                   href="/login"
-                  className="text-sm font-semibold text-slate-700 hover:text-amber-600 px-3 py-1.5 rounded-lg transition"
+                  className="text-xs font-bold uppercase tracking-wider text-stone-800 hover:text-red-700 px-3.5 py-2 rounded-xl transition"
                 >
                   Login
                 </a>
                 <a
                   href="/register"
-                  className="text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 px-3.5 py-1.5 rounded-lg shadow-sm transition"
+                  className="text-xs font-bold uppercase tracking-wider text-white bg-red-700 hover:bg-red-800 px-4 py-2 rounded-xl shadow-md shadow-red-700/20 transition flex items-center gap-1.5"
                 >
-                  Register
+                  <span>Register</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </a>
               </div>
             )}
           </nav>
 
           {/* Mobile Menu & Cart Button */}
-          <div className="flex md:hidden items-center space-x-3">
+          <div className="flex md:hidden items-center space-x-2">
             <button
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2 text-slate-700"
+              className="relative p-2.5 text-stone-800 bg-stone-100 rounded-xl"
             >
-              <ShoppingCart className="w-6 h-6" />
+              <ShoppingCart className="w-5 h-5 text-red-700" />
               {totalItems > 0 && (
-                <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-red-700 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                   {totalItems}
                 </span>
               )}
             </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="p-2.5 text-stone-800 bg-stone-100 hover:bg-stone-200 rounded-xl"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
@@ -172,14 +176,14 @@ export default function Navbar() {
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-5 space-y-3">
+        <div className="md:hidden border-t border-[#E8DFC8] bg-[#FAF7F2] px-4 pt-3 pb-6 space-y-3">
           {user && (
-            <div className="p-3 bg-slate-50 rounded-lg flex items-center justify-between">
+            <div className="p-3 bg-white border border-[#E8DFC8] rounded-xl flex items-center justify-between">
               <div>
-                <p className="font-semibold text-slate-800 text-sm">{user.name}</p>
-                <p className="text-xs text-slate-500">{user.email}</p>
+                <p className="font-bold text-stone-900 text-xs">{user.name}</p>
+                <p className="text-[10px] text-stone-500">{user.email}</p>
               </div>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-900">
                 {user.role}
               </span>
             </div>
@@ -189,7 +193,7 @@ export default function Navbar() {
             <a
               href="/shop/abc"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-50"
+              className="px-3.5 py-2.5 text-xs font-bold text-stone-800 rounded-xl hover:bg-white border border-transparent hover:border-[#E8DFC8] transition"
             >
               Demo Shop (ABC Restaurant)
             </a>
@@ -198,7 +202,7 @@ export default function Navbar() {
               <a
                 href="/my-orders"
                 onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-50"
+                className="px-3.5 py-2.5 text-xs font-bold text-stone-800 rounded-xl hover:bg-white border border-transparent hover:border-[#E8DFC8] transition"
               >
                 My Orders
               </a>
@@ -208,7 +212,7 @@ export default function Navbar() {
               <a
                 href="/shopkeeper"
                 onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 text-sm font-medium text-amber-700 bg-amber-50 rounded-lg"
+                className="px-3.5 py-2.5 text-xs font-bold text-amber-900 bg-amber-100/80 rounded-xl"
               >
                 Kitchen Dashboard
               </a>
@@ -218,7 +222,7 @@ export default function Navbar() {
               <a
                 href="/admin"
                 onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 rounded-lg"
+                className="px-3.5 py-2.5 text-xs font-bold text-purple-900 bg-purple-100/80 rounded-xl"
               >
                 Admin Console
               </a>
@@ -230,7 +234,7 @@ export default function Navbar() {
                   setMobileMenuOpen(false);
                   logout();
                 }}
-                className="w-full text-left px-3 py-2 text-sm font-medium text-rose-600 rounded-lg hover:bg-rose-50 flex items-center gap-2"
+                className="w-full text-left px-3.5 py-2.5 text-xs font-bold text-red-700 rounded-xl hover:bg-red-50 flex items-center gap-2"
               >
                 <LogOut className="w-4 h-4" /> Logout
               </button>
@@ -239,14 +243,14 @@ export default function Navbar() {
                 <a
                   href="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2 text-sm font-semibold text-slate-700 border border-slate-300 rounded-lg"
+                  className="w-full text-center py-2.5 text-xs font-bold uppercase tracking-wider text-stone-800 bg-white border border-[#E8DFC8] rounded-xl"
                 >
                   Login
                 </a>
                 <a
                   href="/register"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2 text-sm font-semibold text-white bg-amber-600 rounded-lg"
+                  className="w-full text-center py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-red-700 rounded-xl shadow-md"
                 >
                   Register Customer
                 </a>

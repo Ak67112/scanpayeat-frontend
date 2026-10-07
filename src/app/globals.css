@@ -1,21 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --background: #faf7f2;
+  --foreground: #18181b;
   color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+/* Trending typography & culinary aesthetics */
+body {
+  background-color: #faf7f2;
+  color: #18181b;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Ensure clean light theme and high-contrast typography across all operating systems */
-body {
-  background-color: #f8fafc;
-  color: #0f172a;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, h4, .heading-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Infinite culinary ribbon marquee */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 28s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
 }
 
 /* Fix: Form controls & labels must always have crisp, dark, readable text */
@@ -37,24 +65,23 @@ textarea::placeholder {
   opacity: 1 !important;
 }
 
-/* Select options dropdown */
 select option {
   color: #0f172a;
   background-color: #ffffff;
 }
 
-/* Smooth custom scrollbars */
+/* Warm organic custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #f5efeb;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #d6cbbf;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #b8a896;
 }

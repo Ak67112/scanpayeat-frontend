@@ -283,23 +283,23 @@ export default function CartDrawer() {
           />
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col">
+        <div className="w-screen max-w-md bg-[#FAF7F2] shadow-2xl flex flex-col border-l border-[#E8DFC8]">
           {/* Header */}
-          <div className="p-4 sm:p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="p-4 sm:p-6 border-b border-[#E8DFC8] flex items-center justify-between bg-white/80 backdrop-blur-xs">
             <div className="flex items-center space-x-2.5">
-              <div className="p-2 bg-amber-100 text-amber-700 rounded-lg">
+              <div className="p-2.5 bg-red-700 text-white rounded-xl shadow-xs">
                 <ShoppingBag className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-slate-900 text-lg">Your Order</h3>
-                <p className="text-xs text-slate-500">
-                  {totalItems} {totalItems === 1 ? 'item' : 'items'} selected
+                <h3 className="font-display font-black text-stone-900 text-xl tracking-tight uppercase">Your Order</h3>
+                <p className="text-xs text-stone-500 font-medium">
+                  {totalItems} {totalItems === 1 ? 'dish' : 'dishes'} selected
                 </p>
               </div>
             </div>
             <button
               onClick={() => setIsCartOpen(false)}
-              className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/50 transition cursor-pointer"
+              className="p-2 text-stone-400 hover:text-stone-700 rounded-xl hover:bg-stone-100 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -314,44 +314,44 @@ export default function CartDrawer() {
           )}
 
           {/* Cart Items List */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 divide-y divide-slate-100">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 divide-y divide-[#E8DFC8]/60">
             {items.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400 space-y-3">
-                <ShoppingBag className="w-16 h-16 stroke-1 text-slate-300" />
-                <p className="font-medium text-slate-600">Your cart is empty</p>
-                <p className="text-xs text-slate-400 max-w-xs">
-                  Scan a QR code or browse the menu to add delicious items to your order.
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-stone-400 space-y-3">
+                <ShoppingBag className="w-16 h-16 stroke-1 text-stone-300" />
+                <p className="font-display font-bold text-stone-700 text-lg">Your cart is empty</p>
+                <p className="text-xs text-stone-500 max-w-xs">
+                  Scan a table QR code or browse the menu to add delicious freshly prepared dishes to your tray.
                 </p>
               </div>
             ) : (
               items.map(({ product, quantity }) => (
-                <div key={product.id} className="py-4 flex items-center justify-between gap-3">
+                <div key={product.id} className="py-4 flex items-center justify-between gap-3 bg-white/70 p-3.5 rounded-2xl border border-[#E8DFC8]/70 my-2">
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-sm text-slate-900 truncate">
+                    <h4 className="font-display font-bold text-sm text-stone-900 truncate">
                       {product.name}
                     </h4>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-stone-500 mt-0.5">
                       ₹{product.price} × {quantity}
                     </p>
-                    <p className="text-xs font-bold text-amber-700 mt-1">
+                    <p className="text-sm font-display font-black text-red-700 mt-1">
                       ₹{product.price * quantity}
                     </p>
                   </div>
 
                   {/* Quantity Stepper */}
-                  <div className="flex items-center space-x-2 bg-slate-100 rounded-xl p-1 border border-slate-200">
+                  <div className="flex items-center space-x-2 bg-stone-100 rounded-xl p-1 border border-stone-200">
                     <button
                       onClick={() => updateQuantity(product.id, quantity - 1)}
-                      className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-white rounded-lg transition cursor-pointer"
+                      className="w-7 h-7 flex items-center justify-center text-stone-700 hover:bg-white rounded-lg transition cursor-pointer shadow-xs"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
-                    <span className="w-6 text-center text-xs font-bold text-slate-800">
+                    <span className="w-6 text-center text-xs font-black text-stone-900">
                       {quantity}
                     </span>
                     <button
                       onClick={() => updateQuantity(product.id, quantity + 1)}
-                      className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-white rounded-lg transition cursor-pointer"
+                      className="w-7 h-7 flex items-center justify-center text-stone-700 hover:bg-white rounded-lg transition cursor-pointer shadow-xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -359,7 +359,7 @@ export default function CartDrawer() {
 
                   <button
                     onClick={() => removeFromCart(product.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                    className="p-1.5 text-stone-400 hover:text-rose-600 transition cursor-pointer"
                     title="Remove item"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -371,9 +371,9 @@ export default function CartDrawer() {
 
           {/* Footer & Checkout button */}
           {items.length > 0 && (
-            <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 space-y-4">
+            <div className="p-4 sm:p-6 border-t border-[#E8DFC8] bg-white/95 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-stone-700 mb-1 tracking-wide uppercase">
                   Kitchen Instructions / Notes (Optional)
                 </label>
                 <input
@@ -381,22 +381,22 @@ export default function CartDrawer() {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="e.g. Extra spicy, no onions, cutlery needed"
-                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-500 bg-white text-slate-900 placeholder:text-slate-400 font-medium"
+                  className="w-full text-xs px-3.5 py-2.5 border border-[#E8DFC8] rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600 bg-[#FAF7F2] text-stone-900 placeholder:text-stone-400 font-medium"
                 />
               </div>
 
-              <div className="space-y-1.5 pt-2 border-t border-slate-200 text-xs">
-                <div className="flex justify-between text-slate-600">
+              <div className="space-y-1.5 pt-2 border-t border-[#E8DFC8] text-xs">
+                <div className="flex justify-between text-stone-600">
                   <span>Subtotal</span>
-                  <span>₹{subtotal}</span>
+                  <span className="font-bold">₹{subtotal}</span>
                 </div>
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-stone-600">
                   <span>Taxes & Packaging</span>
-                  <span>₹0</span>
+                  <span className="text-emerald-700 font-bold">FREE</span>
                 </div>
-                <div className="flex justify-between text-sm font-bold text-slate-900 pt-1 border-t border-slate-200">
+                <div className="flex justify-between text-base font-display font-black text-stone-900 pt-2 border-t border-[#E8DFC8]">
                   <span>Total Amount</span>
-                  <span className="text-amber-700">₹{subtotal}</span>
+                  <span className="text-red-700 font-display text-xl">₹{subtotal}</span>
                 </div>
               </div>
 
@@ -404,7 +404,7 @@ export default function CartDrawer() {
                 <button
                   onClick={handleCheckout}
                   disabled={isCheckingOut}
-                  className="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
+                  className="w-full py-3.5 px-4 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white font-display font-black text-sm tracking-wider uppercase rounded-xl shadow-lg shadow-red-700/20 hover:shadow-xl transition flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
                 >
                   {isCheckingOut ? (
                     <>
@@ -424,15 +424,15 @@ export default function CartDrawer() {
                   type="button"
                   onClick={handleInstantDemoPay}
                   disabled={isCheckingOut}
-                  className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 border border-slate-700 shadow-xs"
+                  className="w-full py-2.5 px-4 bg-[#141A16] hover:bg-black text-amber-400 font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 border border-stone-800 shadow-xs"
                 >
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
                   <span>Instant Test Checkout (Bypass Gateway)</span>
                 </button>
               </div>
 
-              <div className="flex items-center justify-center space-x-1 text-[11px] text-slate-400">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+              <div className="flex items-center justify-center space-x-1 text-[11px] text-stone-500 font-medium">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                 <span>100% Secure Razorpay Checkout & Daily Token Queue</span>
               </div>
             </div>

@@ -17,6 +17,8 @@ import {
   AlertCircle,
   Clock,
   Sparkles,
+  ArrowRight,
+  Flame,
 } from 'lucide-react';
 
 export default function ShopMenuPage() {
@@ -74,10 +76,10 @@ export default function ShopMenuPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-3">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-        <p className="text-sm font-semibold text-slate-600">
-          Scanning menu & loading shop details...
+      <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-3 bg-[#FAF7F2]">
+        <Loader2 className="w-9 h-9 animate-spin text-red-700" />
+        <p className="text-sm font-bold text-stone-700 font-display">
+          Scanning table QR & fetching kitchen menu...
         </p>
       </div>
     );
@@ -85,15 +87,15 @@ export default function ShopMenuPage() {
 
   if (errorMessage || !shop) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 text-center">
-        <div className="p-4 bg-rose-100 text-rose-700 rounded-full mb-4">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 text-center bg-[#FAF7F2]">
+        <div className="p-4 bg-red-100 text-red-800 rounded-full mb-4 border border-red-200">
           <AlertCircle className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold text-slate-800">Shop Not Found or Inactive</h2>
-        <p className="text-xs text-slate-500 max-w-sm mt-2">{errorMessage}</p>
+        <h2 className="text-2xl font-black text-slate-950 font-display">Outlet Not Found or Inactive</h2>
+        <p className="text-xs text-stone-600 max-w-sm mt-2">{errorMessage}</p>
         <a
           href="/"
-          className="mt-6 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold"
+          className="mt-6 px-6 py-3 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition"
         >
           Return to Home
         </a>
@@ -111,43 +113,43 @@ export default function ShopMenuPage() {
   });
 
   return (
-    <div className="bg-slate-50 min-h-screen pb-28 overflow-x-hidden w-full max-w-full">
+    <div className="bg-[#FAF7F2] min-h-screen pb-32 overflow-x-hidden w-full max-w-full text-[#18181B]">
       <CartDrawer />
 
       {/* Shop Header Banner */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center space-x-3.5 sm:space-x-4">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center font-black text-2xl shadow-md shrink-0">
+      <div className="bg-white border-b border-[#E8DFC8]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="flex items-center space-x-4 sm:space-x-5">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-tr from-red-700 to-rose-600 text-white flex items-center justify-center font-black text-3xl shadow-xl shadow-red-700/20 font-display shrink-0 border-2 border-white">
                 {shop.name.charAt(0)}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl sm:text-3xl font-black text-slate-900 truncate">
+                  <h1 className="text-2xl sm:text-4xl font-black text-slate-950 truncate font-display">
                     {shop.name}
                   </h1>
-                  <span className="bg-emerald-100 text-emerald-800 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 shrink-0">
-                    <Sparkles className="w-3 h-3" /> Open Now
+                  <span className="bg-emerald-100 text-emerald-900 text-[10px] sm:text-[11px] font-extrabold px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1.5 shrink-0">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> Kitchen Open
                   </span>
                 </div>
 
-                <div className="mt-1 flex flex-wrap items-center gap-y-1 gap-x-3 sm:gap-x-4 text-xs text-slate-500">
+                <div className="mt-2 flex flex-wrap items-center gap-y-1.5 gap-x-4 text-xs text-stone-500 font-medium">
                   {shop.address && (
-                    <span className="flex items-center gap-1 truncate max-w-xs sm:max-w-none">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="flex items-center gap-1.5 truncate max-w-xs sm:max-w-none">
+                      <MapPin className="w-3.5 h-3.5 text-red-700 shrink-0" />
                       <span className="truncate">{shop.address}</span>
                     </span>
                   )}
                   {shop.phone && (
-                    <span className="flex items-center gap-1">
-                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-red-700 shrink-0" />
                       <span>{shop.phone}</span>
                     </span>
                   )}
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>Kitchen Active</span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-red-700 shrink-0" />
+                    <span>Table QR Activated</span>
                   </span>
                 </div>
               </div>
@@ -155,11 +157,11 @@ export default function ShopMenuPage() {
 
             {/* Quick QR badge */}
             <div className="hidden md:flex flex-col items-end text-right">
-              <span className="text-xs font-mono bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200">
-                slug: {shop.slug}
+              <span className="text-xs font-mono font-bold bg-[#FAF7F2] text-red-900 px-3 py-1.5 rounded-xl border border-[#E8DFC8]">
+                qr: {shop.slug}
               </span>
-              <span className="text-[11px] text-slate-400 mt-1">
-                Scanned via Table QR
+              <span className="text-[11px] text-stone-400 mt-1 font-medium">
+                Live Kitchen Sync Active
               </span>
             </div>
           </div>
@@ -167,16 +169,16 @@ export default function ShopMenuPage() {
       </div>
 
       {/* Filter Bar & Search */}
-      <div className="sticky top-14 sm:top-16 z-30 bg-slate-50/95 backdrop-blur-md border-b border-slate-200 py-3">
+      <div className="sticky top-20 z-30 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#E8DFC8] py-3.5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
           {/* Category Tabs */}
           <div className="flex items-center space-x-2 overflow-x-auto w-full sm:w-auto pb-1.5 sm:pb-0 scrollbar-none">
             <button
               onClick={() => setSelectedCategoryId(null)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition whitespace-nowrap cursor-pointer shrink-0 font-display ${
                 selectedCategoryId === null
-                  ? 'bg-amber-500 text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  ? 'bg-red-700 text-white shadow-md shadow-red-700/25'
+                  : 'bg-white text-stone-700 hover:bg-stone-50 border border-[#E8DFC8]'
               }`}
             >
               All Items ({products.length})
@@ -187,10 +189,10 @@ export default function ShopMenuPage() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategoryId(cat.id)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition whitespace-nowrap cursor-pointer shrink-0 font-display ${
                     selectedCategoryId === cat.id
-                      ? 'bg-amber-500 text-white shadow-xs'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      ? 'bg-red-700 text-white shadow-md shadow-red-700/25'
+                      : 'bg-white text-stone-700 hover:bg-stone-50 border border-[#E8DFC8]'
                   }`}
                 >
                   {cat.name} ({count})
@@ -200,31 +202,33 @@ export default function ShopMenuPage() {
           </div>
 
           {/* Search Box */}
-          <div className="relative w-full sm:w-64">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search burgers, drinks..."
-              className="w-full text-xs pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+              placeholder="Search dishes, burgers, juice..."
+              className="w-full text-xs pl-9 pr-4 py-2.5 bg-white border border-[#E8DFC8] rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-700"
             />
           </div>
         </div>
       </div>
 
       {/* Product Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10">
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-8">
-            <Store className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-slate-800">No items match your search</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Try selecting a different category or clear the search filter.
+          <div className="text-center py-20 bg-white rounded-3xl border border-[#E8DFC8] p-8 shadow-xs">
+            <Store className="w-14 h-14 text-stone-300 mx-auto mb-3" />
+            <h3 className="text-lg font-black text-slate-900 font-display">No Dishes Found</h3>
+            <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
+              {searchQuery
+                ? `No dishes matched "${searchQuery}". Try a different keyword.`
+                : 'No dishes currently listed in this category.'}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-7">
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
@@ -237,25 +241,26 @@ export default function ShopMenuPage() {
         )}
       </div>
 
-      {/* Mobile Floating Sticky Cart Bar */}
+      {/* Sticky Floating Cart Indicator for Mobile / Quick Access */}
       {totalItems > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 z-40 max-w-lg mx-auto">
+        <div className="fixed bottom-6 inset-x-4 max-w-md mx-auto z-40">
           <button
             onClick={() => setIsCartOpen(true)}
-            className="w-full bg-gradient-to-r from-amber-500 to-rose-500 text-white rounded-2xl p-4 shadow-xl hover:shadow-2xl transition flex items-center justify-between cursor-pointer"
+            className="w-full py-4 px-6 bg-red-700 hover:bg-red-800 text-white rounded-2xl shadow-2xl shadow-red-900/40 flex items-center justify-between border-2 border-white transform active:scale-98 transition cursor-pointer"
           >
             <div className="flex items-center space-x-3">
-              <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center font-bold text-sm">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-bold text-xs font-display">
                 {totalItems}
               </div>
               <div className="text-left">
-                <p className="text-xs font-medium text-white/90">View Current Order</p>
-                <p className="text-sm font-black">₹{subtotal}</p>
+                <p className="text-xs uppercase font-black tracking-wider text-red-100">Your Tray</p>
+                <p className="text-sm font-black font-display leading-tight">₹{subtotal.toFixed(2)}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-1.5 font-bold text-xs bg-white text-slate-900 px-3.5 py-2 rounded-xl">
-              <span>Checkout</span>
-              <ShoppingCart className="w-3.5 h-3.5 text-amber-600" />
+
+            <div className="flex items-center space-x-2 text-xs font-black uppercase tracking-wider">
+              <span>View Cart & Checkout</span>
+              <ArrowRight className="w-4 h-4" />
             </div>
           </button>
         </div>
