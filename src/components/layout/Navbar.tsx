@@ -67,10 +67,10 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center space-x-6">
             <a
               href="/shop/abc"
-              className="text-xs font-bold uppercase tracking-wider text-stone-700 hover:text-red-700 transition flex items-center gap-1"
+              className="text-xs font-bold uppercase tracking-wider text-stone-700 hover:text-red-700 transition flex items-center gap-1.5"
             >
-              <span>Demo Menu (ABC)</span>
-              <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-800 text-[9px] font-extrabold">LIVE</span>
+              <span>ABC Restaurant Menu</span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[9px] font-extrabold">OPEN</span>
             </a>
 
             {user?.role === 'CUSTOMER' && (
@@ -135,17 +135,24 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center space-x-2 pl-2 border-l border-[#E8DFC8]">
                 <a
-                  href="/login"
-                  className="text-xs font-bold uppercase tracking-wider text-stone-800 hover:text-red-700 px-3.5 py-2 rounded-xl transition"
+                  href="/login?role=customer"
+                  className="text-xs font-bold uppercase tracking-wider text-stone-800 hover:text-red-700 px-3 py-2 rounded-xl transition"
                 >
-                  Login
+                  Customer Login
+                </a>
+                <a
+                  href="/login?role=shopkeeper"
+                  className="text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-2 rounded-xl transition flex items-center gap-1"
+                >
+                  <ChefHat className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Kitchen Staff</span>
                 </a>
                 <a
                   href="/register"
-                  className="text-xs font-bold uppercase tracking-wider text-white bg-red-700 hover:bg-red-800 px-4 py-2 rounded-xl shadow-md shadow-red-700/20 transition flex items-center gap-1.5"
+                  className="text-xs font-bold uppercase tracking-wider text-white bg-red-700 hover:bg-red-800 px-3.5 py-2 rounded-xl shadow-md shadow-red-700/20 transition flex items-center gap-1"
                 >
-                  <span>Register</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>Sign Up</span>
+                  <ArrowRight className="w-3 h-3" />
                 </a>
               </div>
             )}
@@ -193,9 +200,10 @@ export default function Navbar() {
             <a
               href="/shop/abc"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3.5 py-2.5 text-xs font-bold text-stone-800 rounded-xl hover:bg-white border border-transparent hover:border-[#E8DFC8] transition"
+              className="px-3.5 py-2.5 text-xs font-bold text-stone-800 rounded-xl hover:bg-white border border-transparent hover:border-[#E8DFC8] transition flex items-center justify-between"
             >
-              Demo Shop (ABC Restaurant)
+              <span>ABC Restaurant Menu</span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[9px] font-extrabold">OPEN</span>
             </a>
 
             {user?.role === 'CUSTOMER' && (
@@ -234,25 +242,33 @@ export default function Navbar() {
                   setMobileMenuOpen(false);
                   logout();
                 }}
-                className="w-full text-left px-3.5 py-2.5 text-xs font-bold text-red-700 rounded-xl hover:bg-red-50 flex items-center gap-2"
+                className="w-full text-left px-3.5 py-2.5 text-xs font-bold text-red-700 rounded-xl hover:bg-red-50 flex items-center gap-2 cursor-pointer"
               >
                 <LogOut className="w-4 h-4" /> Logout
               </button>
             ) : (
               <div className="pt-2 flex flex-col gap-2">
                 <a
-                  href="/login"
+                  href="/login?role=customer"
                   onClick={() => setMobileMenuOpen(false)}
                   className="w-full text-center py-2.5 text-xs font-bold uppercase tracking-wider text-stone-800 bg-white border border-[#E8DFC8] rounded-xl"
                 >
-                  Login
+                  Customer Login
+                </a>
+                <a
+                  href="/login?role=shopkeeper"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full text-center py-2.5 text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-100/80 border border-amber-300 rounded-xl flex items-center justify-center gap-1.5"
+                >
+                  <ChefHat className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Kitchen Staff Login</span>
                 </a>
                 <a
                   href="/register"
                   onClick={() => setMobileMenuOpen(false)}
                   className="w-full text-center py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-red-700 rounded-xl shadow-md"
                 >
-                  Register Customer
+                  Sign Up as Customer
                 </a>
               </div>
             )}

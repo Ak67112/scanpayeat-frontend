@@ -106,10 +106,25 @@ export const publicApi = {
     }>(`/api/public/shops/${slug}/menu`);
   },
 
+  async checkDiscounts(params: {
+    shopId?: number;
+    shopSlug?: string;
+    subtotal: number;
+    couponCode?: string;
+  }) {
+    const qs = new URLSearchParams();
+    if (params.shopId) qs.set('shopId', String(params.shopId));
+    if (params.shopSlug) qs.set('shopSlug', params.shopSlug);
+    qs.set('subtotal', String(params.subtotal));
+    if (params.couponCode) qs.set('couponCode', params.couponCode);
+    return apiFetch<any>(`/api/public/discount-check?${qs.toString()}`);
+  },
+
   async checkout(data: {
     shopId: number;
     items: { productId: number; quantity: number }[];
     notes?: string;
+    couponCode?: string;
   }) {
     return apiFetch<{
       orderId?: number;
@@ -125,6 +140,12 @@ export const publicApi = {
       currency?: string;
       keyId?: string;
       razorpayKeyId?: string;
+      subtotal?: number;
+      totalAmount?: number;
+      total?: number;
+      discountAmount?: number;
+      couponCode?: string;
+      discountReason?: string;
       shop?: {
         id: number;
         name: string;
@@ -264,6 +285,46 @@ export const shopkeeperApi = {
     }
 
     return (json.data as { imageUrl: string }).imageUrl;
+  },
+
+  async getRewardRule() {
+    return apiFetch<{ rule: any }>('/api/shop/reward-rules');
+  },
+
+  async updateRewardRule(data: {
+    milestoneCount?: number;
+    discountAmount?: number;
+    minOrderAmount?: number;
+    isActive?: boolean;
+    title?: string;
+  }) {
+    return apiFetch<{ rule: any }>('/api/shop/reward-rules', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getCoupons() {
+    return apiFetch<{ coupons: any[] }>('/api/shop/coupons');
+  },
+
+  async createCoupon(data: {
+    code: string;
+    discountType?: string;
+    discountValue: number;
+    minOrderAmount?: number;
+    maxDiscount?: number;
+  }) {
+    return apiFetch<{ coupon: any }>('/api/shop/coupons', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteCoupon(id: number) {
+    return apiFetch(`/api/shop/coupons/${id}`, {
+      method: 'DELETE',
+    });
   },
 };
 

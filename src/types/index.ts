@@ -98,6 +98,9 @@ export interface Order {
   orderStatus: OrderStatus;
   paymentStatus: PaymentStatus;
   subtotal: number;
+  discountAmount?: number;
+  couponCode?: string | null;
+  discountReason?: string | null;
   tax?: number;
   discount?: number;
   totalAmount: number;
@@ -168,6 +171,8 @@ export interface ShopkeeperStats {
   todayOrders: number;
   todayRevenue: number;
   todaySales?: number;
+  todayDiscounts?: number;
+  todayGrossSales?: number;
   weekOrders?: number;
   weekRevenue?: number;
   weekSales?: number;
@@ -177,6 +182,54 @@ export interface ShopkeeperStats {
   totalOrders?: number;
   totalRevenue?: number;
   totalSales?: number;
+  totalDiscounts?: number;
   currentToken: number;
   activeOrders: number;
 }
+
+export interface Coupon {
+  id: number;
+  shopId?: number | null;
+  code: string;
+  discountType: string;
+  discountValue: number;
+  minOrderAmount: number;
+  maxDiscount?: number | null;
+  isActive: boolean;
+  usageCount?: number;
+  createdAt?: string;
+}
+
+export interface ShopRewardRule {
+  id: number;
+  shopId: number;
+  milestoneCount: number;
+  discountAmount: number;
+  minOrderAmount: number;
+  isActive: boolean;
+  title?: string;
+}
+
+export interface DiscountCheckResult {
+  subtotal: number;
+  discountAmount: number;
+  finalAmount: number;
+  appliedCoupon?: {
+    code: string;
+    discountAmount: number;
+    type: string;
+    value: number;
+  } | null;
+  couponError?: string | null;
+  milestone?: {
+    active: boolean;
+    todayCustomerNumber: number;
+    targetMilestone: number;
+    isEligible: boolean;
+    discountAmount: number;
+    minOrderAmount: number;
+    title: string;
+  } | null;
+  reason?: string | null;
+}
+

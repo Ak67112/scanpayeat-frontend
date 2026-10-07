@@ -40,9 +40,13 @@ import {
   Calendar,
   AlertTriangle,
   Info,
+  Gift,
+  Tag,
+  Percent,
+  Award,
 } from 'lucide-react';
 
-type TabView = 'ORDERS' | 'PRODUCTS' | 'CATEGORIES' | 'STATS';
+type TabView = 'ORDERS' | 'PRODUCTS' | 'CATEGORIES' | 'STATS' | 'DISCOUNTS';
 
 export default function ShopkeeperDashboard() {
   const { user, logout, isLoading: authLoading } = useAuth();
@@ -53,6 +57,28 @@ export default function ShopkeeperDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [stats, setStats] = useState<ShopkeeperStats | null>(null);
+
+  // Milestone Rewards and Coupons state
+  const [rewardRule, setRewardRule] = useState<any>({
+    milestoneCount: 10,
+    discountAmount: 50,
+    minOrderAmount: 100,
+    isActive: true,
+    title: "Today's 10th Customer Special Celebration Reward",
+  });
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [isSavingRewardRule, setIsSavingRewardRule] = useState(false);
+  const [rewardRuleSuccess, setRewardRuleSuccess] = useState(false);
+
+  // New coupon modal state
+  const [showAddCouponModal, setShowAddCouponModal] = useState(false);
+  const [newCouponCode, setNewCouponCode] = useState('');
+  const [newCouponType, setNewCouponType] = useState('FIXED');
+  const [newCouponValue, setNewCouponValue] = useState('');
+  const [newCouponMinOrder, setNewCouponMinOrder] = useState('');
+  const [newCouponMaxDiscount, setNewCouponMaxDiscount] = useState('');
+  const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
+  const [couponFormError, setCouponFormError] = useState('');
 
   const [orderFilter, setOrderFilter] = useState<string>('ACTIVE');
   const [searchQuery, setSearchQuery] = useState('');
@@ -169,11 +195,13 @@ export default function ShopkeeperDashboard() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [ordersRes, prodsRes, catsRes, statsRes] = await Promise.all([
+      const [ordersRes, prodsRes, catsRes, statsRes, ruleRes, couponsRes] = await Promise.all([
         shopkeeperApi.getOrders().catch(() => ({ orders: [] })),
         shopkeeperApi.getProducts().catch(() => ({ products: [] })),
         shopkeeperApi.getCategories().catch(() => ({ categories: [] })),
         shopkeeperApi.getStats().catch(() => ({ stats: null })),
+        shopkeeperApi.getRewardRule().catch(() => ({ rule: null })),
+        shopkeeperApi.getCoupons().catch(() => ({ coupons: [] })),
       ]);
 
       const incomingCats = Array.isArray(catsRes) ? catsRes : (catsRes?.categories || []);
@@ -185,6 +213,10 @@ export default function ShopkeeperDashboard() {
       setCategories(Array.isArray(incomingCats) ? incomingCats : []);
       if (statsRes?.stats) setStats(statsRes.stats);
       else if (statsRes && !('stats' in statsRes)) setStats(statsRes as any);
+
+      if (ruleRes?.rule) setRewardRule(ruleRes.rule);
+      const incomingCoupons = Array.isArray(couponsRes) ? couponsRes : (couponsRes?.coupons || []);
+      setCoupons(incomingCoupons);
     } catch (err: any) {
       console.error('Failed to load shopkeeper data:', err);
     } finally {
@@ -355,7 +387,60 @@ export default function ShopkeeperDashboard() {
     socket.on('new_order', handleNewOrder);
     socket.on('order_status_updated', handleStatusUpdated);
 
+    // Auto-polling interval: fetch latest orders and stats every 3.5 seconds
+    // to guarantee 100% zero-refresh live delivery on any serverless or mobile network
+    const pollInterval = setInterval(async () => {
+      try {
+        const [ordersRes, statsRes] = await Promise.all([
+          shopkeeperApi.getOrders().catch(() => null),
+          shopkeeperApi.getStats().catch(() => null),
+        ]);
+
+        const incomingOrders = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.orders || []);
+
+        if (Array.isArray(incomingOrders) && incomingOrders.length > 0) {
+          setOrders((currentOrders) => {
+            const currentIds = new Set(currentOrders.map((o) => o.id));
+            const brandNewOrders = incomingOrders.filter((o: any) => !currentIds.has(o.id));
+
+            if (brandNewOrders.length > 0) {
+              const latestNew = brandNewOrders[0];
+              playKitchenChime();
+              triggerDesktopNotification(latestNew);
+
+              setNewOrderAlert(`New Order incoming! Token: ${latestNew.tokenNumber || latestNew.id}`);
+              setTimeout(() => setNewOrderAlert(null), 8000);
+
+              const toastId = `toast-${latestNew.id}-${Date.now()}`;
+              setLiveOrderToasts((prev) => [
+                { id: toastId, order: latestNew },
+                ...prev.filter((t) => t.order.id !== latestNew.id).slice(0, 2),
+              ]);
+              setTimeout(() => {
+                setLiveOrderToasts((prev) => prev.filter((t) => t.id !== toastId));
+              }, 15000);
+
+              setHighlightedOrderId(latestNew.id);
+              setTimeout(() => {
+                setHighlightedOrderId((cur) => (cur === latestNew.id ? null : cur));
+              }, 20000);
+            }
+
+            // Sync with updated status/payment/tokens from server
+            return incomingOrders;
+          });
+        }
+
+        if (statsRes?.stats) {
+          setStats(statsRes.stats);
+        }
+      } catch (err) {
+        // Silent poll error fallback
+      }
+    }, 3500);
+
     return () => {
+      clearInterval(pollInterval);
       socket.off('new_order', handleNewOrder);
       socket.off('order_status_updated', handleStatusUpdated);
     };
@@ -529,6 +614,65 @@ export default function ShopkeeperDashboard() {
     }
   };
 
+  // Milestone Reward & Coupon Handlers
+  const handleSaveRewardRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingRewardRule(true);
+    setRewardRuleSuccess(false);
+    try {
+      const res = await shopkeeperApi.updateRewardRule({
+        milestoneCount: Number(rewardRule.milestoneCount),
+        discountAmount: Number(rewardRule.discountAmount),
+        minOrderAmount: Number(rewardRule.minOrderAmount),
+        isActive: Boolean(rewardRule.isActive),
+        title: rewardRule.title || undefined,
+      });
+      if (res?.rule) setRewardRule(res.rule);
+      setRewardRuleSuccess(true);
+      setTimeout(() => setRewardRuleSuccess(false), 4000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to save milestone rule');
+    } finally {
+      setIsSavingRewardRule(false);
+    }
+  };
+
+  const handleCreateCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCouponCode.trim() || !newCouponValue) return;
+    setIsSubmittingCoupon(true);
+    setCouponFormError('');
+    try {
+      const res = await shopkeeperApi.createCoupon({
+        code: newCouponCode.trim().toUpperCase(),
+        discountType: newCouponType,
+        discountValue: parseFloat(newCouponValue),
+        minOrderAmount: newCouponMinOrder ? parseFloat(newCouponMinOrder) : 0,
+        maxDiscount: newCouponMaxDiscount ? parseFloat(newCouponMaxDiscount) : undefined,
+      });
+      setCoupons((prev) => [res.coupon, ...prev]);
+      setShowAddCouponModal(false);
+      setNewCouponCode('');
+      setNewCouponValue('');
+      setNewCouponMinOrder('');
+      setNewCouponMaxDiscount('');
+    } catch (err: any) {
+      setCouponFormError(err.message || 'Failed to create coupon');
+    } finally {
+      setIsSubmittingCoupon(false);
+    }
+  };
+
+  const handleDeleteCoupon = async (id: number) => {
+    if (!window.confirm('Delete this coupon code? Customers will no longer be able to use it.')) return;
+    try {
+      await shopkeeperApi.deleteCoupon(id);
+      setCoupons((prev) => prev.filter((c) => c.id !== id));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete coupon');
+    }
+  };
+
   // Calculated metrics with Restaurant Business Day (4:00 AM shift rollover)
   const getBusinessDayCutoff = () => {
     const now = new Date();
@@ -612,6 +756,16 @@ export default function ShopkeeperDashboard() {
     stats?.totalRevenue ??
     orders.reduce((sum, o) => sum + Number(o.totalAmount ?? o.total ?? 0), 0)
   );
+
+  const todayDiscountsVal =
+    stats?.todayDiscounts !== undefined
+      ? Number(stats.todayDiscounts)
+      : todayPaidOrders.reduce((sum, o) => sum + Number(o.discountAmount ?? 0), 0);
+
+  const todayGrossSalesVal =
+    stats?.todayGrossSales !== undefined
+      ? Number(stats.todayGrossSales)
+      : todaySalesVal + todayDiscountsVal;
 
   const activeOrdersCount = orders.filter(
     (o) => o.orderStatus !== 'COMPLETED' && o.orderStatus !== 'CANCELLED'
@@ -809,6 +963,26 @@ export default function ShopkeeperDashboard() {
             <TrendingUp className="w-4 h-4" />
             <span>Revenue & Reports</span>
           </div>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('DISCOUNTS');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'DISCOUNTS'
+              ? 'bg-amber-500 text-white shadow-md shadow-amber-900/20'
+              : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            <Gift className="w-4 h-4 text-amber-400" />
+            <span>Offers & Discounts</span>
+          </div>
+          {rewardRule?.isActive && (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          )}
         </button>
 
         <div className="pt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -1125,11 +1299,37 @@ export default function ShopkeeperDashboard() {
                           </div>
 
                           {/* Customer & Amount details */}
-                          <div className="pt-2 flex items-center justify-between text-xs text-slate-500">
-                            <span>Amount:</span>
-                            <span className="font-extrabold text-slate-900 text-sm">
-                              ₹{Number(order.totalAmount ?? order.total ?? 0)}
-                            </span>
+                          <div className="pt-2 text-xs space-y-1">
+                            {order.discountAmount && Number(order.discountAmount) > 0 ? (
+                              <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2.5 space-y-1">
+                                <div className="flex justify-between text-slate-500 text-[11px]">
+                                  <span>Gross Subtotal:</span>
+                                  <span className="line-through font-mono">
+                                    ₹{Number(order.subtotal || Number(order.totalAmount ?? order.total ?? 0) + Number(order.discountAmount))}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-emerald-800 font-bold text-[11px]">
+                                  <span className="flex items-center gap-1">
+                                    <Gift className="w-3 h-3 text-emerald-600 shrink-0" />
+                                    <span className="truncate">Discount ({order.discountReason || order.couponCode || 'Offer'}):</span>
+                                  </span>
+                                  <span className="shrink-0">-₹{Number(order.discountAmount)}</span>
+                                </div>
+                                <div className="flex justify-between font-extrabold text-slate-900 pt-1 border-t border-emerald-200/70 text-xs">
+                                  <span>Net Collected:</span>
+                                  <span className="text-emerald-700 font-black text-sm">
+                                    ₹{Number(order.totalAmount ?? order.total ?? 0)}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between text-slate-500">
+                                <span>Amount:</span>
+                                <span className="font-extrabold text-slate-900 text-sm">
+                                  ₹{Number(order.totalAmount ?? order.total ?? 0)}
+                                </span>
+                              </div>
+                            )}
                           </div>
 
                           {order.notes && (
@@ -1638,6 +1838,304 @@ export default function ShopkeeperDashboard() {
                       Organized across {categories.length} categories
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Discounts & Promotions Impact */}
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                  <Gift className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Customer Discounts & Promotions Impact</span>
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-2xl border border-amber-200/80 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">
+                        Today&apos;s Customer Discounts
+                      </span>
+                      <span className="p-1 rounded-md bg-amber-200/60 text-amber-800 font-bold text-[10px]">
+                        Coupons & Rewards
+                      </span>
+                    </div>
+                    <p className="text-3xl font-black text-amber-900 mt-2">
+                      ₹{todayDiscountsVal}
+                    </p>
+                    <p className="text-[11px] text-amber-700 font-medium mt-1">
+                      Total savings awarded to customers today across milestone rewards & promo codes
+                    </p>
+                  </div>
+
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        Today&apos;s Gross Sales (Pre-Discount)
+                      </span>
+                      <span className="p-1 rounded-md bg-slate-100 text-slate-600 font-bold text-[10px]">
+                        Menu Subtotal
+                      </span>
+                    </div>
+                    <p className="text-3xl font-black text-slate-900 mt-2">
+                      ₹{todayGrossSalesVal}
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-medium mt-1">
+                      Net collected: ₹{todaySalesVal} + Savings given: ₹{todayDiscountsVal}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ================= VIEW: DISCOUNTS & MILESTONE REWARDS ================= */}
+          {activeTab === 'DISCOUNTS' && (
+            <div className="space-y-6">
+              {/* Header Banner */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <Gift className="w-5 h-5 text-red-600" />
+                    <span>Offers, Promo Coupons & Milestone Rewards</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Reward today&apos;s lucky customers automatically (e.g. 10th customer discount) and issue custom promo coupon codes.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAddCouponModal(true)}
+                  className="px-4 py-2.5 bg-red-700 hover:bg-red-800 text-white font-extrabold text-xs rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create New Coupon</span>
+                </button>
+              </div>
+
+              {/* CARD 1: Milestone Customer Celebration Reward Rule */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="p-5 border-b border-slate-200 bg-amber-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shadow-xs">
+                      <Award className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 text-sm">
+                        Today&apos;s Milestone Customer Reward Configuration
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Automatically surprises and discounts every Nth customer today (e.g. today&apos;s 10th or 100th customer).
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider self-start sm:self-auto ${
+                      rewardRule?.isActive
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-slate-100 text-slate-500 border border-slate-200'
+                    }`}
+                  >
+                    {rewardRule?.isActive ? '● Active in Store' : '○ Disabled'}
+                  </span>
+                </div>
+
+                <form onSubmit={handleSaveRewardRule} className="p-6 space-y-4 text-xs">
+                  {rewardRuleSuccess && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Milestone Customer Reward rule updated successfully!</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Toggle */}
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1.5">
+                        Feature Status
+                      </label>
+                      <select
+                        value={rewardRule?.isActive ? 'true' : 'false'}
+                        onChange={(e) =>
+                          setRewardRule((r: any) => ({ ...r, isActive: e.target.value === 'true' }))
+                        }
+                        className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl font-bold text-xs focus:ring-2 focus:ring-amber-500"
+                      >
+                        <option value="true">Enabled (Apply Automatically)</option>
+                        <option value="false">Disabled (Do Not Apply)</option>
+                      </select>
+                    </div>
+
+                    {/* Milestone Customer Count */}
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1.5">
+                        Target Customer Number (Nth) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={rewardRule?.milestoneCount || 10}
+                        onChange={(e) =>
+                          setRewardRule((r: any) => ({
+                            ...r,
+                            milestoneCount: parseInt(e.target.value, 10) || 10,
+                          }))
+                        }
+                        placeholder="e.g. 10 (10th Customer)"
+                        className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl font-mono font-bold text-xs focus:ring-2 focus:ring-amber-500"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Example: 10 applies to today&apos;s 10th customer, 100 to the 100th
+                      </span>
+                    </div>
+
+                    {/* Discount Amount */}
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1.5">
+                        Discount Amount (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        required
+                        value={rewardRule?.discountAmount || 50}
+                        onChange={(e) =>
+                          setRewardRule((r: any) => ({
+                            ...r,
+                            discountAmount: parseFloat(e.target.value) || 0,
+                          }))
+                        }
+                        placeholder="e.g. 50"
+                        className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl font-mono font-bold text-xs focus:ring-2 focus:ring-amber-500"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Amount in INR deducted from total
+                      </span>
+                    </div>
+
+                    {/* Minimum Order Amount */}
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1.5">
+                        Minimum Bill Value (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={rewardRule?.minOrderAmount || 100}
+                        onChange={(e) =>
+                          setRewardRule((r: any) => ({
+                            ...r,
+                            minOrderAmount: parseFloat(e.target.value) || 0,
+                          }))
+                        }
+                        placeholder="e.g. 100"
+                        className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl font-mono font-bold text-xs focus:ring-2 focus:ring-amber-500"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Order must exceed this minimum
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1.5">
+                      Customer Celebration Banner Title
+                    </label>
+                    <input
+                      type="text"
+                      value={rewardRule?.title || "Today's 10th Customer Special Celebration Reward"}
+                      onChange={(e) =>
+                        setRewardRule((r: any) => ({ ...r, title: e.target.value }))
+                      }
+                      className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl font-medium text-xs focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <p className="text-[11px] text-amber-700 font-medium">
+                      💡 Customer count resets every day at 4:00 AM shift change.
+                    </p>
+                    <button
+                      type="submit"
+                      disabled={isSavingRewardRule}
+                      className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white font-extrabold text-xs rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isSavingRewardRule ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <span>Save Milestone Rule</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* CARD 2: Active Promo Coupons Management */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">
+                      Active Promotional Coupons ({coupons.length})
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Codes that customers can enter in their cart checkout drawer to redeem savings.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
+                        <th className="p-4">Coupon Code</th>
+                        <th className="p-4">Discount Type</th>
+                        <th className="p-4">Discount Value</th>
+                        <th className="p-4">Min Bill Value</th>
+                        <th className="p-4">Redemption Count</th>
+                        <th className="p-4 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {coupons.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-slate-400">
+                            No coupons created yet. Click &apos;Create New Coupon&apos; above to add one.
+                          </td>
+                        </tr>
+                      ) : (
+                        coupons.map((c) => (
+                          <tr key={c.id} className="hover:bg-slate-50/80 transition">
+                            <td className="p-4">
+                              <span className="font-mono font-black text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg text-xs">
+                                {c.code}
+                              </span>
+                            </td>
+                            <td className="p-4 font-semibold text-slate-700">
+                              {c.discountType === 'PERCENT' ? 'Percentage (%)' : 'Flat Amount (₹)'}
+                            </td>
+                            <td className="p-4 font-extrabold text-slate-900">
+                              {c.discountType === 'PERCENT' ? `${c.discountValue}%` : `₹${c.discountValue}`}
+                              {c.maxDiscount ? ` (Capped at ₹${c.maxDiscount})` : ''}
+                            </td>
+                            <td className="p-4 text-slate-600 font-medium">
+                              {c.minOrderAmount > 0 ? `₹${c.minOrderAmount}` : 'No minimum'}
+                            </td>
+                            <td className="p-4 font-bold text-slate-800">
+                              {c.usageCount || 0} times
+                            </td>
+                            <td className="p-4 text-right">
+                              <button
+                                onClick={() => handleDeleteCoupon(c.id)}
+                                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-rose-200"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Delete</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -2178,6 +2676,158 @@ export default function ShopkeeperDashboard() {
                 {isDeletingCat ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Delete</span>}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: ADD COUPON ================= */}
+      {showAddCouponModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                  <Tag className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Create Promo Coupon
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Create discount code for customers at checkout
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddCouponModal(false);
+                  setCouponFormError('');
+                }}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {couponFormError && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{couponFormError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateCoupon} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-800 font-bold mb-1.5">
+                  Coupon Code *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newCouponCode}
+                  onChange={(e) => setNewCouponCode(e.target.value.toUpperCase())}
+                  placeholder="e.g. FESTIVE20, SPECIAL50"
+                  className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl font-mono uppercase font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-500 placeholder:text-slate-400 text-xs"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Customers enter this code at checkout to claim the offer
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-800 font-bold mb-1.5">
+                    Discount Type *
+                  </label>
+                  <select
+                    value={newCouponType}
+                    onChange={(e) => setNewCouponType(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs font-bold"
+                  >
+                    <option value="FIXED">Flat (₹ Off)</option>
+                    <option value="PERCENTAGE">Percentage (% Off)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-800 font-bold mb-1.5">
+                    {newCouponType === 'FIXED' ? 'Flat Amount (₹) *' : 'Percentage (%) *'}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    required
+                    value={newCouponValue}
+                    onChange={(e) => setNewCouponValue(e.target.value)}
+                    placeholder={newCouponType === 'FIXED' ? '50' : '15'}
+                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-500 placeholder:text-slate-400 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-800 font-bold mb-1.5">
+                  Minimum Order Amount (₹)
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={newCouponMinOrder}
+                  onChange={(e) => setNewCouponMinOrder(e.target.value)}
+                  placeholder="e.g. 100 (Optional)"
+                  className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl font-mono focus:outline-hidden focus:ring-2 focus:ring-amber-500 placeholder:text-slate-400 text-xs"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Leave empty or 0 if no minimum required
+                </span>
+              </div>
+
+              {newCouponType === 'PERCENTAGE' && (
+                <div>
+                  <label className="block text-slate-800 font-bold mb-1.5">
+                    Maximum Discount Cap (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    value={newCouponMaxDiscount}
+                    onChange={(e) => setNewCouponMaxDiscount(e.target.value)}
+                    placeholder="e.g. 100 (Optional)"
+                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl font-mono focus:outline-hidden focus:ring-2 focus:ring-amber-500 placeholder:text-slate-400 text-xs"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Highest discount cap for percentage discount
+                  </span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddCouponModal(false);
+                    setCouponFormError('');
+                  }}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingCoupon}
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingCoupon ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <span>Create Coupon</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

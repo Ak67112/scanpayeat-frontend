@@ -69,9 +69,9 @@ export default function MyOrdersPage() {
 
           <a
             href="/shop/abc"
-            className="self-start sm:self-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs transition"
+            className="self-start sm:self-auto px-4 py-2 bg-red-700 hover:bg-red-800 text-white font-bold text-xs rounded-xl shadow-xs transition"
           >
-            Order from Demo Shop
+            Browse ABC Restaurant Menu
           </a>
         </div>
 

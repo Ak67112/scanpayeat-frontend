@@ -138,10 +138,27 @@ export default function OrderSuccessModal({
             <span className="font-mono text-slate-400">Order #{order.id}</span>
           </div>
 
-          <div className="flex items-center justify-between border-t border-slate-200/70 pt-2 font-bold text-slate-900">
-            <span>Total Paid (Razorpay)</span>
-            <span className="text-base text-amber-700 font-black">₹{totalAmount}</span>
-          </div>
+          {order.discountAmount && Number(order.discountAmount) > 0 ? (
+            <div className="space-y-1 border-t border-slate-200/70 pt-2">
+              <div className="flex items-center justify-between text-slate-500">
+                <span>Subtotal</span>
+                <span>₹{order.subtotal || totalAmount + Number(order.discountAmount)}</span>
+              </div>
+              <div className="flex items-center justify-between text-emerald-700 font-bold">
+                <span>Discount ({order.discountReason || order.couponCode || 'Offer'})</span>
+                <span>-₹{Number(order.discountAmount)}</span>
+              </div>
+              <div className="flex items-center justify-between pt-1 font-bold text-slate-900 border-t border-slate-200/50">
+                <span>Total Paid</span>
+                <span className="text-base text-red-700 font-black">₹{totalAmount}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between border-t border-slate-200/70 pt-2 font-bold text-slate-900">
+              <span>Total Paid</span>
+              <span className="text-base text-red-700 font-black">₹{totalAmount}</span>
+            </div>
+          )}
 
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1">
             <Clock className="w-3 h-3 text-slate-400" />

@@ -127,10 +127,10 @@ export default function HomePage() {
                 </a>
 
                 <a
-                  href="/login"
+                  href="/login?role=shopkeeper"
                   className="px-7 py-4 bg-white hover:bg-stone-50 text-stone-800 font-bold text-sm rounded-2xl border border-[#E0D5C1] shadow-xs transition-all flex items-center gap-2 cursor-pointer"
                 >
-                  <span>Shopkeeper Portal</span>
+                  <span>Kitchen Staff Portal</span>
                   <ChevronRight className="w-4 h-4 text-stone-400" />
                 </a>
               </div>
@@ -537,7 +537,7 @@ export default function HomePage() {
                 Instant Table QR Ordering
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed">
-                Scan table QR, select dishes, pay via Razorpay test/live gateway, and watch your live token tracker update.
+                Scan table QR, select delicious dishes, apply discount coupons, pay securely via UPI/Card, and track live food tokens.
               </p>
             </div>
             <div className="mt-5 pt-3 border-t border-[#E8DFC8] flex items-center justify-between text-xs font-bold text-red-700">

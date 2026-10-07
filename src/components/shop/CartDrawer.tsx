@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { publicApi } from '../../lib/api';
@@ -19,6 +19,9 @@ import {
   AlertCircle,
   CreditCard,
   Zap,
+  Tag,
+  Gift,
+  Sparkles,
 } from 'lucide-react';
 
 export default function CartDrawer() {
@@ -41,6 +44,60 @@ export default function CartDrawer() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
+
+  // Coupon & Milestone Discount states
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [discountReason, setDiscountReason] = useState<string | null>(null);
+  const [milestoneNotice, setMilestoneNotice] = useState<string | null>(null);
+  const [couponError, setCouponError] = useState('');
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+
+  const checkDiscounts = async (codeToTest?: string) => {
+    if ((!shopId && !shopSlug) || items.length === 0) return;
+    setIsApplyingCoupon(true);
+    setCouponError('');
+    try {
+      const res = await publicApi.checkDiscounts({
+        shopId: shopId || undefined,
+        shopSlug: shopSlug || undefined,
+        subtotal,
+        couponCode: codeToTest !== undefined ? codeToTest : (appliedCoupon || couponInput.trim() || undefined),
+      });
+
+      setDiscountAmount(res.discountAmount || 0);
+      setDiscountReason(res.reason || null);
+
+      if (res.appliedCoupon) {
+        setAppliedCoupon(res.appliedCoupon.code);
+        setCouponError('');
+      } else if (codeToTest) {
+        setCouponError(res.couponError || 'Coupon code not valid');
+        setAppliedCoupon(null);
+      }
+
+      if (res.milestone?.isEligible) {
+        setMilestoneNotice(
+          `🎉 Today's #${res.milestone.todayCustomerNumber} Customer Celebration! ₹${res.milestone.discountAmount} Special Milestone Reward applied!`
+        );
+      } else {
+        setMilestoneNotice(null);
+      }
+    } catch (err: any) {
+      if (codeToTest) setCouponError('Could not verify coupon.');
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isCartOpen && items.length > 0) {
+      checkDiscounts();
+    }
+  }, [isCartOpen, subtotal, shopId, shopSlug]);
+
+  const finalPayable = Math.max(0, subtotal - discountAmount);
 
   if (!isCartOpen && !confirmedOrder) return null;
 
@@ -71,6 +128,7 @@ export default function CartDrawer() {
           quantity: i.quantity,
         })),
         notes: notes.trim() || undefined,
+        couponCode: appliedCoupon || undefined,
       };
 
       const checkoutRes = await publicApi.checkout(checkoutPayload);
@@ -79,7 +137,7 @@ export default function CartDrawer() {
       const activeOrderId = checkoutRes.orderId || checkoutRes.order?.id;
       const activeRzpOrderId = checkoutRes.razorpayOrderId || checkoutRes.razorpayOrder?.id;
       const activeKeyId = checkoutRes.razorpayKeyId || checkoutRes.keyId;
-      const activeAmount = checkoutRes.amountInPaise || checkoutRes.razorpayOrder?.amount || subtotal * 100;
+      const activeAmount = checkoutRes.amountInPaise || checkoutRes.razorpayOrder?.amount || Math.round(finalPayable * 100);
 
       if (!activeOrderId) {
         throw new Error('Order creation failed to return a valid order ID.');
@@ -108,7 +166,7 @@ export default function CartDrawer() {
             contact: user?.mobile || '9999999999',
           },
           theme: {
-            color: '#f59e0b',
+            color: '#B91C1C',
           },
           handler: async function (response: any) {
             try {
@@ -126,8 +184,12 @@ export default function CartDrawer() {
                 tokenNumber: verifyRes?.tokenNumber || checkoutRes.order?.tokenNumber || `T-${activeOrderId}`,
                 orderStatus: 'CONFIRMED',
                 paymentStatus: 'PAID',
-                totalAmount: subtotal,
-                total: subtotal,
+                totalAmount: checkoutRes.totalAmount ?? finalPayable,
+                total: checkoutRes.totalAmount ?? finalPayable,
+                subtotal: subtotal,
+                discountAmount: checkoutRes.discountAmount ?? discountAmount,
+                couponCode: checkoutRes.couponCode ?? appliedCoupon,
+                discountReason: checkoutRes.discountReason ?? discountReason,
                 items: items.map((i) => ({
                   id: i.product.id,
                   product: i.product,
@@ -176,8 +238,12 @@ export default function CartDrawer() {
           tokenNumber: verifyRes?.tokenNumber || checkoutRes.order?.tokenNumber || `T-${activeOrderId}`,
           orderStatus: 'CONFIRMED',
           paymentStatus: 'PAID',
-          totalAmount: subtotal,
-          total: subtotal,
+          totalAmount: checkoutRes.totalAmount ?? finalPayable,
+          total: checkoutRes.totalAmount ?? finalPayable,
+          subtotal: subtotal,
+          discountAmount: checkoutRes.discountAmount ?? discountAmount,
+          couponCode: checkoutRes.couponCode ?? appliedCoupon,
+          discountReason: checkoutRes.discountReason ?? discountReason,
           items: items.map((i) => ({
             id: i.product.id,
             product: i.product,
@@ -199,7 +265,7 @@ export default function CartDrawer() {
     }
   };
 
-  const handleInstantDemoPay = async () => {
+  const handleInstantPay = async () => {
     if (!shopId || items.length === 0) return;
     setIsCheckingOut(true);
     setErrorMessage('');
@@ -211,24 +277,25 @@ export default function CartDrawer() {
           quantity: i.quantity,
         })),
         notes: notes.trim() || undefined,
+        couponCode: appliedCoupon || undefined,
       };
 
       const checkoutRes = await publicApi.checkout(checkoutPayload);
       const activeOrderId = checkoutRes.orderId || checkoutRes.order?.id;
       const activeRzpOrderId =
-        checkoutRes.razorpayOrderId || checkoutRes.razorpayOrder?.id || `rzp_demo_${activeOrderId}`;
+        checkoutRes.razorpayOrderId || checkoutRes.razorpayOrder?.id || `rzp_direct_${activeOrderId}`;
 
       if (!activeOrderId) {
         throw new Error('Order creation failed.');
       }
 
       // Automatically verify test payment
-      const mockSig = `sig_demo_${Date.now()}`;
+      const mockSig = `sig_direct_${Date.now()}`;
       const verifyRes = await publicApi
         .verifyPayment({
           orderId: activeOrderId,
           razorpay_order_id: activeRzpOrderId,
-          razorpay_payment_id: `pay_demo_${Date.now()}`,
+          razorpay_payment_id: `pay_direct_${Date.now()}`,
           razorpay_signature: mockSig,
         })
         .catch(() => null);
@@ -239,8 +306,12 @@ export default function CartDrawer() {
         tokenNumber: verifyRes?.tokenNumber || checkoutRes.order?.tokenNumber || `T-${activeOrderId}`,
         orderStatus: 'CONFIRMED',
         paymentStatus: 'PAID',
-        totalAmount: subtotal,
-        total: subtotal,
+        totalAmount: checkoutRes.totalAmount ?? finalPayable,
+        total: checkoutRes.totalAmount ?? finalPayable,
+        subtotal: subtotal,
+        discountAmount: checkoutRes.discountAmount ?? discountAmount,
+        couponCode: checkoutRes.couponCode ?? appliedCoupon,
+        discountReason: checkoutRes.discountReason ?? discountReason,
         items: items.map((i) => ({
           id: i.product.id,
           product: i.product,
@@ -255,7 +326,7 @@ export default function CartDrawer() {
       setIsCartOpen(false);
       setConfirmedOrder(confirmed);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Demo checkout failed.');
+      setErrorMessage(err.message || 'Direct checkout failed.');
     } finally {
       setIsCheckingOut(false);
     }
@@ -385,18 +456,97 @@ export default function CartDrawer() {
                 />
               </div>
 
+              {/* Coupon Codes & Daily Milestone Rewards */}
+              <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-stone-800">
+                  <span className="flex items-center gap-1.5">
+                    <Gift className="w-4 h-4 text-red-700" />
+                    <span>Offers & Coupon Codes</span>
+                  </span>
+                  {discountAmount > 0 && (
+                    <span className="text-emerald-700 font-extrabold bg-emerald-100 px-2 py-0.5 rounded-full text-[11px]">
+                      -₹{discountAmount} SAVED
+                    </span>
+                  )}
+                </div>
+
+                {milestoneNotice && (
+                  <div className="p-2.5 bg-gradient-to-r from-red-600 to-amber-600 text-white text-xs rounded-xl font-bold flex items-center gap-2 shadow-xs">
+                    <Sparkles className="w-4 h-4 shrink-0 text-amber-200 animate-pulse" />
+                    <span>{milestoneNotice}</span>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Tag className="w-3.5 h-3.5 absolute left-3 top-3 text-stone-400" />
+                    <input
+                      type="text"
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                      placeholder="Enter promo coupon code"
+                      className="w-full pl-8 pr-3 py-2 text-xs border border-stone-300 rounded-xl bg-white font-mono font-bold tracking-wider uppercase focus:outline-hidden focus:ring-2 focus:ring-red-600"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => checkDiscounts(couponInput.trim())}
+                    disabled={isApplyingCoupon || !couponInput.trim()}
+                    className="px-3 py-2 bg-stone-900 hover:bg-black text-white text-xs font-black rounded-xl uppercase tracking-wider transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {isApplyingCoupon ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Apply'}
+                  </button>
+                </div>
+
+                {couponError && (
+                  <p className="text-[11px] text-rose-600 font-semibold">{couponError}</p>
+                )}
+
+                {/* Available Quick Coupon Codes */}
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <span className="text-[10px] text-stone-500 font-medium">Try:</span>
+                  {['WELCOME10', 'FLAT50', 'TASTY20'].map((code) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => {
+                        setCouponInput(code);
+                        checkDiscounts(code);
+                      }}
+                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer ${
+                        appliedCoupon === code
+                          ? 'bg-red-700 text-white border-red-700'
+                          : 'bg-white text-stone-700 border-stone-200 hover:border-red-400'
+                      }`}
+                    >
+                      %{code}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bill Details */}
               <div className="space-y-1.5 pt-2 border-t border-[#E8DFC8] text-xs">
                 <div className="flex justify-between text-stone-600">
                   <span>Subtotal</span>
                   <span className="font-bold">₹{subtotal}</span>
                 </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-lg">
+                    <span className="flex items-center gap-1">
+                      <Gift className="w-3.5 h-3.5" />
+                      <span>Discount ({discountReason || appliedCoupon || 'Reward'})</span>
+                    </span>
+                    <span>-₹{discountAmount}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-stone-600">
                   <span>Taxes & Packaging</span>
                   <span className="text-emerald-700 font-bold">FREE</span>
                 </div>
                 <div className="flex justify-between text-base font-display font-black text-stone-900 pt-2 border-t border-[#E8DFC8]">
                   <span>Total Amount</span>
-                  <span className="text-red-700 font-display text-xl">₹{subtotal}</span>
+                  <span className="text-red-700 font-display text-xl">₹{finalPayable}</span>
                 </div>
               </div>
 
@@ -414,7 +564,7 @@ export default function CartDrawer() {
                   ) : (
                     <>
                       <CreditCard className="w-4 h-4" />
-                      <span>Pay with Razorpay (₹{subtotal})</span>
+                      <span>Pay with Razorpay (₹{finalPayable})</span>
                       <ArrowRight className="w-4 h-4 ml-1" />
                     </>
                   )}
@@ -422,18 +572,18 @@ export default function CartDrawer() {
 
                 <button
                   type="button"
-                  onClick={handleInstantDemoPay}
+                  onClick={handleInstantPay}
                   disabled={isCheckingOut}
                   className="w-full py-2.5 px-4 bg-[#141A16] hover:bg-black text-amber-400 font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 border border-stone-800 shadow-xs"
                 >
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Instant Test Checkout (Bypass Gateway)</span>
+                  <span>Instant Counter Token Checkout (Fast Track)</span>
                 </button>
               </div>
 
               <div className="flex items-center justify-center space-x-1 text-[11px] text-stone-500 font-medium">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                <span>100% Secure Razorpay Checkout & Daily Token Queue</span>
+                <span>100% Secure Razorpay Checkout & Token Queue</span>
               </div>
             </div>
           )}

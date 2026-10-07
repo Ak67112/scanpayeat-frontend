@@ -321,9 +321,15 @@ export default function OrderTrackingPage() {
               <span>Subtotal</span>
               <span>₹{Number(order.subtotal ?? order.totalAmount ?? order.total ?? 0)}</span>
             </div>
+            {order.discountAmount && Number(order.discountAmount) > 0 && (
+              <div className="flex justify-between text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-lg">
+                <span>Discount ({order.discountReason || order.couponCode || 'Reward'})</span>
+                <span>-₹{Number(order.discountAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-extrabold text-sm text-slate-900 pt-2 border-t border-slate-100">
               <span>Total Paid</span>
-              <span className="text-amber-700 font-black">
+              <span className="text-red-700 font-black font-display text-base">
                 ₹{Number(order.totalAmount ?? order.total ?? order.subtotal ?? 0)}
               </span>
             </div>
