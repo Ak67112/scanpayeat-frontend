@@ -7,6 +7,7 @@ import {
   AdminStats,
   ShopkeeperStats,
   OrderStatus,
+  Coupon,
 } from '../types';
 
 const API_BASE_URL =
@@ -104,6 +105,10 @@ export const publicApi = {
       categories: Category[];
       products: Product[];
     }>(`/api/public/shops/${slug}/menu`);
+  },
+
+  async getShopCoupons(slug: string) {
+    return apiFetch<{ coupons: Coupon[] }>(`/api/public/shops/${slug}/coupons`);
   },
 
   async checkDiscounts(params: {
@@ -434,5 +439,43 @@ export const adminApi = {
 
   async getTransactions() {
     return apiFetch<{ transactions: any[] }>('/api/admin/transactions');
+  },
+
+  async getCoupons(params?: { shopId?: number; search?: string }) {
+    const qs = new URLSearchParams();
+    if (params?.shopId) qs.set('shopId', String(params.shopId));
+    if (params?.search) qs.set('search', params.search);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return apiFetch<{ coupons: (Coupon & { isGlobal: boolean; shop?: Shop | null })[] }>(
+      `/api/admin/coupons${query}`
+    );
+  },
+
+  async createCoupon(data: {
+    code: string;
+    discountType?: string;
+    discountValue: number;
+    minOrderAmount?: number;
+    maxDiscount?: number;
+    shopId?: number | null;
+    isActive?: boolean;
+  }) {
+    return apiFetch<{ coupon: Coupon }>('/api/admin/coupons', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteCoupon(id: number) {
+    return apiFetch(`/api/admin/coupons/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async toggleCoupon(id: number, isActive: boolean) {
+    return apiFetch<{ coupon: Coupon }>(`/api/admin/coupons/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isActive }),
+    });
   },
 };

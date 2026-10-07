@@ -197,6 +197,9 @@ export interface Coupon {
   maxDiscount?: number | null;
   isActive: boolean;
   usageCount?: number;
+  isGlobal?: boolean;
+  canDelete?: boolean;
+  shop?: Shop | null;
   createdAt?: string;
 }
 

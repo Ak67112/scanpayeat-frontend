@@ -53,6 +53,18 @@ export default function CartDrawer() {
   const [milestoneNotice, setMilestoneNotice] = useState<string | null>(null);
   const [couponError, setCouponError] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (shopSlug && isCartOpen) {
+      publicApi
+        .getShopCoupons(shopSlug)
+        .then((res) => {
+          if (res?.coupons) setAvailableCoupons(res.coupons);
+        })
+        .catch(() => {});
+    }
+  }, [shopSlug, isCartOpen]);
 
   const checkDiscounts = async (codeToTest?: string) => {
     if ((!shopId && !shopSlug) || items.length === 0) return;
@@ -503,9 +515,12 @@ export default function CartDrawer() {
                 )}
 
                 {/* Available Quick Coupon Codes */}
-                <div className="flex items-center gap-1.5 pt-0.5">
-                  <span className="text-[10px] text-stone-500 font-medium">Try:</span>
-                  {['WELCOME10', 'FLAT50', 'TASTY20'].map((code) => (
+                <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                  <span className="text-[10px] text-stone-500 font-medium">Offers:</span>
+                  {(availableCoupons.length > 0
+                    ? availableCoupons.slice(0, 4).map((c: any) => c.code)
+                    : ['WELCOME10', 'FLAT50', 'TASTY20']
+                  ).map((code: string) => (
                     <button
                       key={code}
                       type="button"

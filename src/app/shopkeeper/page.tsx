@@ -387,9 +387,13 @@ export default function ShopkeeperDashboard() {
     socket.on('new_order', handleNewOrder);
     socket.on('order_status_updated', handleStatusUpdated);
 
-    // Auto-polling interval: fetch latest orders and stats every 3.5 seconds
-    // to guarantee 100% zero-refresh live delivery on any serverless or mobile network
+    // Background sync: poll latest orders and stats every 10 seconds
+    // Pauses automatically if the tab is minimized or hidden to save database connections
     const pollInterval = setInterval(async () => {
+      if (typeof document !== 'undefined' && document.hidden) {
+        return;
+      }
+
       try {
         const [ordersRes, statsRes] = await Promise.all([
           shopkeeperApi.getOrders().catch(() => null),
@@ -437,7 +441,7 @@ export default function ShopkeeperDashboard() {
       } catch (err) {
         // Silent poll error fallback
       }
-    }, 3500);
+    }, 10000);
 
     return () => {
       clearInterval(pollInterval);
@@ -2105,9 +2109,20 @@ export default function ShopkeeperDashboard() {
                         coupons.map((c) => (
                           <tr key={c.id} className="hover:bg-slate-50/80 transition">
                             <td className="p-4">
-                              <span className="font-mono font-black text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg text-xs">
-                                {c.code}
-                              </span>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono font-black text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg text-xs">
+                                  {c.code}
+                                </span>
+                                {c.isGlobal || c.shopId === null ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200">
+                                    Global Platform Offer
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    Store Exclusive
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="p-4 font-semibold text-slate-700">
                               {c.discountType === 'PERCENT' ? 'Percentage (%)' : 'Flat Amount (₹)'}
@@ -2123,13 +2138,19 @@ export default function ShopkeeperDashboard() {
                               {c.usageCount || 0} times
                             </td>
                             <td className="p-4 text-right">
-                              <button
-                                onClick={() => handleDeleteCoupon(c.id)}
-                                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-rose-200"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>Delete</span>
-                              </button>
+                              {c.canDelete || (c.shopId && c.shopId === user?.shopId) ? (
+                                <button
+                                  onClick={() => handleDeleteCoupon(c.id)}
+                                  className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-rose-200"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Delete</span>
+                                </button>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 font-medium italic">
+                                  Global (Admin Only)
+                                </span>
+                              )}
                             </td>
                           </tr>
                         ))
