@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { publicApi } from '../../lib/api';
+import { publicApi, customerApi } from '../../lib/api';
 import { Order } from '../../types';
 import { useRouter } from 'next/navigation';
 import {
@@ -19,17 +19,53 @@ import {
   Printer,
   X,
   Search,
+  Camera,
+  Upload,
 } from 'lucide-react';
 
 type DatePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 
 export default function MyOrdersPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, refreshUser } = useAuth();
   const router = useRouter();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Customer Profile Avatar Upload State
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState('');
+  const [profileErrorMsg, setProfileErrorMsg] = useState('');
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setProfileErrorMsg('Please select a valid image file (JPG, PNG, WebP)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileErrorMsg('Image size must be less than 5MB');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    setProfileErrorMsg('');
+    setProfileSuccessMsg('');
+    try {
+      const imageUrl = await customerApi.uploadAvatar(file);
+      await customerApi.updateProfile({ avatarUrl: imageUrl });
+      await refreshUser();
+      setProfileSuccessMsg('Profile picture updated successfully!');
+      setTimeout(() => setProfileSuccessMsg(''), 4000);
+    } catch (err: any) {
+      setProfileErrorMsg(err.message || 'Failed to upload photo');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   // Filters: Shops, Weeks / Date Presets, Custom Date Range
   const [selectedShopFilter, setSelectedShopFilter] = useState<string>('ALL');
@@ -205,6 +241,104 @@ export default function MyOrdersPage() {
             <span>Explore Partner Menus</span>
           </a>
         </div>
+
+        {/* Customer Profile Banner Card */}
+        {user && (
+          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#E8DFC8] shadow-xs flex flex-col sm:flex-row items-center sm:items-start justify-between gap-5">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5 text-center sm:text-left">
+              {/* Avatar with Camera / Upload Button */}
+              <div className="relative group shrink-0">
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ring-4 ring-red-100 shadow-md"
+                  />
+                ) : (
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-red-700 to-amber-600 text-white font-black text-2xl flex items-center justify-center shadow-md ring-4 ring-red-100 font-display">
+                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                )}
+
+                {/* Upload Action Overlay */}
+                <label
+                  htmlFor="customer-avatar-input"
+                  className="absolute bottom-0 right-0 p-2 bg-stone-900 hover:bg-red-700 text-white rounded-full shadow-lg border-2 border-white cursor-pointer transition hover:scale-110 active:scale-95"
+                  title="Upload / Change profile photo"
+                >
+                  {isUploadingAvatar ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Camera className="w-3.5 h-3.5" />
+                  )}
+                  <input
+                    id="customer-avatar-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    disabled={isUploadingAvatar}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* User Details */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 justify-center sm:justify-start flex-wrap">
+                  <h2 className="text-lg sm:text-xl font-black text-stone-900 font-display">
+                    {user.name}
+                  </h2>
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    Active Diner
+                  </span>
+                </div>
+                <p className="text-xs text-stone-500 font-medium">{user.email}</p>
+                {user.mobile && (
+                  <p className="text-xs text-stone-500 font-medium">Phone: {user.mobile}</p>
+                )}
+                <div className="pt-1 flex items-center gap-3 text-xs text-stone-600 justify-center sm:justify-start">
+                  <label
+                    htmlFor="customer-avatar-input"
+                    className="text-xs font-bold text-red-700 hover:text-red-800 hover:underline cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{user.avatarUrl ? 'Change Profile Photo' : 'Upload Profile Photo'}</span>
+                  </label>
+                </div>
+                {profileSuccessMsg && (
+                  <p className="text-xs text-emerald-700 font-bold animate-in fade-in pt-1">
+                    ✓ {profileSuccessMsg}
+                  </p>
+                )}
+                {profileErrorMsg && (
+                  <p className="text-xs text-rose-600 font-bold animate-in fade-in pt-1">
+                    ✕ {profileErrorMsg}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Orders & Spending Quick Counters */}
+            <div className="flex items-center gap-6 border-t sm:border-t-0 sm:border-l border-[#E8DFC8] pt-3 sm:pt-0 sm:pl-6 w-full sm:w-auto justify-around sm:justify-end">
+              <div className="text-center sm:text-right">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
+                  Total Orders
+                </span>
+                <span className="text-xl font-black text-slate-900 font-display">
+                  {orders.length}
+                </span>
+              </div>
+              <div className="text-center sm:text-right">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
+                  Total Spent
+                </span>
+                <span className="text-xl font-black text-emerald-700 font-display">
+                  ₹{orders.filter((o) => o.paymentStatus === 'PAID').reduce((sum, o) => sum + Number(o.totalAmount ?? o.total ?? 0), 0).toFixed(0)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {errorMessage && (
           <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">

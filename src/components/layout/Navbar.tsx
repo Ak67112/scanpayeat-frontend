@@ -34,13 +34,7 @@ export default function Navbar() {
               />
             </a>
 
-            {/* Logged in customer badge */}
-            {user && user.role === 'CUSTOMER' && (
-              <span className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>Diner Member</span>
-              </span>
-            )}
+
           </div>
 
           {/* Customer-First Desktop Nav Links */}
@@ -112,20 +106,32 @@ export default function Navbar() {
 
                 {/* Round Shaped Profile Pill */}
                 <div className="bg-white/95 border border-[#E8DFC8] rounded-full p-1 pl-1.5 pr-2.5 shadow-xs flex items-center gap-2.5 transition hover:border-stone-400">
-                  {/* Round Avatar with User Initial */}
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-red-700 to-amber-600 text-white font-black text-xs flex items-center justify-center shadow-xs ring-2 ring-white shrink-0">
-                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                  </div>
+                  {/* Round Avatar - Uploaded Photo or Initial */}
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.name}
+                      className="w-8 h-8 rounded-full object-cover ring-2 ring-white shadow-xs shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-red-700 to-amber-600 text-white font-black text-xs flex items-center justify-center shadow-xs ring-2 ring-white shrink-0">
+                      {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                  )}
 
                   {/* Clean Aligned User Info */}
-                  <div className="flex flex-col text-left leading-tight min-w-0">
-                    <span className="text-xs font-black text-stone-900 truncate max-w-[120px]">
+                  <a
+                    href="/my-orders"
+                    title={`Signed in as ${user.name} (${user.email})`}
+                    className="flex flex-col text-left leading-tight min-w-0 hover:opacity-80 transition cursor-pointer"
+                  >
+                    <span className="text-xs font-black text-stone-900 truncate max-w-[130px] sm:max-w-[160px]">
                       {user.name}
                     </span>
-                    <span className="text-[10px] text-stone-500 truncate max-w-[130px] font-medium">
+                    <span className="text-[10px] text-stone-500 truncate max-w-[140px] sm:max-w-[180px] font-medium">
                       {user.email}
                     </span>
-                  </div>
+                  </a>
 
                   {/* Round Logout Button */}
                   <button
@@ -187,11 +193,25 @@ export default function Navbar() {
           {user && (
             <div className="p-3 bg-white border border-[#E8DFC8] rounded-2xl flex items-center justify-between shadow-2xs">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-red-700 to-amber-600 text-white font-black text-xs flex items-center justify-center shadow-xs ring-2 ring-white shrink-0">
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                </div>
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    className="w-9 h-9 rounded-full object-cover ring-2 ring-white shadow-xs shrink-0"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-red-700 to-amber-600 text-white font-black text-xs flex items-center justify-center shadow-xs ring-2 ring-white shrink-0">
+                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                )}
                 <div>
-                  <p className="font-bold text-stone-900 text-xs">{user.name}</p>
+                  <a
+                    href="/my-orders"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="font-bold text-stone-900 text-xs hover:underline block"
+                  >
+                    {user.name}
+                  </a>
                   <p className="text-[10px] text-stone-500">{user.email}</p>
                 </div>
               </div>
