@@ -1,46 +1,46 @@
 import React from 'react';
 import {
-  UtensilsCrossed,
   ShieldCheck,
   Zap,
   QrCode,
   Heart,
   Clock,
   Gift,
-  ChefHat,
   CreditCard,
   Headphones,
+  Store,
+  Sparkles,
 } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer className="bg-[#141A16] text-stone-300 border-t border-[#232F28] mt-auto">
+    <footer className="bg-[#0D151E] text-stone-300 border-t border-[#1E293B] mt-auto">
       {/* Upper culinary ticker banner */}
-      <div className="bg-red-700 text-white text-[11px] font-black uppercase tracking-widest py-2.5 overflow-hidden">
+      <div className="bg-emerald-700 text-white text-[11px] font-black uppercase tracking-widest py-2.5 overflow-hidden">
         <div className="animate-marquee whitespace-nowrap flex items-center gap-8">
-          <span>🔥 FRESHLY PREPARED MEALS</span>
+          <span>⚡ INSTANT CONTACTLESS QR DINING</span>
           <span>•</span>
-          <span>CONTACTLESS QR TABLE CHECKOUT</span>
-          <span>•</span>
-          <span>LIVE KITCHEN TOKEN TRACKING</span>
-          <span>•</span>
-          <span>PROMO COUPONS & MILESTONE DISCOUNTS</span>
-          <span>•</span>
-          <span>ZERO QUEUE WAITING</span>
-          <span>•</span>
-          <span>SECURE INSTANT PAYMENT SETTLEMENT</span>
-          <span>•</span>
-          <span>🔥 FRESHLY PREPARED MEALS</span>
-          <span>•</span>
-          <span>CONTACTLESS QR TABLE CHECKOUT</span>
+          <span>FAST UPI & RAZORPAY CHECKOUT</span>
           <span>•</span>
           <span>LIVE KITCHEN TOKEN TRACKING</span>
           <span>•</span>
-          <span>PROMO COUPONS & MILESTONE DISCOUNTS</span>
+          <span>DISCOUNT COUPONS & MILESTONE REWARDS</span>
           <span>•</span>
-          <span>ZERO QUEUE WAITING</span>
+          <span>ZERO LINE WAITING</span>
           <span>•</span>
-          <span>SECURE INSTANT PAYMENT SETTLEMENT</span>
+          <span>FRESH MEALS PREPARED TO PERFECTION</span>
+          <span>•</span>
+          <span>⚡ INSTANT CONTACTLESS QR DINING</span>
+          <span>•</span>
+          <span>FAST UPI & RAZORPAY CHECKOUT</span>
+          <span>•</span>
+          <span>LIVE KITCHEN TOKEN TRACKING</span>
+          <span>•</span>
+          <span>DISCOUNT COUPONS & MILESTONE REWARDS</span>
+          <span>•</span>
+          <span>ZERO LINE WAITING</span>
+          <span>•</span>
+          <span>FRESH MEALS PREPARED TO PERFECTION</span>
         </div>
       </div>
 
@@ -48,23 +48,22 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
           {/* Col 1: Brand & Overview */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-red-600 to-rose-700 flex items-center justify-center text-white shadow-md shadow-red-700/20">
-                <UtensilsCrossed className="w-5 h-5" />
-              </div>
-              <span className="font-extrabold text-white text-2xl tracking-tight font-display">
-                Scan<span className="text-red-500">Pay</span>Eat
-              </span>
-            </div>
+            <a href="/" className="inline-block bg-white/95 px-3 py-1.5 rounded-2xl shadow-md border border-slate-700/50 hover:bg-white transition">
+              <img
+                src="/logo.png"
+                alt="Scanner Pay Eat"
+                className="h-9 w-auto object-contain"
+              />
+            </a>
             <p className="text-xs text-stone-400 leading-relaxed">
-              The modern contactless dining and restaurant management platform. Empowering diners to scan, order, and pay with zero delays, while giving kitchen teams real-time display tickets and automated sales analytics.
+              The modern contactless dining platform. Scan any table QR, customize your order, pay with instant UPI or Cards, and track your kitchen tokens in real-time with zero queue delays.
             </p>
             <div className="flex items-center gap-2 pt-2">
-              <span className="px-2.5 py-1 rounded-full bg-stone-800 text-stone-300 text-[10px] font-bold border border-stone-700">
-                Contactless Dining
+              <span className="px-2.5 py-1 rounded-full bg-slate-800 text-emerald-400 text-[10px] font-bold border border-slate-700 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> Contactless Dining
               </span>
-              <span className="px-2.5 py-1 rounded-full bg-stone-800 text-stone-300 text-[10px] font-bold border border-stone-700">
-                Kitchen KDS
+              <span className="px-2.5 py-1 rounded-full bg-slate-800 text-stone-300 text-[10px] font-bold border border-slate-700">
+                Live Kitchen Sync
               </span>
             </div>
           </div>
@@ -72,66 +71,76 @@ export default function Footer() {
           {/* Col 2: Customer Experience */}
           <div>
             <h4 className="text-xs font-bold uppercase text-white tracking-widest mb-4 font-display flex items-center gap-1.5">
-              <QrCode className="w-3.5 h-3.5 text-red-500" />
+              <QrCode className="w-3.5 h-3.5 text-emerald-400" />
               <span>For Diners & Guests</span>
             </h4>
             <ul className="space-y-2.5 text-xs text-stone-400">
               <li className="flex items-start gap-2">
-                <span className="text-red-400 font-bold">•</span>
+                <span className="text-emerald-400 font-bold">•</span>
                 <span>Instant QR Table Ordering — no app installation needed</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-red-400 font-bold">•</span>
-                <span>Fast UPI, Card & Netbanking Checkout</span>
+                <span className="text-emerald-400 font-bold">•</span>
+                <span>Fast UPI, Card & Netbanking Checkout via Razorpay</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-red-400 font-bold">•</span>
-                <span>Live Token Display from Cooking to Ready for Pickup</span>
+                <span className="text-emerald-400 font-bold">•</span>
+                <span>Live Kitchen Token Tracking from Prep to Pickup</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-red-400 font-bold">•</span>
-                <span>Promotional Coupons & Milestone Customer Discounts</span>
+                <span className="text-emerald-400 font-bold">•</span>
+                <span>Promotional Coupons & Milestone Diner Discounts</span>
               </li>
-              <li className="pt-1">
+              <li className="pt-2">
                 <a
-                  href="/shop/abc"
-                  className="inline-flex items-center gap-1 text-red-400 hover:text-red-300 font-bold text-xs transition"
+                  href="/my-orders"
+                  className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-bold text-xs transition"
                 >
-                  View ABC Restaurant Menu →
+                  Track Existing Orders →
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* Col 3: Kitchen & Restaurant Management */}
+          {/* Col 3: Quick Navigation */}
           <div>
             <h4 className="text-xs font-bold uppercase text-white tracking-widest mb-4 font-display flex items-center gap-1.5">
-              <ChefHat className="w-3.5 h-3.5 text-amber-500" />
-              <span>For Restaurant Owners</span>
+              <Clock className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Explore Platform</span>
             </h4>
             <ul className="space-y-2.5 text-xs text-stone-400">
-              <li className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold">•</span>
-                <span>Real-Time Kitchen Display System (KDS) with Audio Chimes</span>
+              <li>
+                <a href="/#how-it-works" className="hover:text-emerald-400 transition">
+                  How QR Ordering Works
+                </a>
               </li>
-              <li className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold">•</span>
-                <span>Instant Menu Dish & Category Management with Photos</span>
+              <li>
+                <a href="/#featured-dishes" className="hover:text-emerald-400 transition">
+                  Featured Specialties & Combos
+                </a>
               </li>
-              <li className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold">•</span>
-                <span>Automated Daily, Weekly & Monthly Sales Revenue Reports</span>
+              <li>
+                <a href="/#offers-rewards" className="hover:text-emerald-400 transition">
+                  Diner Rewards & Coupons
+                </a>
               </li>
-              <li className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold">•</span>
-                <span>Custom Promotional Coupon & Milestone Reward Controls</span>
+              <li>
+                <a href="/login" className="hover:text-emerald-400 transition">
+                  Customer Account Login
+                </a>
               </li>
-              <li className="pt-1">
+              <li>
+                <a href="/register" className="hover:text-emerald-400 transition">
+                  Sign Up as Diner
+                </a>
+              </li>
+              <li className="pt-2 border-t border-slate-800">
                 <a
                   href="/login?role=shopkeeper"
-                  className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 font-bold text-xs transition"
+                  className="inline-flex items-center gap-1.5 text-stone-500 hover:text-amber-400 text-[11px] transition"
                 >
-                  Access Kitchen Display Portal →
+                  <Store className="w-3 h-3" />
+                  <span>Restaurant Partner Portal</span>
                 </a>
               </li>
             </ul>
@@ -140,40 +149,40 @@ export default function Footer() {
           {/* Col 4: Trust, Reliability & Support */}
           <div>
             <h4 className="text-xs font-bold uppercase text-white tracking-widest mb-4 font-display flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>Service & Reliability</span>
             </h4>
             <ul className="space-y-2.5 text-xs text-stone-400">
               <li className="flex items-center gap-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>Bank-Grade Payment Encryption</span>
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Bank-Grade 256-Bit Payment Encryption</span>
               </li>
               <li className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>Zero-Delay Order Delivery Pipeline</span>
+                <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Zero Wait Time Table Service</span>
               </li>
               <li className="flex items-center gap-2">
-                <CreditCard className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                <span>Verified Digital Counter Receipts</span>
+                <CreditCard className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span>Instant Digital Token Receipts</span>
               </li>
               <li className="flex items-center gap-2">
-                <Headphones className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <span>Dedicated Restaurant Partner Support</span>
+                <Headphones className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <span>24/7 Dedicated Support</span>
               </li>
             </ul>
-            <div className="mt-4 p-3 rounded-xl bg-stone-900/80 border border-stone-800 text-[11px] text-stone-400 leading-normal">
-              Operating continuously across dining outlets, cafes, food courts, and express takeaway counters.
+            <div className="mt-4 p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-stone-400 leading-normal">
+              Operating seamlessly across restaurants, cafes, food courts, and express food outlets.
             </div>
           </div>
         </div>
 
-        <div className="border-t border-[#232F28] mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-stone-400 gap-3">
-          <p>© {new Date().getFullYear()} ScanPayEat. Modern Hospitality & Contactless Dining Platform.</p>
+        <div className="border-t border-[#1E293B] mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-stone-400 gap-3">
+          <p>© {new Date().getFullYear()} Scanner Pay Eat. All rights reserved.</p>
           <div className="flex items-center space-x-3 font-medium">
-            <span>Built for Diners & Restaurateurs</span>
+            <span>Contactless Dining Made Effortless</span>
             <span>•</span>
-            <span className="text-red-400 flex items-center gap-1">
-              <Heart className="w-3 h-3 fill-current" /> Fast, Fresh & Delicious
+            <span className="text-emerald-400 flex items-center gap-1">
+              <Heart className="w-3 h-3 fill-current text-rose-500" /> Fast, Fresh & Delicious
             </span>
           </div>
         </div>

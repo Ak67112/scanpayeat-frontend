@@ -65,7 +65,8 @@ function LoginContent() {
       if (user.role === 'SHOPKEEPER') {
         router.push('/shopkeeper');
       } else {
-        router.push('/shop/abc');
+        const redirectParam = searchParams.get('redirect');
+        router.push(redirectParam || '/my-orders');
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Invalid email or password.');
@@ -78,15 +79,15 @@ function LoginContent() {
     <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
       {/* Header Banner */}
       <div className="p-8 text-center bg-gradient-to-b from-stone-100 to-transparent border-b border-slate-100">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-red-700 to-amber-600 flex items-center justify-center text-white mx-auto shadow-md shadow-red-700/20 mb-3">
-          {activeTab === 'CUSTOMER' ? (
-            <ShoppingBag className="w-6 h-6" />
-          ) : (
-            <ChefHat className="w-6 h-6" />
-          )}
-        </div>
+        <a href="/" className="inline-block mb-4">
+          <img
+            src="/logo.png"
+            alt="Scanner Pay Eat"
+            className="h-10 mx-auto object-contain"
+          />
+        </a>
         <h2 className="text-2xl font-black text-slate-900 tracking-tight font-display">
-          {activeTab === 'CUSTOMER' ? 'Customer Sign In' : 'Kitchen Staff Portal'}
+          {activeTab === 'CUSTOMER' ? 'Customer Sign In' : 'Restaurant Staff Portal'}
         </h2>
         <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
           {activeTab === 'CUSTOMER'
@@ -102,7 +103,7 @@ function LoginContent() {
           onClick={() => handleTabChange('CUSTOMER')}
           className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
             activeTab === 'CUSTOMER'
-              ? 'bg-white text-red-700 shadow-xs border border-slate-200'
+              ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >

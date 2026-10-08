@@ -63,15 +63,15 @@ export default function MyOrdersPage() {
               My Orders & Receipts
             </h1>
             <p className="text-xs text-slate-500 mt-1">
-              Active and past orders across all shops on Scan-Pay-Eat
+              Active and past orders across all restaurants on Scanner Pay Eat
             </p>
           </div>
 
           <a
-            href="/shop/abc"
-            className="self-start sm:self-auto px-4 py-2 bg-red-700 hover:bg-red-800 text-white font-bold text-xs rounded-xl shadow-xs transition"
+            href="/"
+            className="self-start sm:self-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
           >
-            Browse ABC Restaurant Menu
+            Explore Partner Menus
           </a>
         </div>
 
@@ -87,14 +87,14 @@ export default function MyOrdersPage() {
             <ShoppingBag className="w-14 h-14 text-slate-300 mx-auto" />
             <h3 className="text-base font-bold text-slate-800">No Orders Yet</h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              You haven&apos;t placed any orders yet. Visit any shop menu to scan and order!
+              You haven&apos;t placed any orders yet. When at a dining table, scan the QR code to order!
             </p>
             <div className="pt-2">
               <a
-                href="/shop/abc"
+                href="/"
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold"
               >
-                <span>Browse ABC Restaurant</span>
+                <span>Discover How QR Dining Works</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </a>
             </div>

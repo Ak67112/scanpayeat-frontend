@@ -32,7 +32,7 @@ export default function RegisterPage() {
 
     try {
       await register(name, email, password, mobile || undefined);
-      router.push('/shop/abc');
+      router.push('/my-orders');
     } catch (err: any) {
       setErrorMessage(err.message || 'Registration failed. Please check inputs.');
     } finally {
@@ -45,14 +45,18 @@ export default function RegisterPage() {
       <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
         {/* Header Banner */}
         <div className="p-8 text-center bg-gradient-to-b from-emerald-500/10 to-transparent border-b border-slate-100">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white mx-auto shadow-md shadow-emerald-500/20 mb-3">
-            <ShoppingBag className="w-6 h-6" />
-          </div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+          <a href="/" className="inline-block mb-4">
+            <img
+              src="/logo.png"
+              alt="Scanner Pay Eat"
+              className="h-10 mx-auto object-contain"
+            />
+          </a>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight font-display">
             Create Customer Account
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Order seamlessly across any shop on the Scan-Pay-Eat platform
+            Order seamlessly across any restaurant on the Scanner Pay Eat platform
           </p>
         </div>
 

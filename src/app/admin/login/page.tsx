@@ -51,9 +51,14 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl overflow-hidden relative z-10">
         {/* Top Header */}
         <div className="p-8 text-center bg-gradient-to-b from-purple-900/30 to-transparent border-b border-slate-800">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white mx-auto shadow-lg shadow-purple-600/30 mb-4 ring-4 ring-purple-500/20">
-            <ShieldAlert className="w-7 h-7" />
+          <div className="bg-white/95 px-3 py-1.5 rounded-2xl inline-block shadow-md border border-slate-700/50 mb-4">
+            <img
+              src="/logo.png"
+              alt="Scanner Pay Eat"
+              className="h-8 w-auto object-contain"
+            />
           </div>
+          <br />
           <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30 mb-2">
             Restricted Access
           </span>

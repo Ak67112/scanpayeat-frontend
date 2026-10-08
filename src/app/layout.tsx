@@ -4,8 +4,12 @@ import './globals.css';
 import AppProviders from '../components/providers/AppProviders';
 
 export const metadata: Metadata = {
-  title: 'Scan-Pay-Eat | Multi-Shop QR Food Ordering',
-  description: 'Seamless QR food ordering and real-time kitchen tracking platform',
+  title: 'Scanner Pay Eat | Seamless QR Dining & Instant Checkout',
+  description: 'Contactless table QR ordering, instant UPI checkout, live kitchen token tracking, and rewards.',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({
@@ -16,6 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
       <head>
+        <link rel="icon" type="image/png" href="/logo.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -27,7 +32,7 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
       </head>
-      <body suppressHydrationWarning className="min-h-full flex flex-col bg-[#FAF7F2] text-[#18181B] font-sans antialiased selection:bg-red-700 selection:text-white">
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-[#FAF7F2] text-[#18181B] font-sans antialiased selection:bg-emerald-600 selection:text-white">
         <AppProviders>{children}</AppProviders>
       </body>
     </html>
