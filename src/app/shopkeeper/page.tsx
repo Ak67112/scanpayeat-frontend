@@ -44,6 +44,10 @@ import {
   Tag,
   Percent,
   Award,
+  Table as TableIcon,
+  Filter,
+  CalendarRange,
+  Printer,
 } from 'lucide-react';
 
 type TabView = 'ORDERS' | 'PRODUCTS' | 'CATEGORIES' | 'STATS' | 'DISCOUNTS' | 'PROFILE';
@@ -116,6 +120,20 @@ export default function ShopkeeperDashboard() {
   const [couponFormError, setCouponFormError] = useState('');
 
   const [orderFilter, setOrderFilter] = useState<string>('ACTIVE');
+  type DatePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
+  const [orderDatePreset, setOrderDatePreset] = useState<DatePreset>('ALL');
+  const [orderStartDate, setOrderStartDate] = useState<string>('');
+  const [orderEndDate, setOrderEndDate] = useState<string>('');
+  const [orderViewMode, setOrderViewMode] = useState<'CARDS' | 'TABLE'>('CARDS');
+
+  // Selected Order for Receipt Details Modal
+  const [selectedReceiptOrder, setSelectedReceiptOrder] = useState<Order | null>(null);
+
+  // Custom date filter for Stats / Reports
+  const [statsDatePreset, setStatsDatePreset] = useState<DatePreset>('TODAY');
+  const [statsStartDate, setStatsStartDate] = useState<string>('');
+  const [statsEndDate, setStatsEndDate] = useState<string>('');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [isLoading, setIsLoading] = useState(true);
@@ -921,19 +939,82 @@ export default function ShopkeeperDashboard() {
     (o) => o.orderStatus !== 'COMPLETED' && o.orderStatus !== 'CANCELLED'
   ).length;
 
-  // Filtered orders with search & status
+  const matchesDateRange = (
+    dateStr: string,
+    preset: DatePreset,
+    startDate?: string,
+    endDate?: string
+  ): boolean => {
+    if (preset === 'ALL' && !startDate && !endDate) return true;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return true;
+    const now = new Date();
+
+    if (preset === 'TODAY') {
+      return (
+        d.getDate() === now.getDate() &&
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear()
+      );
+    }
+
+    if (preset === 'YESTERDAY') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return (
+        d.getDate() === yesterday.getDate() &&
+        d.getMonth() === yesterday.getMonth() &&
+        d.getFullYear() === yesterday.getFullYear()
+      );
+    }
+
+    if (preset === 'WEEK') {
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      sevenDaysAgo.setHours(0, 0, 0, 0);
+      return d >= sevenDaysAgo && d <= now;
+    }
+
+    if (preset === 'MONTH') {
+      return (
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear()
+      );
+    }
+
+    if (preset === 'CUSTOM') {
+      if (startDate) {
+        const start = new Date(`${startDate}T00:00:00`);
+        if (d < start) return false;
+      }
+      if (endDate) {
+        const end = new Date(`${endDate}T23:59:59.999`);
+        if (d > end) return false;
+      }
+      return true;
+    }
+
+    return true;
+  };
+
+  // Filtered orders with search, status & date range
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       // Status filter
       let matchesStatus = true;
       if (orderFilter === 'ACTIVE') {
         matchesStatus =
+          o.orderStatus === 'PENDING' ||
           o.orderStatus === 'CONFIRMED' ||
           o.orderStatus === 'PREPARING' ||
           o.orderStatus === 'READY';
+      } else if (orderFilter === 'CONFIRMED') {
+        matchesStatus = o.orderStatus === 'CONFIRMED' || o.orderStatus === 'PENDING';
       } else if (orderFilter !== 'ALL') {
         matchesStatus = o.orderStatus === orderFilter;
       }
+
+      // Date range filter
+      const matchesDate = matchesDateRange(o.createdAt, orderDatePreset, orderStartDate, orderEndDate);
 
       // Search filter
       const q = searchQuery.toLowerCase().trim();
@@ -943,11 +1024,36 @@ export default function ShopkeeperDashboard() {
         (o.orderCode && o.orderCode.toLowerCase().includes(q)) ||
         String(o.id).includes(q) ||
         (o.customerName && o.customerName.toLowerCase().includes(q)) ||
-        (o.customerPhone && o.customerPhone.includes(q));
+        (o.customerPhone && o.customerPhone.includes(q)) ||
+        (o.items && o.items.some((it: any) => (it.productName || it.product?.name || '').toLowerCase().includes(q)));
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && matchesDate && matchesSearch;
     });
-  }, [orders, orderFilter, searchQuery]);
+  }, [orders, orderFilter, searchQuery, orderDatePreset, orderStartDate, orderEndDate]);
+
+  const filteredOrdersTotalAmount = useMemo(() => {
+    return filteredOrders.reduce((sum, o) => sum + Number(o.totalAmount ?? o.total ?? 0), 0);
+  }, [filteredOrders]);
+
+  const filteredOrdersTotalDiscounts = useMemo(() => {
+    return filteredOrders.reduce((sum, o) => sum + Number(o.discountAmount ?? 0), 0);
+  }, [filteredOrders]);
+
+  // Filtered stats orders for STATS tab
+  const filteredStatsOrders = useMemo(() => {
+    return orders.filter((o) => {
+      if (o.paymentStatus !== 'PAID') return false;
+      return matchesDateRange(o.createdAt, statsDatePreset, statsStartDate, statsEndDate);
+    });
+  }, [orders, statsDatePreset, statsStartDate, statsEndDate]);
+
+  const filteredStatsRevenue = useMemo(() => {
+    return filteredStatsOrders.reduce((sum, o) => sum + Number(o.totalAmount ?? o.total ?? 0), 0);
+  }, [filteredStatsOrders]);
+
+  const filteredStatsDiscounts = useMemo(() => {
+    return filteredStatsOrders.reduce((sum, o) => sum + Number(o.discountAmount ?? 0), 0);
+  }, [filteredStatsOrders]);
 
   // Paginated orders
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage) || 1;
@@ -1361,210 +1467,559 @@ export default function ShopkeeperDashboard() {
           {/* ================= VIEW: ORDERS ================= */}
           {activeTab === 'ORDERS' && (
             <div className="space-y-6">
-              {/* Filter Pills & Live indicator */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
-                <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-                  {[
-                    { key: 'ACTIVE', label: `Active (${activeOrdersCount})` },
-                    { key: 'CONFIRMED', label: 'New / Confirmed' },
-                    { key: 'PREPARING', label: 'Cooking' },
-                    { key: 'READY', label: 'Ready for Counter' },
-                    { key: 'COMPLETED', label: 'Fulfilled' },
-                    { key: 'ALL', label: 'All Orders' },
-                  ].map((f) => (
-                    <button
-                      key={f.key}
-                      onClick={() => {
-                        setOrderFilter(f.key);
-                        setOrdersPage(1);
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                        orderFilter === f.key
-                          ? 'bg-amber-500 text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
+              {/* Filter Bar: Status, Layout Mode & Date Filters */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                {/* Row 1: Status Pills & View Switcher */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                  <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
+                    {[
+                      { key: 'ACTIVE', label: `Active (${activeOrdersCount})` },
+                      { key: 'CONFIRMED', label: 'New / Confirmed' },
+                      { key: 'PREPARING', label: 'Cooking' },
+                      { key: 'READY', label: 'Ready for Counter' },
+                      { key: 'COMPLETED', label: 'Fulfilled' },
+                      { key: 'ALL', label: 'All Orders' },
+                    ].map((f) => (
+                      <button
+                        key={f.key}
+                        onClick={() => {
+                          setOrderFilter(f.key);
+                          setOrdersPage(1);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                          orderFilter === f.key
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center space-x-3 self-end lg:self-auto">
+                    {/* View Switcher: Cards vs Table */}
+                    <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                      <button
+                        onClick={() => setOrderViewMode('CARDS')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          orderViewMode === 'CARDS'
+                            ? 'bg-white text-slate-900 shadow-xs'
+                            : 'text-slate-500 hover:text-slate-900'
+                        }`}
+                        title="Card / KDS Kitchen Display View"
+                      >
+                        <LayoutDashboard className="w-3.5 h-3.5" />
+                        <span>KDS Cards</span>
+                      </button>
+                      <button
+                        onClick={() => setOrderViewMode('TABLE')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          orderViewMode === 'TABLE'
+                            ? 'bg-white text-slate-900 shadow-xs'
+                            : 'text-slate-500 hover:text-slate-900'
+                        }`}
+                        title="Detailed Data Table View"
+                      >
+                        <TableIcon className="w-3.5 h-3.5" />
+                        <span>Table View</span>
+                      </button>
+                    </div>
+
+                    <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                      Live Feed
+                    </span>
+                  </div>
                 </div>
 
-                <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 self-end sm:self-auto">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                  Live Kitchen Feed
-                </span>
+                {/* Row 2: Date Filters & Custom Date Range */}
+                <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1">
+                      <Calendar className="w-3 h-3 text-amber-500" />
+                      Date:
+                    </span>
+                    {[
+                      { key: 'ALL', label: 'All Dates' },
+                      { key: 'TODAY', label: 'Today' },
+                      { key: 'YESTERDAY', label: 'Yesterday' },
+                      { key: 'WEEK', label: 'Last 7 Days' },
+                      { key: 'MONTH', label: 'This Month' },
+                      { key: 'CUSTOM', label: 'Custom Range' },
+                    ].map((d) => (
+                      <button
+                        key={d.key}
+                        onClick={() => {
+                          setOrderDatePreset(d.key as any);
+                          setOrdersPage(1);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                          orderDatePreset === d.key
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-slate-50 text-slate-600 hover:bg-slate-200 border border-slate-200/60'
+                        }`}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Summary Metric Badge */}
+                  <div className="text-[11px] font-medium text-slate-500 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200/80 flex items-center gap-2">
+                    <span>
+                      <strong className="text-slate-800 font-extrabold">{filteredOrders.length}</strong> orders
+                    </span>
+                    <span>•</span>
+                    <span className="text-emerald-700 font-bold">
+                      ₹{filteredOrdersTotalAmount.toLocaleString('en-IN')} net
+                    </span>
+                    {filteredOrdersTotalDiscounts > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="text-amber-700 font-semibold">
+                          ₹{filteredOrdersTotalDiscounts} saved
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Custom Date Pickers (Shown if CUSTOM selected) */}
+                {orderDatePreset === 'CUSTOM' && (
+                  <div className="pt-2 border-t border-dashed border-slate-200 flex items-center gap-3 flex-wrap bg-amber-50/50 p-2.5 rounded-xl">
+                    <span className="text-xs font-bold text-amber-900 flex items-center gap-1">
+                      <CalendarRange className="w-3.5 h-3.5 text-amber-600" />
+                      Filter Range:
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[11px] text-slate-600 font-bold">From:</label>
+                      <input
+                        type="date"
+                        value={orderStartDate}
+                        onChange={(e) => {
+                          setOrderStartDate(e.target.value);
+                          setOrdersPage(1);
+                        }}
+                        className="text-xs px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[11px] text-slate-600 font-bold">To:</label>
+                      <input
+                        type="date"
+                        value={orderEndDate}
+                        onChange={(e) => {
+                          setOrderEndDate(e.target.value);
+                          setOrdersPage(1);
+                        }}
+                        className="text-xs px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                    {(orderStartDate || orderEndDate) && (
+                      <button
+                        onClick={() => {
+                          setOrderStartDate('');
+                          setOrderEndDate('');
+                        }}
+                        className="text-[11px] text-rose-600 hover:text-rose-700 font-bold px-2 py-0.5 rounded-md hover:bg-rose-50 transition cursor-pointer"
+                      >
+                        Reset Dates
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {filteredOrders.length === 0 ? (
                 <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-xs space-y-3">
                   <ChefHat className="w-12 h-12 text-slate-300 mx-auto" />
                   <h3 className="font-bold text-slate-800 text-base">
-                    No tickets found
+                    No tickets found for selected filters
                   </h3>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    Orders placed by customers will instantly chime and pop up here in real-time.
+                    Try changing your status or date filter above. Orders placed by customers will chime and pop up here in real-time.
                   </p>
+                  <button
+                    onClick={() => {
+                      setOrderFilter('ALL');
+                      setOrderDatePreset('ALL');
+                      setOrderStartDate('');
+                      setOrderEndDate('');
+                      setSearchQuery('');
+                    }}
+                    className="mt-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                  >
+                    Reset All Filters
+                  </button>
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {paginatedOrders.map((order) => (
-                      <div
-                        key={order.id}
-                        className={`bg-white rounded-2xl border shadow-xs flex flex-col justify-between overflow-hidden transition-all ${
-                          highlightedOrderId === order.id
-                            ? 'ring-4 ring-amber-500 ring-offset-2 border-amber-500 animate-pulse shadow-xl shadow-amber-500/20'
-                            : order.orderStatus === 'CONFIRMED'
-                            ? 'border-amber-400 ring-2 ring-amber-200'
-                            : order.orderStatus === 'PREPARING'
-                            ? 'border-blue-300'
-                            : order.orderStatus === 'READY'
-                            ? 'border-emerald-400 ring-2 ring-emerald-200'
-                            : 'border-slate-200'
-                        }`}
-                      >
-                        {/* Ticket Header */}
-                        <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-mono text-base font-black bg-amber-500 text-white px-3 py-1 rounded-xl shadow-xs">
-                              {order.tokenNumber || `T-${order.id}`}
-                            </span>
-                            <span className="text-xs text-slate-500 font-bold">
-                              #{order.id}
-                            </span>
-                            {highlightedOrderId === order.id && (
-                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-600 text-white animate-bounce flex items-center gap-1 shadow-xs">
-                                <Sparkles className="w-3 h-3" />
-                                <span>NEW</span>
+                  {/* View 1: KDS Cards Grid */}
+                  {orderViewMode === 'CARDS' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {paginatedOrders.map((order) => (
+                        <div
+                          key={order.id}
+                          className={`bg-white rounded-2xl border shadow-xs flex flex-col justify-between overflow-hidden transition-all ${
+                            highlightedOrderId === order.id
+                              ? 'ring-4 ring-amber-500 ring-offset-2 border-amber-500 animate-pulse shadow-xl shadow-amber-500/20'
+                              : order.orderStatus === 'CONFIRMED'
+                              ? 'border-amber-400 ring-2 ring-amber-200'
+                              : order.orderStatus === 'PREPARING'
+                              ? 'border-blue-300'
+                              : order.orderStatus === 'READY'
+                              ? 'border-emerald-400 ring-2 ring-emerald-200'
+                              : 'border-slate-200'
+                          }`}
+                        >
+                          {/* Ticket Header */}
+                          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-mono text-base font-black bg-amber-500 text-white px-3 py-1 rounded-xl shadow-xs">
+                                {order.tokenNumber || `T-${order.id}`}
                               </span>
-                            )}
-                          </div>
+                              <span className="text-xs text-slate-500 font-bold">
+                                #{order.id}
+                              </span>
+                              {highlightedOrderId === order.id && (
+                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-600 text-white animate-bounce flex items-center gap-1 shadow-xs">
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>NEW</span>
+                                </span>
+                              )}
+                            </div>
 
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full ${
-                                order.orderStatus === 'CONFIRMED'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : order.orderStatus === 'PREPARING'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : order.orderStatus === 'READY'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-slate-100 text-slate-600'
-                              }`}
-                            >
-                              {order.orderStatus}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Ticket Body */}
-                        <div className="p-4 flex-1 space-y-2">
-                          <div className="text-xs text-slate-400 flex items-center justify-between pb-1 border-b border-slate-100">
-                            <span>Items to prepare</span>
-                            <span>{new Date(order.createdAt).toLocaleTimeString()}</span>
-                          </div>
-
-                          <div className="divide-y divide-slate-100">
-                            {order.items?.map((item) => (
-                              <div
-                                key={item.id}
-                                className="py-2 flex items-center justify-between text-xs"
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full ${
+                                  order.orderStatus === 'CONFIRMED'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : order.orderStatus === 'PREPARING'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : order.orderStatus === 'READY'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : order.orderStatus === 'PENDING'
+                                    ? 'bg-orange-100 text-orange-900 border border-orange-300'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}
                               >
-                                <span className="font-bold text-slate-900">
-                                  {item.productName}
-                                </span>
-                                <span className="font-extrabold bg-slate-100 text-slate-900 px-2.5 py-0.5 rounded-md border border-slate-200">
-                                  × {item.quantity}
-                                </span>
-                              </div>
-                            ))}
+                                {order.orderStatus}
+                              </span>
+                            </div>
                           </div>
 
-                          {/* Customer & Amount details */}
-                          <div className="pt-2 text-xs space-y-1">
-                            {order.discountAmount && Number(order.discountAmount) > 0 ? (
-                              <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2.5 space-y-1">
-                                <div className="flex justify-between text-slate-500 text-[11px]">
-                                  <span>Gross Subtotal:</span>
-                                  <span className="line-through font-mono">
-                                    ₹{Number(order.subtotal || Number(order.totalAmount ?? order.total ?? 0) + Number(order.discountAmount))}
+                          {/* Ticket Body */}
+                          <div className="p-4 flex-1 space-y-2">
+                            <div className="text-xs text-slate-400 flex items-center justify-between pb-1 border-b border-slate-100">
+                              <span>
+                                {order.customerName ? `Guest: ${order.customerName}` : 'Items to prepare'}
+                              </span>
+                              <span>
+                                {new Date(order.createdAt).toLocaleDateString()} • {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+
+                            <div className="divide-y divide-slate-100">
+                              {(order.items || []).map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="py-2 flex items-center justify-between text-xs"
+                                >
+                                  <span className="font-bold text-slate-900">
+                                    {item.productName}
+                                  </span>
+                                  <span className="font-extrabold bg-slate-100 text-slate-900 px-2.5 py-0.5 rounded-md border border-slate-200">
+                                    × {item.quantity}
                                   </span>
                                 </div>
-                                <div className="flex justify-between text-emerald-800 font-bold text-[11px]">
-                                  <span className="flex items-center gap-1">
-                                    <Gift className="w-3 h-3 text-emerald-600 shrink-0" />
-                                    <span className="truncate">Discount ({order.discountReason || order.couponCode || 'Offer'}):</span>
-                                  </span>
-                                  <span className="shrink-0">-₹{Number(order.discountAmount)}</span>
+                              ))}
+                            </div>
+
+                            {/* Customer & Amount details */}
+                            <div className="pt-2 text-xs space-y-1">
+                              {order.discountAmount && Number(order.discountAmount) > 0 ? (
+                                <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2.5 space-y-1">
+                                  <div className="flex justify-between text-slate-500 text-[11px]">
+                                    <span>Gross Subtotal:</span>
+                                    <span className="line-through font-mono">
+                                      ₹{Number(order.subtotal || Number(order.totalAmount ?? order.total ?? 0) + Number(order.discountAmount))}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-emerald-800 font-bold text-[11px]">
+                                    <span className="flex items-center gap-1">
+                                      <Gift className="w-3 h-3 text-emerald-600 shrink-0" />
+                                      <span className="truncate">Discount ({order.discountReason || order.couponCode || 'Offer'}):</span>
+                                    </span>
+                                    <span className="shrink-0">-₹{Number(order.discountAmount)}</span>
+                                  </div>
+                                  <div className="flex justify-between font-extrabold text-slate-900 pt-1 border-t border-emerald-200/70 text-xs">
+                                    <span>Net Collected:</span>
+                                    <span className="text-emerald-700 font-black text-sm">
+                                      ₹{Number(order.totalAmount ?? order.total ?? 0)}
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="flex justify-between font-extrabold text-slate-900 pt-1 border-t border-emerald-200/70 text-xs">
-                                  <span>Net Collected:</span>
-                                  <span className="text-emerald-700 font-black text-sm">
+                              ) : (
+                                <div className="flex items-center justify-between text-slate-500">
+                                  <span>Amount:</span>
+                                  <span className="font-extrabold text-slate-900 text-sm">
                                     ₹{Number(order.totalAmount ?? order.total ?? 0)}
                                   </span>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-between text-slate-500">
-                                <span>Amount:</span>
-                                <span className="font-extrabold text-slate-900 text-sm">
-                                  ₹{Number(order.totalAmount ?? order.total ?? 0)}
-                                </span>
+                              )}
+                            </div>
+
+                            {order.notes && (
+                              <div className="mt-2 p-2.5 bg-amber-50 rounded-xl text-xs text-amber-900 border border-amber-200 font-medium">
+                                <strong className="block text-[10px] uppercase tracking-wider text-amber-700">
+                                  Instructions:
+                                </strong>
+                                {order.notes}
                               </div>
                             )}
                           </div>
 
-                          {order.notes && (
-                            <div className="mt-2 p-2.5 bg-amber-50 rounded-xl text-xs text-amber-900 border border-amber-200 font-medium">
-                              <strong className="block text-[10px] uppercase tracking-wider text-amber-700">
-                                Instructions:
-                              </strong>
-                              {order.notes}
-                            </div>
-                          )}
+                          {/* Ticket Action Button */}
+                          <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
+                            {order.orderStatus === 'PENDING' && (
+                              <div className="flex items-center gap-2 w-full">
+                                <button
+                                  onClick={() => handleStatusChange(order.id, 'PREPARING')}
+                                  className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                                >
+                                  <ChefHat className="w-4 h-4" />
+                                  <span>Accept &amp; Cook</span>
+                                </button>
+                                <button
+                                  onClick={() => handleStatusChange(order.id, 'CONFIRMED')}
+                                  className="py-2.5 px-3 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer"
+                                >
+                                  Accept
+                                </button>
+                              </div>
+                            )}
+
+                            {order.orderStatus === 'CONFIRMED' && (
+                              <button
+                                onClick={() => handleStatusChange(order.id, 'PREPARING')}
+                                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <ChefHat className="w-4 h-4" />
+                                <span>Start Cooking</span>
+                              </button>
+                            )}
+
+                            {order.orderStatus === 'PREPARING' && (
+                              <button
+                                onClick={() => handleStatusChange(order.id, 'READY')}
+                                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <Bell className="w-4 h-4" />
+                                <span>Mark Ready for Counter</span>
+                              </button>
+                            )}
+
+                            {order.orderStatus === 'READY' && (
+                              <button
+                                onClick={() => handleStatusChange(order.id, 'COMPLETED')}
+                                className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                                <span>Complete &amp; Hand Over</span>
+                              </button>
+                            )}
+
+                            {order.orderStatus === 'COMPLETED' && (
+                              <div className="flex-1 text-center py-1.5 text-xs font-bold text-slate-400">
+                                ✓ Fulfilled &amp; Closed
+                              </div>
+                            )}
+
+                            <button
+                              onClick={() => setSelectedReceiptOrder(order)}
+                              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                              title="View Ticket Receipt"
+                            >
+                              <Receipt className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
+                      ))}
+                    </div>
+                  )}
 
-                        {/* Ticket Action Button */}
-                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
-                          {order.orderStatus === 'CONFIRMED' && (
-                            <button
-                              onClick={() => handleStatusChange(order.id, 'PREPARING')}
-                              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <ChefHat className="w-4 h-4" />
-                              <span>Start Cooking</span>
-                            </button>
-                          )}
+                  {/* View 2: Detailed Data Table View */}
+                  {orderViewMode === 'TABLE' && (
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
+                              <th className="p-4">Daily Token / ID</th>
+                              <th className="p-4">Date &amp; Time</th>
+                              <th className="p-4">Customer Details</th>
+                              <th className="p-4">Dishes &amp; Items</th>
+                              <th className="p-4">Kitchen Status</th>
+                              <th className="p-4">Payment</th>
+                              <th className="p-4 text-right">Net Bill</th>
+                              <th className="p-4 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {paginatedOrders.map((order) => {
+                              const itemsCount = (order.items || []).reduce(
+                                (acc: number, it: any) => acc + (it.quantity || 1),
+                                0
+                              );
+                              return (
+                                <tr
+                                  key={order.id}
+                                  className={`hover:bg-slate-50/80 transition ${
+                                    highlightedOrderId === order.id ? 'bg-amber-50/80' : ''
+                                  }`}
+                                >
+                                  <td className="p-4">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono font-black text-xs bg-amber-500 text-white px-2.5 py-1 rounded-lg shadow-2xs">
+                                        {order.tokenNumber || `T-${order.id}`}
+                                      </span>
+                                      <span className="text-[10px] font-bold text-slate-400">
+                                        #{order.id}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="p-4 text-slate-500 font-medium whitespace-nowrap">
+                                    <span className="text-slate-800 font-bold block">
+                                      {new Date(order.createdAt).toLocaleDateString()}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                      {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </td>
+                                  <td className="p-4">
+                                    {order.customerName ? (
+                                      <div>
+                                        <span className="font-bold text-slate-900 block">
+                                          {order.customerName}
+                                        </span>
+                                        {order.customerPhone && (
+                                          <span className="text-[10px] text-slate-400">
+                                            {order.customerPhone}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-400 italic">Dine-in Guest</span>
+                                    )}
+                                  </td>
+                                  <td className="p-4">
+                                    <div className="max-w-xs">
+                                      <p className="font-medium text-slate-800 truncate text-xs">
+                                        {(order.items || [])
+                                          .map((it: any) => `${it.quantity}× ${it.productName || it.product?.name || 'Item'}`)
+                                          .join(', ')}
+                                      </p>
+                                      <span className="text-[10px] text-slate-400 font-semibold">
+                                        {itemsCount} {itemsCount === 1 ? 'item' : 'items'} total
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="p-4">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span
+                                        className={`px-2.5 py-1 rounded-md font-black text-[10px] uppercase tracking-wider ${
+                                          order.orderStatus === 'COMPLETED'
+                                            ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                                            : order.orderStatus === 'READY'
+                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse'
+                                            : order.orderStatus === 'PREPARING'
+                                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                            : order.orderStatus === 'PENDING'
+                                            ? 'bg-orange-100 text-orange-900 border border-orange-300'
+                                            : 'bg-amber-100 text-amber-900 border border-amber-300'
+                                        }`}
+                                      >
+                                        {order.orderStatus}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="p-4">
+                                    <span
+                                      className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                                        order.paymentStatus === 'PAID'
+                                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                      }`}
+                                    >
+                                      {order.paymentStatus}
+                                    </span>
+                                  </td>
+                                  <td className="p-4 text-right">
+                                    <span className="font-black text-slate-900 text-sm block">
+                                      ₹{Number(order.totalAmount ?? order.total ?? 0)}
+                                    </span>
+                                    {order.discountAmount && Number(order.discountAmount) > 0 && (
+                                      <span className="text-[10px] font-bold text-emerald-600 block">
+                                        -₹{Number(order.discountAmount)} disc
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                                    {order.orderStatus === 'PENDING' && (
+                                      <button
+                                        onClick={() => handleStatusChange(order.id, 'PREPARING')}
+                                        className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-[11px] rounded-lg shadow-2xs transition inline-flex items-center gap-1 cursor-pointer"
+                                      >
+                                        <ChefHat className="w-3 h-3" />
+                                        <span>Cook</span>
+                                      </button>
+                                    )}
+                                    {order.orderStatus === 'CONFIRMED' && (
+                                      <button
+                                        onClick={() => handleStatusChange(order.id, 'PREPARING')}
+                                        className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer"
+                                      >
+                                        <ChefHat className="w-3 h-3" />
+                                        <span>Cook</span>
+                                      </button>
+                                    )}
+                                    {order.orderStatus === 'PREPARING' && (
+                                      <button
+                                        onClick={() => handleStatusChange(order.id, 'READY')}
+                                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer"
+                                      >
+                                        <Bell className="w-3 h-3" />
+                                        <span>Ready</span>
+                                      </button>
+                                    )}
+                                    {order.orderStatus === 'READY' && (
+                                      <button
+                                        onClick={() => handleStatusChange(order.id, 'COMPLETED')}
+                                        className="px-2.5 py-1.5 bg-slate-900 hover:bg-black text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer"
+                                      >
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        <span>Fulfill</span>
+                                      </button>
+                                    )}
 
-                          {order.orderStatus === 'PREPARING' && (
-                            <button
-                              onClick={() => handleStatusChange(order.id, 'READY')}
-                              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <Bell className="w-4 h-4" />
-                              <span>Mark Ready for Counter</span>
-                            </button>
-                          )}
-
-                          {order.orderStatus === 'READY' && (
-                            <button
-                              onClick={() => handleStatusChange(order.id, 'COMPLETED')}
-                              className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <CheckCircle2 className="w-4 h-4" />
-                              <span>Complete & Hand Over</span>
-                            </button>
-                          )}
-
-                          {order.orderStatus === 'COMPLETED' && (
-                            <div className="w-full text-center py-1.5 text-xs font-bold text-slate-400">
-                              ✓ Fulfilled & Closed
-                            </div>
-                          )}
-                        </div>
+                                    <button
+                                      onClick={() => setSelectedReceiptOrder(order)}
+                                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-lg border border-slate-200 transition inline-flex items-center gap-1 cursor-pointer"
+                                      title="View Receipt"
+                                    >
+                                      <Receipt className="w-3 h-3 text-amber-600" />
+                                      <span>Ticket</span>
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
 
                   {/* Pagination Controls */}
                   {totalOrderPages > 1 && (
@@ -2063,6 +2518,233 @@ export default function ShopkeeperDashboard() {
                       Net collected: ₹{todaySalesVal} + Savings given: ₹{todayDiscountsVal}
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Date-wise Sales Audit & Detailed Ledger */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                {/* Header with Date Filter Bar */}
+                <div className="p-5 border-b border-slate-200 bg-slate-50/70 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                        <CalendarRange className="w-4 h-4 text-amber-600" />
+                        <span>Date-Wise Sales Audit & Ledger</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Filter paid orders and track exact revenue, discounts, and item breakdown by date.
+                      </p>
+                    </div>
+
+                    {/* Date Presets */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {(
+                        [
+                          { key: 'ALL', label: 'All Dates' },
+                          { key: 'TODAY', label: 'Today' },
+                          { key: 'YESTERDAY', label: 'Yesterday' },
+                          { key: 'WEEK', label: 'Last 7 Days' },
+                          { key: 'MONTH', label: 'This Month' },
+                          { key: 'CUSTOM', label: 'Custom Range' },
+                        ] as const
+                      ).map((preset) => (
+                        <button
+                          key={preset.key}
+                          type="button"
+                          onClick={() => {
+                            setStatsDatePreset(preset.key);
+                            if (preset.key !== 'CUSTOM') {
+                              setStatsStartDate('');
+                              setStatsEndDate('');
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
+                            statsDatePreset === preset.key
+                              ? 'bg-amber-500 text-white shadow-2xs'
+                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom Date Pickers */}
+                  {statsDatePreset === 'CUSTOM' && (
+                    <div className="flex items-center gap-3 pt-2 border-t border-slate-200/80 flex-wrap">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-bold text-slate-600">From:</span>
+                        <input
+                          type="date"
+                          value={statsStartDate}
+                          onChange={(e) => setStatsStartDate(e.target.value)}
+                          className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-bold text-slate-600">To:</span>
+                        <input
+                          type="date"
+                          value={statsEndDate}
+                          onChange={(e) => setStatsEndDate(e.target.value)}
+                          className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                      {(statsStartDate || statsEndDate) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStatsStartDate('');
+                            setStatsEndDate('');
+                          }}
+                          className="text-xs text-rose-600 hover:underline font-bold"
+                        >
+                          Clear dates
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Summary Metric Ribbon */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        Filtered Revenue
+                      </span>
+                      <span className="text-lg font-black text-amber-700">
+                        ₹{filteredStatsRevenue}
+                      </span>
+                    </div>
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        Paid Orders
+                      </span>
+                      <span className="text-lg font-black text-slate-900">
+                        {filteredStatsOrders.length}
+                      </span>
+                    </div>
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        Discounts Given
+                      </span>
+                      <span className="text-lg font-black text-emerald-600">
+                        ₹{filteredStatsDiscounts}
+                      </span>
+                    </div>
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        Gross Subtotal
+                      </span>
+                      <span className="text-lg font-black text-slate-700">
+                        ₹{filteredStatsRevenue + filteredStatsDiscounts}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ledger Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
+                        <th className="p-4">Token / ID</th>
+                        <th className="p-4">Date & Time</th>
+                        <th className="p-4">Customer</th>
+                        <th className="p-4">Items Summary</th>
+                        <th className="p-4">Discount</th>
+                        <th className="p-4 text-right">Net Amount</th>
+                        <th className="p-4 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredStatsOrders.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="p-10 text-center text-slate-400 font-medium">
+                            No paid orders found for the selected date range.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredStatsOrders.map((order) => {
+                          const orderDate = new Date(order.createdAt);
+                          const dateFormatted = orderDate.toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          });
+                          const timeFormatted = orderDate.toLocaleTimeString('en-IN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          });
+
+                          return (
+                            <tr key={order.id} className="hover:bg-slate-50/80 transition">
+                              <td className="p-4 font-mono font-black text-slate-900">
+                                <span className="bg-amber-100/80 text-amber-900 px-2 py-0.5 rounded border border-amber-300">
+                                  #{order.tokenNumber || order.id}
+                                </span>
+                              </td>
+                              <td className="p-4 whitespace-nowrap text-slate-600">
+                                <span className="font-bold block text-slate-900">{dateFormatted}</span>
+                                <span className="text-[11px] text-slate-400">{timeFormatted}</span>
+                              </td>
+                              <td className="p-4">
+                                {order.customerName ? (
+                                  <div>
+                                    <span className="font-bold text-slate-900 block">{order.customerName}</span>
+                                    {order.customerPhone && (
+                                      <span className="text-[11px] text-slate-500 font-mono">
+                                        {order.customerPhone}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic">Dine-in Guest</span>
+                                )}
+                              </td>
+                              <td className="p-4">
+                                <div className="max-w-xs">
+                                  <p className="font-medium text-slate-800 truncate text-xs">
+                                    {(order.items || [])
+                                      .map((it: any) => `${it.quantity}× ${it.productName || it.product?.name || 'Item'}`)
+                                      .join(', ')}
+                                  </p>
+                                  <span className="text-[10px] text-slate-400">
+                                    {order.items?.length || 0} unique items
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="p-4">
+                                {order.discountAmount && Number(order.discountAmount) > 0 ? (
+                                  <span className="text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block text-[11px]">
+                                    -₹{Number(order.discountAmount)}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
+                              <td className="p-4 text-right">
+                                <span className="font-black text-slate-900 text-sm">
+                                  ₹{Number(order.totalAmount ?? order.total ?? 0)}
+                                </span>
+                              </td>
+                              <td className="p-4 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedReceiptOrder(order)}
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-lg border border-slate-200 transition inline-flex items-center gap-1 cursor-pointer"
+                                  title="View Ticket"
+                                >
+                                  <Receipt className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>Ticket</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -3447,6 +4129,226 @@ export default function ShopkeeperDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= RECEIPT & TICKET MODAL ================= */}
+      {selectedReceiptOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-200 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Receipt className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base">Order Ticket & Receipt</h3>
+                  <span className="text-xs font-mono bg-white/25 px-2 py-0.5 rounded-md font-bold">
+                    Token #{selectedReceiptOrder.tokenNumber || selectedReceiptOrder.id}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedReceiptOrder(null)}
+                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 text-xs">
+              {/* Order Metadata */}
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Date & Time
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {new Date(selectedReceiptOrder.createdAt).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}{' '}
+                    •{' '}
+                    {new Date(selectedReceiptOrder.createdAt).toLocaleTimeString('en-IN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Order Status
+                  </span>
+                  <span className="font-black text-amber-700 uppercase">
+                    {selectedReceiptOrder.orderStatus}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Customer
+                  </span>
+                  <span className="font-bold text-slate-800">
+                    {selectedReceiptOrder.customerName || 'Dine-in Guest'}
+                  </span>
+                  {selectedReceiptOrder.customerPhone && (
+                    <span className="text-[11px] text-slate-500 font-mono block">
+                      {selectedReceiptOrder.customerPhone}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Payment Status
+                  </span>
+                  <span
+                    className={`font-black text-[11px] uppercase ${
+                      selectedReceiptOrder.paymentStatus === 'PAID'
+                        ? 'text-emerald-700'
+                        : 'text-amber-700'
+                    }`}
+                  >
+                    {selectedReceiptOrder.paymentStatus}
+                  </span>
+                </div>
+              </div>
+
+              {/* Items List */}
+              <div>
+                <h4 className="font-bold text-slate-900 mb-2 uppercase text-[11px] tracking-wider">
+                  Itemized Order ({selectedReceiptOrder.items?.length || 0})
+                </h4>
+                <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                  {(selectedReceiptOrder.items || []).map((it: any, idx: number) => {
+                    const itemName = it.productName || it.product?.name || `Item #${idx + 1}`;
+                    const unitPrice = Number(it.price || it.unitPrice || 0);
+                    const lineTotal = Number(it.quantity || 1) * unitPrice;
+                    return (
+                      <div key={idx} className="p-3 flex items-center justify-between bg-white">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-6 h-6 rounded-md bg-amber-100 text-amber-900 font-black flex items-center justify-center text-xs">
+                            {it.quantity}×
+                          </span>
+                          <div>
+                            <span className="font-bold text-slate-800 block">{itemName}</span>
+                            {unitPrice > 0 && (
+                              <span className="text-[10px] text-slate-400">₹{unitPrice} each</span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="font-black text-slate-900">
+                          {lineTotal > 0 ? `₹${lineTotal}` : '—'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Financial Calculation */}
+              <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200/80 space-y-1.5">
+                {selectedReceiptOrder.discountAmount &&
+                  Number(selectedReceiptOrder.discountAmount) > 0 && (
+                    <>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Items Subtotal</span>
+                        <span className="font-bold">
+                          ₹
+                          {Number(selectedReceiptOrder.totalAmount ?? selectedReceiptOrder.total ?? 0) +
+                            Number(selectedReceiptOrder.discountAmount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-emerald-700 font-bold">
+                        <span>Discount Applied</span>
+                        <span>-₹{Number(selectedReceiptOrder.discountAmount)}</span>
+                      </div>
+                    </>
+                  )}
+                <div className="flex justify-between items-baseline pt-2 border-t border-amber-200/60">
+                  <span className="font-extrabold text-slate-900 text-sm">Net Total</span>
+                  <span className="font-black text-slate-900 text-xl font-mono">
+                    ₹{Number(selectedReceiptOrder.totalAmount ?? selectedReceiptOrder.total ?? 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-xl transition inline-flex items-center gap-1.5 cursor-pointer text-xs"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Ticket</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                {selectedReceiptOrder.orderStatus === 'PENDING' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStatusChange(selectedReceiptOrder.id, 'PREPARING');
+                      setSelectedReceiptOrder(null);
+                    }}
+                    className="px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black rounded-xl text-xs transition cursor-pointer"
+                  >
+                    Accept & Cook
+                  </button>
+                )}
+                {selectedReceiptOrder.orderStatus === 'CONFIRMED' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStatusChange(selectedReceiptOrder.id, 'PREPARING');
+                      setSelectedReceiptOrder(null);
+                    }}
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                  >
+                    Start Cooking
+                  </button>
+                )}
+                {selectedReceiptOrder.orderStatus === 'PREPARING' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStatusChange(selectedReceiptOrder.id, 'READY');
+                      setSelectedReceiptOrder(null);
+                    }}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                  >
+                    Mark Ready
+                  </button>
+                )}
+                {selectedReceiptOrder.orderStatus === 'READY' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStatusChange(selectedReceiptOrder.id, 'COMPLETED');
+                      setSelectedReceiptOrder(null);
+                    }}
+                    className="px-3 py-2 bg-slate-900 hover:bg-black text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                  >
+                    Complete
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedReceiptOrder(null)}
+                  className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl text-xs transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

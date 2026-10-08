@@ -39,9 +39,13 @@ import {
   Calendar,
   Tag,
   Gift,
+  CalendarRange,
+  Filter,
+  Printer,
 } from 'lucide-react';
 
 type AdminTab = 'OVERVIEW' | 'OUTLETS_SALES' | 'SHOPS' | 'SHOPKEEPERS' | 'ORDERS' | 'COUPONS';
+type DatePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 
 export default function AdminDashboard() {
   const { user, logout, isLoading: authLoading } = useAuth();
@@ -62,6 +66,18 @@ export default function AdminDashboard() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('ALL');
   const [keeperShopFilter, setKeeperShopFilter] = useState<string>('ALL');
   const [couponScopeFilter, setCouponScopeFilter] = useState<string>('ALL');
+
+  // Date Filters
+  const [orderDatePreset, setOrderDatePreset] = useState<DatePreset>('ALL');
+  const [orderStartDate, setOrderStartDate] = useState<string>('');
+  const [orderEndDate, setOrderEndDate] = useState<string>('');
+
+  const [salesDatePreset, setSalesDatePreset] = useState<DatePreset>('ALL');
+  const [salesStartDate, setSalesStartDate] = useState<string>('');
+  const [salesEndDate, setSalesEndDate] = useState<string>('');
+
+  // Selected receipt modal
+  const [selectedReceiptOrder, setSelectedReceiptOrder] = useState<Order | null>(null);
 
   // Coupon Modals & Form
   const [showCouponModal, setShowCouponModal] = useState(false);
@@ -520,13 +536,66 @@ export default function AdminDashboard() {
       : monthPaidOrders.reduce((s, o) => s + Number(o.totalAmount ?? o.total ?? 0), 0)
   );
 
-  // Per-shop sales metric list
-  const shopSalesList: ShopSalesMetric[] = useMemo(() => {
-    if (stats?.shopSales && stats.shopSales.length > 0) {
-      return stats.shopSales;
+  // Date Range Matcher Helper
+  const matchesDateRange = (
+    dateStr: string,
+    preset: DatePreset,
+    startDate?: string,
+    endDate?: string
+  ): boolean => {
+    if (preset === 'ALL' && !startDate && !endDate) return true;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return true;
+    const now = new Date();
+
+    if (preset === 'TODAY') {
+      return (
+        d.getDate() === now.getDate() &&
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear()
+      );
     }
 
-    // Fallback compute from local orders & shops
+    if (preset === 'YESTERDAY') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return (
+        d.getDate() === yesterday.getDate() &&
+        d.getMonth() === yesterday.getMonth() &&
+        d.getFullYear() === yesterday.getFullYear()
+      );
+    }
+
+    if (preset === 'WEEK') {
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      sevenDaysAgo.setHours(0, 0, 0, 0);
+      return d >= sevenDaysAgo && d <= now;
+    }
+
+    if (preset === 'MONTH') {
+      return (
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear()
+      );
+    }
+
+    if (preset === 'CUSTOM') {
+      if (startDate) {
+        const start = new Date(`${startDate}T00:00:00`);
+        if (d < start) return false;
+      }
+      if (endDate) {
+        const end = new Date(`${endDate}T23:59:59.999`);
+        if (d > end) return false;
+      }
+      return true;
+    }
+
+    return true;
+  };
+
+  // Per-shop sales metric list with period date range support
+  const shopSalesList = useMemo(() => {
     const cutoff = getBusinessDayCutoff();
     return shops.map((s) => {
       const shopOrders = orders.filter((o) => o.shopId === s.id);
@@ -546,6 +615,11 @@ export default function AdminDashboard() {
         const d = new Date(o.createdAt);
         return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
       });
+
+      // Filtered by selected sales date preset/range
+      const periodPaidOrders = paidOrders.filter((o) =>
+        matchesDateRange(o.createdAt, salesDatePreset, salesStartDate, salesEndDate)
+      );
 
       const keepersForShop = shopkeepers.filter((k) => k.shopId === s.id);
 
@@ -571,9 +645,22 @@ export default function AdminDashboard() {
         weekOrders: weekOrders.length,
         monthSales: monthOrders.reduce((sum, o) => sum + Number(o.totalAmount ?? o.total ?? 0), 0),
         monthOrders: monthOrders.length,
+        periodSales: periodPaidOrders.reduce(
+          (sum, o) => sum + Number(o.totalAmount ?? o.total ?? 0),
+          0
+        ),
+        periodOrders: periodPaidOrders.length,
       };
     });
-  }, [stats?.shopSales, shops, orders, shopkeepers]);
+  }, [shops, orders, shopkeepers, salesDatePreset, salesStartDate, salesEndDate]);
+
+  const totalPeriodSales = useMemo(() => {
+    return shopSalesList.reduce((sum, s) => sum + s.periodSales, 0);
+  }, [shopSalesList]);
+
+  const totalPeriodOrders = useMemo(() => {
+    return shopSalesList.reduce((sum, s) => sum + s.periodOrders, 0);
+  }, [shopSalesList]);
 
   // Filtered Shops
   const filteredShops = useMemo(() => {
@@ -614,7 +701,9 @@ export default function AdminDashboard() {
         (o.tokenNumber && o.tokenNumber.toLowerCase().includes(q)) ||
         (o.orderCode && o.orderCode.toLowerCase().includes(q)) ||
         String(o.id).includes(q) ||
-        (o.shop?.name && o.shop.name.toLowerCase().includes(q));
+        (o.shop?.name && o.shop.name.toLowerCase().includes(q)) ||
+        (o.customerName && o.customerName.toLowerCase().includes(q)) ||
+        (o.customerPhone && o.customerPhone.toLowerCase().includes(q));
 
       const matchesShop =
         orderShopFilter === 'ALL' || String(o.shopId) === orderShopFilter;
@@ -622,9 +711,34 @@ export default function AdminDashboard() {
       const matchesStatus =
         orderStatusFilter === 'ALL' || o.orderStatus === orderStatusFilter;
 
-      return matchesSearch && matchesShop && matchesStatus;
+      const matchesDate = matchesDateRange(
+        o.createdAt,
+        orderDatePreset,
+        orderStartDate,
+        orderEndDate
+      );
+
+      return matchesSearch && matchesShop && matchesStatus && matchesDate;
     });
-  }, [orders, searchQuery, orderShopFilter, orderStatusFilter]);
+  }, [
+    orders,
+    searchQuery,
+    orderShopFilter,
+    orderStatusFilter,
+    orderDatePreset,
+    orderStartDate,
+    orderEndDate,
+  ]);
+
+  const filteredOrdersRevenue = useMemo(() => {
+    return filteredOrders
+      .filter((o) => o.paymentStatus === 'PAID')
+      .reduce((sum, o) => sum + Number(o.totalAmount ?? o.total ?? 0), 0);
+  }, [filteredOrders]);
+
+  const filteredOrdersDiscounts = useMemo(() => {
+    return filteredOrders.reduce((sum, o) => sum + Number(o.discountAmount ?? 0), 0);
+  }, [filteredOrders]);
 
   // Filtered Shop Sales List
   const filteredShopSales = useMemo(() => {
@@ -1155,15 +1269,122 @@ export default function AdminDashboard() {
           {/* ================= VIEW: OUTLETS SALES TRACKING ================= */}
           {activeTab === 'OUTLETS_SALES' && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-emerald-600" />
-                    <span>Per-Shop Sales & Revenue Breakdown ({filteredShopSales.length})</span>
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Track each shopkeeper and restaurant outlet&apos;s sales for today, this week, this month, and lifetime revenue.
-                  </p>
+              <div className="p-5 border-b border-slate-200 bg-slate-50/70 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-emerald-600" />
+                      <span>Per-Shop Sales & Revenue Breakdown ({filteredShopSales.length})</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Track and filter sales across all restaurant outlets by custom date ranges or standard calendar periods.
+                    </p>
+                  </div>
+
+                  {/* Date Filter Presets */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {(
+                      [
+                        { key: 'ALL', label: 'All Dates' },
+                        { key: 'TODAY', label: 'Today' },
+                        { key: 'YESTERDAY', label: 'Yesterday' },
+                        { key: 'WEEK', label: 'Last 7 Days' },
+                        { key: 'MONTH', label: 'This Month' },
+                        { key: 'CUSTOM', label: 'Custom Range' },
+                      ] as const
+                    ).map((preset) => (
+                      <button
+                        key={preset.key}
+                        type="button"
+                        onClick={() => {
+                          setSalesDatePreset(preset.key);
+                          if (preset.key !== 'CUSTOM') {
+                            setSalesStartDate('');
+                            setSalesEndDate('');
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
+                          salesDatePreset === preset.key
+                            ? 'bg-purple-600 text-white shadow-2xs'
+                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Date Pickers */}
+                {salesDatePreset === 'CUSTOM' && (
+                  <div className="flex items-center gap-3 pt-2 border-t border-slate-200/80 flex-wrap">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-bold text-slate-600">From:</span>
+                      <input
+                        type="date"
+                        value={salesStartDate}
+                        onChange={(e) => setSalesStartDate(e.target.value)}
+                        className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-bold text-slate-600">To:</span>
+                      <input
+                        type="date"
+                        value={salesEndDate}
+                        onChange={(e) => setSalesEndDate(e.target.value)}
+                        className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    {(salesStartDate || salesEndDate) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSalesStartDate('');
+                          setSalesEndDate('');
+                        }}
+                        className="text-xs text-rose-600 hover:underline font-bold"
+                      >
+                        Clear dates
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Summary Ribbon */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                  <div className="bg-purple-50/70 border border-purple-200/80 p-3 rounded-xl">
+                    <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">
+                      Period Sales ({salesDatePreset})
+                    </span>
+                    <span className="text-lg font-black text-purple-950">
+                      ₹{totalPeriodSales}
+                    </span>
+                  </div>
+                  <div className="bg-white border border-slate-200/80 p-3 rounded-xl">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Period Orders
+                    </span>
+                    <span className="text-lg font-black text-slate-900">
+                      {totalPeriodOrders}
+                    </span>
+                  </div>
+                  <div className="bg-white border border-slate-200/80 p-3 rounded-xl">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Active Outlets
+                    </span>
+                    <span className="text-lg font-black text-emerald-600">
+                      {shops.filter((s) => s.isActive).length} / {shops.length}
+                    </span>
+                  </div>
+                  <div className="bg-white border border-slate-200/80 p-3 rounded-xl">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      All-Time Revenue
+                    </span>
+                    <span className="text-lg font-black text-amber-700">
+                      ₹{totalPlatformRevenue}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1173,6 +1394,9 @@ export default function AdminDashboard() {
                     <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
                       <th className="p-4">Shop Outlet</th>
                       <th className="p-4">Assigned Keeper</th>
+                      <th className="p-4 bg-purple-100/70 text-purple-950 border-x border-purple-200">
+                        Period Sales ({salesDatePreset})
+                      </th>
                       <th className="p-4">Today&apos;s Sales</th>
                       <th className="p-4">This Week</th>
                       <th className="p-4">This Month</th>
@@ -1183,7 +1407,7 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-slate-100">
                     {paginatedSales.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-400">
+                        <td colSpan={8} className="p-8 text-center text-slate-400">
                           No shop sales records found.
                         </td>
                       </tr>
@@ -1211,6 +1435,14 @@ export default function AdminDashboard() {
                             ) : (
                               <span className="text-slate-400 italic">No keeper assigned</span>
                             )}
+                          </td>
+                          <td className="p-4 bg-purple-50/40 border-x border-purple-200">
+                            <span className="font-black text-purple-950 text-sm block">
+                              ₹{s.periodSales}
+                            </span>
+                            <span className="text-[10px] text-purple-700 font-semibold">
+                              {s.periodOrders} orders
+                            </span>
                           </td>
                           <td className="p-4">
                             <span className="font-black text-slate-900 text-sm block">
@@ -1637,50 +1869,180 @@ export default function AdminDashboard() {
           {/* ================= VIEW: ORDERS AUDIT ================= */}
           {activeTab === 'ORDERS' && (
             <div className="space-y-4">
-              {/* Filters bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-slate-500">Shop:</span>
-                  <select
-                    value={orderShopFilter}
-                    onChange={(e) => {
-                      setOrderShopFilter(e.target.value);
-                      setOrdersPage(1);
-                    }}
-                    className="text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl font-medium"
-                  >
-                    <option value="ALL">All Shops</option>
-                    {shops.map((s) => (
-                      <option key={s.id} value={String(s.id)}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+              {/* Header with Title and Quick Filter Counts */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                {/* Row 1: Shop & Status Dropdowns + Search */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-xs font-bold text-slate-500">Shop:</span>
+                    <select
+                      value={orderShopFilter}
+                      onChange={(e) => {
+                        setOrderShopFilter(e.target.value);
+                        setOrdersPage(1);
+                      }}
+                      className="text-xs px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="ALL">All Shops ({shops.length})</option>
+                      {shops.map((s) => (
+                        <option key={s.id} value={String(s.id)}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
 
-                  <span className="text-xs font-bold text-slate-500 ml-2">Status:</span>
-                  <select
-                    value={orderStatusFilter}
-                    onChange={(e) => {
-                      setOrderStatusFilter(e.target.value);
-                      setOrdersPage(1);
-                    }}
-                    className="text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl font-medium"
-                  >
-                    <option value="ALL">All Statuses</option>
-                    <option value="PENDING">PENDING</option>
-                    <option value="CONFIRMED">CONFIRMED</option>
-                    <option value="PREPARING">PREPARING</option>
-                    <option value="READY">READY</option>
-                    <option value="COMPLETED">COMPLETED</option>
-                    <option value="CANCELLED">CANCELLED</option>
-                  </select>
+                    <span className="text-xs font-bold text-slate-500 ml-1">Status:</span>
+                    <select
+                      value={orderStatusFilter}
+                      onChange={(e) => {
+                        setOrderStatusFilter(e.target.value);
+                        setOrdersPage(1);
+                      }}
+                      className="text-xs px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="ALL">All Statuses</option>
+                      <option value="PENDING">PENDING</option>
+                      <option value="CONFIRMED">CONFIRMED</option>
+                      <option value="PREPARING">PREPARING</option>
+                      <option value="READY">READY</option>
+                      <option value="COMPLETED">COMPLETED</option>
+                      <option value="CANCELLED">CANCELLED</option>
+                    </select>
+                  </div>
+
+                  {/* Search query input */}
+                  <div className="relative min-w-[240px]">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search token, shop, guest..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setOrdersPage(1);
+                      }}
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
                 </div>
 
-                <span className="text-xs text-slate-500 font-medium">
-                  {filteredOrders.length} matching orders
-                </span>
+                {/* Row 2: Date Filter Presets + Custom Range */}
+                <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
+                      <CalendarRange className="w-3.5 h-3.5 text-purple-600" />
+                      <span>Date:</span>
+                    </span>
+                    {(
+                      [
+                        { key: 'ALL', label: 'All Dates' },
+                        { key: 'TODAY', label: 'Today' },
+                        { key: 'YESTERDAY', label: 'Yesterday' },
+                        { key: 'WEEK', label: 'Last 7 Days' },
+                        { key: 'MONTH', label: 'This Month' },
+                        { key: 'CUSTOM', label: 'Custom Range' },
+                      ] as const
+                    ).map((preset) => (
+                      <button
+                        key={preset.key}
+                        type="button"
+                        onClick={() => {
+                          setOrderDatePreset(preset.key);
+                          setOrdersPage(1);
+                          if (preset.key !== 'CUSTOM') {
+                            setOrderStartDate('');
+                            setOrderEndDate('');
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
+                          orderDatePreset === preset.key
+                            ? 'bg-purple-600 text-white shadow-2xs'
+                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom Date Pickers */}
+                  {orderDatePreset === 'CUSTOM' && (
+                    <div className="flex items-center gap-2 text-xs flex-wrap">
+                      <span className="font-bold text-slate-600">From:</span>
+                      <input
+                        type="date"
+                        value={orderStartDate}
+                        onChange={(e) => {
+                          setOrderStartDate(e.target.value);
+                          setOrdersPage(1);
+                        }}
+                        className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-purple-500"
+                      />
+                      <span className="font-bold text-slate-600">To:</span>
+                      <input
+                        type="date"
+                        value={orderEndDate}
+                        onChange={(e) => {
+                          setOrderEndDate(e.target.value);
+                          setOrdersPage(1);
+                        }}
+                        className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-purple-500"
+                      />
+                      {(orderStartDate || orderEndDate) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOrderStartDate('');
+                            setOrderEndDate('');
+                            setOrdersPage(1);
+                          }}
+                          className="text-xs text-rose-600 hover:underline font-bold"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Summary Metrics Banner */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
+                  <div className="bg-purple-50/70 border border-purple-200/80 p-3 rounded-xl">
+                    <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">
+                      Filtered Revenue
+                    </span>
+                    <span className="text-lg font-black text-purple-950">
+                      ₹{filteredOrdersRevenue}
+                    </span>
+                  </div>
+                  <div className="bg-white border border-slate-200/80 p-3 rounded-xl">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Matching Tickets
+                    </span>
+                    <span className="text-lg font-black text-slate-900">
+                      {filteredOrders.length}
+                    </span>
+                  </div>
+                  <div className="bg-white border border-slate-200/80 p-3 rounded-xl">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Discounts Awarded
+                    </span>
+                    <span className="text-lg font-black text-emerald-600">
+                      ₹{filteredOrdersDiscounts}
+                    </span>
+                  </div>
+                  <div className="bg-white border border-slate-200/80 p-3 rounded-xl">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Paid Orders
+                    </span>
+                    <span className="text-lg font-black text-amber-700">
+                      {filteredOrders.filter((o) => o.paymentStatus === 'PAID').length}
+                    </span>
+                  </div>
+                </div>
               </div>
 
+              {/* Data Table */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
@@ -1688,48 +2050,136 @@ export default function AdminDashboard() {
                       <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
                         <th className="p-4">Daily Token / ID</th>
                         <th className="p-4">Shop Outlet</th>
-                        <th className="p-4">Total Amount</th>
+                        <th className="p-4">Customer Details</th>
+                        <th className="p-4">Dishes & Items</th>
                         <th className="p-4">Kitchen Status</th>
                         <th className="p-4">Payment</th>
                         <th className="p-4">Date & Time</th>
+                        <th className="p-4 text-right">Net Amount</th>
+                        <th className="p-4 text-right">Ticket</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {paginatedOrders.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-slate-400">
+                          <td colSpan={9} className="p-10 text-center text-slate-400 font-medium">
                             No orders match the selected filters.
                           </td>
                         </tr>
                       ) : (
-                        paginatedOrders.map((o) => (
-                          <tr key={o.id} className="hover:bg-slate-50/80 transition">
-                            <td className="p-4">
-                              <span className="font-mono font-black text-xs bg-slate-100 text-slate-900 px-2.5 py-1 rounded-md border border-slate-200">
-                                {o.tokenNumber || `ORD-${o.id}`}
-                              </span>
-                            </td>
-                            <td className="p-4 font-bold text-slate-800">
-                              {o.shop?.name || `Shop #${o.shopId}`}
-                            </td>
-                            <td className="p-4 font-extrabold text-amber-700 text-sm">
-                              ₹{Number(o.totalAmount ?? o.total ?? 0)}
-                            </td>
-                            <td className="p-4">
-                              <span className="px-2.5 py-1 rounded-md font-bold text-[10px] bg-slate-100 text-slate-800 border border-slate-200">
-                                {o.orderStatus}
-                              </span>
-                            </td>
-                            <td className="p-4">
-                              <span className="px-2.5 py-1 rounded-md font-bold text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                {o.paymentStatus}
-                              </span>
-                            </td>
-                            <td className="p-4 text-slate-500">
-                              {new Date(o.createdAt).toLocaleString()}
-                            </td>
-                          </tr>
-                        ))
+                        paginatedOrders.map((o) => {
+                          const orderDate = new Date(o.createdAt);
+                          const dateFormatted = orderDate.toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          });
+                          const timeFormatted = orderDate.toLocaleTimeString('en-IN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          });
+                          const itemsCount =
+                            o.items?.reduce((s: number, it: any) => s + (it.quantity || 1), 0) || 0;
+
+                          return (
+                            <tr key={o.id} className="hover:bg-slate-50/80 transition">
+                              <td className="p-4">
+                                <span className="font-mono font-black text-xs bg-purple-50 text-purple-900 px-2.5 py-1 rounded-md border border-purple-200">
+                                  #{o.tokenNumber || o.id}
+                                </span>
+                              </td>
+                              <td className="p-4">
+                                <span className="font-bold text-slate-900 block">
+                                  {o.shop?.name || `Shop #${o.shopId}`}
+                                </span>
+                                {o.shop?.slug && (
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    /{o.shop.slug}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-4">
+                                {o.customerName ? (
+                                  <div>
+                                    <span className="font-bold text-slate-900 block">{o.customerName}</span>
+                                    {o.customerPhone && (
+                                      <span className="text-[10px] text-slate-500 font-mono">
+                                        {o.customerPhone}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic">Dine-in Guest</span>
+                                )}
+                              </td>
+                              <td className="p-4">
+                                <div className="max-w-xs">
+                                  <p className="font-medium text-slate-800 truncate text-xs">
+                                    {(o.items || [])
+                                      .map((it: any) => `${it.quantity}× ${it.productName || it.product?.name || 'Item'}`)
+                                      .join(', ')}
+                                  </p>
+                                  <span className="text-[10px] text-slate-400 font-semibold">
+                                    {itemsCount} {itemsCount === 1 ? 'item' : 'items'} total
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="p-4">
+                                <span
+                                  className={`px-2.5 py-1 rounded-md font-black text-[10px] uppercase tracking-wider ${
+                                    o.orderStatus === 'COMPLETED'
+                                      ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                                      : o.orderStatus === 'READY'
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                      : o.orderStatus === 'PREPARING'
+                                      ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                      : o.orderStatus === 'PENDING'
+                                      ? 'bg-orange-100 text-orange-900 border border-orange-300'
+                                      : 'bg-amber-100 text-amber-900 border border-amber-300'
+                                  }`}
+                                >
+                                  {o.orderStatus}
+                                </span>
+                              </td>
+                              <td className="p-4">
+                                <span
+                                  className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                                    o.paymentStatus === 'PAID'
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  }`}
+                                >
+                                  {o.paymentStatus}
+                                </span>
+                              </td>
+                              <td className="p-4 whitespace-nowrap text-slate-600">
+                                <span className="font-bold block text-slate-900">{dateFormatted}</span>
+                                <span className="text-[11px] text-slate-400">{timeFormatted}</span>
+                              </td>
+                              <td className="p-4 text-right">
+                                <span className="font-black text-slate-900 text-sm block">
+                                  ₹{Number(o.totalAmount ?? o.total ?? 0)}
+                                </span>
+                                {o.discountAmount && Number(o.discountAmount) > 0 && (
+                                  <span className="text-[10px] font-bold text-emerald-600 block">
+                                    -₹{Number(o.discountAmount)} disc
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-4 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedReceiptOrder(o)}
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-lg border border-slate-200 transition inline-flex items-center gap-1 cursor-pointer"
+                                  title="View Ticket Receipt"
+                                >
+                                  <Receipt className="w-3.5 h-3.5 text-purple-600" />
+                                  <span>Ticket</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -2725,6 +3175,177 @@ export default function AdminDashboard() {
                 ) : (
                   <span>Delete Coupon</span>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: RECEIPT & TICKET AUDIT ================= */}
+      {selectedReceiptOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-200 bg-gradient-to-r from-purple-800 to-indigo-800 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Receipt className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base">Order Ticket & Receipt Audit</h3>
+                  <span className="text-xs font-mono bg-white/25 px-2 py-0.5 rounded-md font-bold">
+                    Token #{selectedReceiptOrder.tokenNumber || selectedReceiptOrder.id} •{' '}
+                    {selectedReceiptOrder.shop?.name || `Shop #${selectedReceiptOrder.shopId}`}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedReceiptOrder(null)}
+                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 text-xs">
+              {/* Order Metadata */}
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Date & Time
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {new Date(selectedReceiptOrder.createdAt).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}{' '}
+                    •{' '}
+                    {new Date(selectedReceiptOrder.createdAt).toLocaleTimeString('en-IN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Kitchen Status
+                  </span>
+                  <span className="font-black text-purple-700 uppercase">
+                    {selectedReceiptOrder.orderStatus}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Customer
+                  </span>
+                  <span className="font-bold text-slate-800">
+                    {selectedReceiptOrder.customerName || 'Dine-in Guest'}
+                  </span>
+                  {selectedReceiptOrder.customerPhone && (
+                    <span className="text-[11px] text-slate-500 font-mono block">
+                      {selectedReceiptOrder.customerPhone}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Payment Status
+                  </span>
+                  <span
+                    className={`font-black text-[11px] uppercase ${
+                      selectedReceiptOrder.paymentStatus === 'PAID'
+                        ? 'text-emerald-700'
+                        : 'text-amber-700'
+                    }`}
+                  >
+                    {selectedReceiptOrder.paymentStatus}
+                  </span>
+                </div>
+              </div>
+
+              {/* Items List */}
+              <div>
+                <h4 className="font-bold text-slate-900 mb-2 uppercase text-[11px] tracking-wider">
+                  Itemized Order Breakdown ({selectedReceiptOrder.items?.length || 0})
+                </h4>
+                <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                  {(selectedReceiptOrder.items || []).map((it: any, idx: number) => {
+                    const itemName = it.productName || it.product?.name || `Item #${idx + 1}`;
+                    const unitPrice = Number(it.price || it.unitPrice || 0);
+                    const lineTotal = Number(it.quantity || 1) * unitPrice;
+                    return (
+                      <div key={idx} className="p-3 flex items-center justify-between bg-white">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-6 h-6 rounded-md bg-purple-100 text-purple-900 font-black flex items-center justify-center text-xs">
+                            {it.quantity}×
+                          </span>
+                          <div>
+                            <span className="font-bold text-slate-800 block">{itemName}</span>
+                            {unitPrice > 0 && (
+                              <span className="text-[10px] text-slate-400">₹{unitPrice} each</span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="font-black text-slate-900">
+                          {lineTotal > 0 ? `₹${lineTotal}` : '—'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Financial Calculation */}
+              <div className="bg-purple-50/60 p-4 rounded-2xl border border-purple-200/80 space-y-1.5">
+                {selectedReceiptOrder.discountAmount &&
+                  Number(selectedReceiptOrder.discountAmount) > 0 && (
+                    <>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Items Subtotal</span>
+                        <span className="font-bold">
+                          ₹
+                          {Number(selectedReceiptOrder.totalAmount ?? selectedReceiptOrder.total ?? 0) +
+                            Number(selectedReceiptOrder.discountAmount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-emerald-700 font-bold">
+                        <span>Discount Applied</span>
+                        <span>-₹{Number(selectedReceiptOrder.discountAmount)}</span>
+                      </div>
+                    </>
+                  )}
+                <div className="flex justify-between items-baseline pt-2 border-t border-purple-200/60">
+                  <span className="font-extrabold text-slate-900 text-sm">Net Total</span>
+                  <span className="font-black text-slate-900 text-xl font-mono">
+                    ₹{Number(selectedReceiptOrder.totalAmount ?? selectedReceiptOrder.total ?? 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-xl transition inline-flex items-center gap-1.5 cursor-pointer text-xs"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Ticket</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedReceiptOrder(null)}
+                className="px-4 py-2 bg-slate-900 hover:bg-black text-white font-bold rounded-xl text-xs transition cursor-pointer"
+              >
+                Close Audit
               </button>
             </div>
           </div>
