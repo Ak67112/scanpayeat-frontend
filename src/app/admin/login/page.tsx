@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ShieldAlert,
   Loader2,
@@ -13,11 +13,14 @@ import {
   ArrowRight,
   ShieldCheck,
   ArrowLeft,
+  Clock,
 } from 'lucide-react';
 
-export default function AdminLoginPage() {
+function AdminLoginContent() {
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isExpired = searchParams.get('expired') === '24h';
 
   const [email, setEmail] = useState('admin@scanpayeat.com');
   const [password, setPassword] = useState('Admin@123');
@@ -72,6 +75,18 @@ export default function AdminLoginPage() {
 
         {/* Login Form Body */}
         <div className="p-8 space-y-5">
+          {isExpired && (
+            <div className="p-3.5 bg-purple-950/80 border border-purple-500/50 text-purple-200 text-xs rounded-xl flex items-start gap-2.5 shadow-sm">
+              <Clock className="w-4 h-4 shrink-0 text-purple-400 mt-0.5" />
+              <div>
+                <p className="font-bold">24-Hour Admin Session Expired</p>
+                <p className="text-[11px] text-purple-300 mt-0.5">
+                  For platform security, administrator sessions strictly expire every 24 hours. Please re-authenticate to continue.
+                </p>
+              </div>
+            </div>
+          )}
+
           {errorMessage && (
             <div className="p-3.5 bg-rose-950/60 border border-rose-800/80 text-rose-200 text-xs rounded-xl flex items-center gap-2.5">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
@@ -158,5 +173,19 @@ export default function AdminLoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+          <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+        </div>
+      }
+    >
+      <AdminLoginContent />
+    </Suspense>
   );
 }

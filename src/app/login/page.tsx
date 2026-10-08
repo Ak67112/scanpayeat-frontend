@@ -11,12 +11,14 @@ import {
   Mail,
   Lock,
   ArrowRight,
+  Clock,
 } from 'lucide-react';
 
 function LoginContent() {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isExpired = searchParams.get('expired') === '30d';
 
   const [email, setEmail] = useState('customer@demo.com');
   const [password, setPassword] = useState('Customer@123');
@@ -60,6 +62,18 @@ function LoginContent() {
 
       {/* Login Form */}
       <div className="p-8">
+        {isExpired && (
+          <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs rounded-xl flex items-start gap-2.5 shadow-xs">
+            <Clock className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
+            <div>
+              <p className="font-bold">30-Day Session Concluded</p>
+              <p className="text-[11px] text-emerald-800 mt-0.5">
+                Your monthly login period has concluded. Please sign in again to access your orders and rewards.
+              </p>
+            </div>
+          </div>
+        )}
+
         {errorMessage && (
           <div className="mb-5 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />

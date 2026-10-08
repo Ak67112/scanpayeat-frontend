@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ChefHat,
   Loader2,
@@ -12,11 +12,14 @@ import {
   Lock,
   ArrowRight,
   Store,
+  Clock,
 } from 'lucide-react';
 
 function ShopkeeperLoginContent() {
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isExpired = searchParams.get('expired') === '24h';
 
   const [email, setEmail] = useState('shop@abc.com');
   const [password, setPassword] = useState('Shop@123');
@@ -66,6 +69,18 @@ function ShopkeeperLoginContent() {
 
       {/* Login Form */}
       <div className="p-8">
+        {isExpired && (
+          <div className="mb-5 p-3.5 bg-amber-50 border border-amber-300 text-amber-900 text-xs rounded-xl flex items-start gap-2.5 shadow-xs">
+            <Clock className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+            <div>
+              <p className="font-bold">24-Hour Session Expired</p>
+              <p className="text-[11px] text-amber-800 mt-0.5">
+                For kitchen and shop safety, restaurant partner sessions automatically expire every 24 hours. Please sign in again.
+              </p>
+            </div>
+          </div>
+        )}
+
         {errorMessage && (
           <div className="mb-5 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />

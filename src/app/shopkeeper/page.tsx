@@ -241,7 +241,7 @@ export default function ShopkeeperDashboard() {
   useEffect(() => {
     if (authLoading) return;
     if (!user || user.role !== 'SHOPKEEPER') {
-      router.push('/login');
+      router.push('/shopkeeper/login');
     }
   }, [user, authLoading, router]);
 
