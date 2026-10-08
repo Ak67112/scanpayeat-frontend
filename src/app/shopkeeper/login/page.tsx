@@ -1,25 +1,25 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, Suspense } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { useRouter } from 'next/navigation';
 import {
-  ShoppingBag,
+  ChefHat,
   Loader2,
   AlertCircle,
   KeyRound,
   Mail,
   Lock,
   ArrowRight,
+  Store,
 } from 'lucide-react';
 
-function LoginContent() {
+function ShopkeeperLoginContent() {
   const { login } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  const [email, setEmail] = useState('customer@demo.com');
-  const [password, setPassword] = useState('Customer@123');
+  const [email, setEmail] = useState('shop@abc.com');
+  const [password, setPassword] = useState('Shop@123');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -29,11 +29,14 @@ function LoginContent() {
     setErrorMessage('');
 
     try {
-      await login(email, password, 'CUSTOMER');
-      const redirectParam = searchParams.get('redirect');
-      router.push(redirectParam || '/my-orders');
+      const user = await login(email, password, 'SHOPKEEPER');
+      if (user.role === 'SHOPKEEPER') {
+        router.push('/shopkeeper');
+      } else {
+        throw new Error('Access denied. Restaurant staff account required.');
+      }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Invalid email or password.');
+      setErrorMessage(err.message || 'Invalid restaurant staff credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -42,19 +45,22 @@ function LoginContent() {
   return (
     <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
       {/* Header Banner */}
-      <div className="p-8 text-center bg-gradient-to-b from-emerald-500/10 to-transparent border-b border-slate-100">
-        <a href="/" className="inline-block mb-4">
+      <div className="p-8 text-center bg-gradient-to-b from-amber-500/10 to-transparent border-b border-slate-100">
+        <a href="/" className="inline-block mb-3">
           <img
             src="/logo.png"
             alt="Scanner Pay Eat"
             className="h-10 mx-auto object-contain"
           />
         </a>
+        <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center mx-auto shadow-md shadow-amber-500/20 mb-3">
+          <ChefHat className="w-6 h-6" />
+        </div>
         <h2 className="text-2xl font-black text-slate-900 tracking-tight font-display">
-          Customer Sign In
+          Restaurant Partner Portal
         </h2>
         <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-          Access your dining history, active order tickets, and claim discount coupons
+          Manage kitchen display orders, dish availability, ambience photos, and sales analytics
         </p>
       </div>
 
@@ -70,7 +76,7 @@ function LoginContent() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Email Address
+              Restaurant Staff Email
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -79,15 +85,15 @@ function LoginContent() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="w-full text-xs pl-10 pr-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white text-slate-900 placeholder:text-slate-400"
+                placeholder="staff@restaurant.com"
+                className="w-full text-xs pl-10 pr-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 bg-white text-slate-900 placeholder:text-slate-400"
               />
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Password
+              Staff Password
             </label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -97,32 +103,31 @@ function LoginContent() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full text-xs pl-10 pr-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white text-slate-900 placeholder:text-slate-400"
+                className="w-full text-xs pl-10 pr-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 bg-white text-slate-900 placeholder:text-slate-400"
               />
             </div>
           </div>
 
-          {/* Quick Fill Credentials Helper */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-[11px] text-slate-600 flex items-center justify-between">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[11px] text-amber-900 flex items-center justify-between">
             <span className="flex items-center gap-1.5 font-medium">
-              <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
               <span>Default credentials active</span>
             </span>
-            <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
-              Diner
+            <span className="font-mono text-[10px] bg-amber-200/80 px-1.5 py-0.5 rounded text-amber-900 font-bold">
+              Shopkeeper
             </span>
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
+            className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-amber-600/20 transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                <span>Sign In to Dining</span>
+                <span>Sign In to Kitchen Staff</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </>
             )}
@@ -130,13 +135,13 @@ function LoginContent() {
         </form>
 
         <div className="mt-6 pt-5 border-t border-slate-100 text-center">
-          <p className="text-xs text-slate-600">
-            New customer?{' '}
+          <p className="text-xs text-slate-500">
+            Are you a diner?{' '}
             <a
-              href="/register"
+              href="/login"
               className="font-bold text-emerald-600 hover:text-emerald-700 transition"
             >
-              Create a Free Account
+              Customer Sign In
             </a>
           </p>
         </div>
@@ -145,17 +150,17 @@ function LoginContent() {
   );
 }
 
-export default function LoginPage() {
+export default function ShopkeeperLoginPage() {
   return (
     <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-slate-50">
       <Suspense
         fallback={
           <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-200 shadow-xl flex items-center justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+            <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
           </div>
         }
       >
-        <LoginContent />
+        <ShopkeeperLoginContent />
       </Suspense>
     </div>
   );

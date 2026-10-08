@@ -10,7 +10,13 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string, role?: string) => Promise<User>;
-  register: (name: string, email: string, password: string, mobile?: string) => Promise<User>;
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    mobile?: string,
+    avatarUrl?: string
+  ) => Promise<User>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -80,11 +86,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     name: string,
     email: string,
     password: string,
-    mobile?: string
+    mobile?: string,
+    avatarUrl?: string
   ): Promise<User> => {
     setIsLoading(true);
     try {
-      const res = await authApi.register({ name, email, mobile, password });
+      const res = await authApi.register({ name, email, mobile, password, avatarUrl });
       setToken(res.accessToken);
       setUser(res.user);
       localStorage.setItem('scanpayeat_token', res.accessToken);

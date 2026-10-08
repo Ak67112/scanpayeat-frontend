@@ -66,7 +66,7 @@ export async function apiFetch<T = any>(
 
 // ================= AUTH API =================
 export const authApi = {
-  async register(data: { name: string; email: string; mobile?: string; password: string }) {
+  async register(data: { name: string; email: string; mobile?: string; avatarUrl?: string; password: string }) {
     return apiFetch<{ user: User; accessToken: string }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -330,6 +330,62 @@ export const shopkeeperApi = {
     return apiFetch(`/api/shop/coupons/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  async getProfile() {
+    return apiFetch<{ shop: Shop; shopkeeper: any }>('/api/shop/profile');
+  },
+
+  async updateProfile(data: {
+    name?: string;
+    address?: string;
+    phone?: string;
+    logoUrl?: string;
+    bannerUrl?: string;
+    description?: string;
+    ambienceImages?: string[];
+    keeperName?: string;
+    keeperMobile?: string;
+    keeperAvatarUrl?: string;
+  }) {
+    return apiFetch<{ shop: Shop }>('/api/shop/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+};
+
+// ================= CUSTOMER API =================
+export const customerApi = {
+  async getProfile() {
+    return apiFetch<{ customer: any }>('/api/customer/profile');
+  },
+
+  async updateProfile(data: { name?: string; mobile?: string; avatarUrl?: string }) {
+    return apiFetch<{ customer: any }>('/api/customer/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async uploadAvatar(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/api/customer/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+      credentials: 'include',
+    });
+    const json = await response.json().catch(() => ({ success: false, message: 'Upload failed' }));
+    if (!response.ok || !json.success) {
+      throw new Error(json.message || 'Avatar upload failed');
+    }
+    return (json.data as { imageUrl: string }).imageUrl;
   },
 };
 

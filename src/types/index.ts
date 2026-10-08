@@ -5,6 +5,7 @@ export interface User {
   name: string;
   email: string;
   mobile?: string | null;
+  avatarUrl?: string | null;
   role: UserRole;
   shopId?: number | null;
   shopName?: string | null;
@@ -20,6 +21,11 @@ export interface Shop {
   address?: string | null;
   phone?: string | null;
   qrUrl?: string | null;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  description?: string | null;
+  ambienceImages?: string[];
+  shopkeepers?: { id: number; name: string; avatarUrl?: string | null }[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

@@ -136,7 +136,7 @@ export default function Footer() {
               </li>
               <li className="pt-2 border-t border-slate-800">
                 <a
-                  href="/login?role=shopkeeper"
+                  href="/shopkeeper/login"
                   className="inline-flex items-center gap-1.5 text-stone-500 hover:text-amber-400 text-[11px] transition"
                 >
                   <Store className="w-3 h-3" />

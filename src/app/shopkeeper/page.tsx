@@ -46,7 +46,7 @@ import {
   Award,
 } from 'lucide-react';
 
-type TabView = 'ORDERS' | 'PRODUCTS' | 'CATEGORIES' | 'STATS' | 'DISCOUNTS';
+type TabView = 'ORDERS' | 'PRODUCTS' | 'CATEGORIES' | 'STATS' | 'DISCOUNTS' | 'PROFILE';
 
 export default function ShopkeeperDashboard() {
   const { user, logout, isLoading: authLoading } = useAuth();
@@ -57,6 +57,41 @@ export default function ShopkeeperDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [stats, setStats] = useState<ShopkeeperStats | null>(null);
+
+  // Shop & Ambience Profile state
+  const [shopProfile, setShopProfile] = useState<{
+    name: string;
+    address: string;
+    phone: string;
+    logoUrl: string;
+    bannerUrl: string;
+    description: string;
+    ambienceImages: string[];
+  }>({
+    name: '',
+    address: '',
+    phone: '',
+    logoUrl: '',
+    bannerUrl: '',
+    description: '',
+    ambienceImages: [],
+  });
+  const [keeperProfile, setKeeperProfile] = useState<{
+    name: string;
+    email: string;
+    mobile: string;
+    avatarUrl: string;
+  }>({
+    name: '',
+    email: '',
+    mobile: '',
+    avatarUrl: '',
+  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingAmbience, setIsUploadingAmbience] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   // Milestone Rewards and Coupons state
   const [rewardRule, setRewardRule] = useState<any>({
@@ -195,13 +230,14 @@ export default function ShopkeeperDashboard() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [ordersRes, prodsRes, catsRes, statsRes, ruleRes, couponsRes] = await Promise.all([
+      const [ordersRes, prodsRes, catsRes, statsRes, ruleRes, couponsRes, profileRes] = await Promise.all([
         shopkeeperApi.getOrders().catch(() => ({ orders: [] })),
         shopkeeperApi.getProducts().catch(() => ({ products: [] })),
         shopkeeperApi.getCategories().catch(() => ({ categories: [] })),
         shopkeeperApi.getStats().catch(() => ({ stats: null })),
         shopkeeperApi.getRewardRule().catch(() => ({ rule: null })),
         shopkeeperApi.getCoupons().catch(() => ({ coupons: [] })),
+        shopkeeperApi.getProfile().catch(() => ({ shop: null, shopkeeper: null })),
       ]);
 
       const incomingCats = Array.isArray(catsRes) ? catsRes : (catsRes?.categories || []);
@@ -217,6 +253,26 @@ export default function ShopkeeperDashboard() {
       if (ruleRes?.rule) setRewardRule(ruleRes.rule);
       const incomingCoupons = Array.isArray(couponsRes) ? couponsRes : (couponsRes?.coupons || []);
       setCoupons(incomingCoupons);
+
+      if (profileRes?.shop) {
+        setShopProfile({
+          name: profileRes.shop.name || '',
+          address: profileRes.shop.address || '',
+          phone: profileRes.shop.phone || '',
+          logoUrl: profileRes.shop.logoUrl || '',
+          bannerUrl: profileRes.shop.bannerUrl || '',
+          description: profileRes.shop.description || '',
+          ambienceImages: profileRes.shop.ambienceImages || [],
+        });
+      }
+      if (profileRes?.shopkeeper) {
+        setKeeperProfile({
+          name: profileRes.shopkeeper.name || '',
+          email: profileRes.shopkeeper.email || '',
+          mobile: profileRes.shopkeeper.mobile || '',
+          avatarUrl: profileRes.shopkeeper.avatarUrl || '',
+        });
+      }
     } catch (err: any) {
       console.error('Failed to load shopkeeper data:', err);
     } finally {
@@ -677,6 +733,96 @@ export default function ShopkeeperDashboard() {
     }
   };
 
+  // Profile & Ambience Action Handlers
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
+    setProfileSuccess(false);
+    try {
+      const res = await shopkeeperApi.updateProfile({
+        name: shopProfile.name,
+        address: shopProfile.address,
+        phone: shopProfile.phone,
+        logoUrl: shopProfile.logoUrl,
+        bannerUrl: shopProfile.bannerUrl,
+        description: shopProfile.description,
+        ambienceImages: shopProfile.ambienceImages,
+        keeperName: keeperProfile.name,
+        keeperMobile: keeperProfile.mobile,
+        keeperAvatarUrl: keeperProfile.avatarUrl,
+      });
+      if (res?.shop) {
+        setShopProfile({
+          name: res.shop.name || '',
+          address: res.shop.address || '',
+          phone: res.shop.phone || '',
+          logoUrl: res.shop.logoUrl || '',
+          bannerUrl: res.shop.bannerUrl || '',
+          description: res.shop.description || '',
+          ambienceImages: res.shop.ambienceImages || [],
+        });
+      }
+      setProfileSuccess(true);
+      setTimeout(() => setProfileSuccess(false), 5000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to save restaurant profile');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleUploadShopLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingLogo(true);
+    try {
+      const url = await shopkeeperApi.uploadImage(file);
+      setShopProfile((prev) => ({ ...prev, logoUrl: url }));
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload shop logo');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleUploadAmbienceImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingAmbience(true);
+    try {
+      const url = await shopkeeperApi.uploadImage(file);
+      setShopProfile((prev) => ({
+        ...prev,
+        ambienceImages: [...(prev.ambienceImages || []), url],
+      }));
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload ambience image');
+    } finally {
+      setIsUploadingAmbience(false);
+    }
+  };
+
+  const handleRemoveAmbienceImage = (index: number) => {
+    setShopProfile((prev) => ({
+      ...prev,
+      ambienceImages: (prev.ambienceImages || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleUploadKeeperAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingAvatar(true);
+    try {
+      const url = await shopkeeperApi.uploadImage(file);
+      setKeeperProfile((prev) => ({ ...prev, avatarUrl: url }));
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload avatar');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   // Calculated metrics with Restaurant Business Day (4:00 AM shift rollover)
   const getBusinessDayCutoff = () => {
     const now = new Date();
@@ -989,6 +1135,26 @@ export default function ShopkeeperDashboard() {
           )}
         </button>
 
+        <button
+          onClick={() => {
+            setActiveTab('PROFILE');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'PROFILE'
+              ? 'bg-amber-500 text-white shadow-md shadow-amber-900/20'
+              : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            <Store className="w-4 h-4 text-amber-400" />
+            <span>Profile & Ambience</span>
+          </div>
+          {shopProfile.logoUrl && (
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          )}
+        </button>
+
         <div className="pt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
           Store Front
         </div>
@@ -1010,12 +1176,20 @@ export default function ShopkeeperDashboard() {
       {/* Sidebar Footer / User Profile */}
       <div className="p-4 border-t border-slate-800/80 bg-slate-950/60 flex items-center justify-between">
         <div className="flex items-center space-x-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/30 border border-amber-500/30 flex items-center justify-center font-bold text-xs text-amber-300 shrink-0">
-            {user?.name?.slice(0, 2).toUpperCase() || 'KM'}
-          </div>
+          {keeperProfile.avatarUrl || user?.avatarUrl ? (
+            <img
+              src={keeperProfile.avatarUrl || user?.avatarUrl || ''}
+              alt={keeperProfile.name || user?.name || 'Chef'}
+              className="w-9 h-9 rounded-xl object-cover border border-amber-500/40 shrink-0"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-amber-500/30 border border-amber-500/30 flex items-center justify-center font-bold text-xs text-amber-300 shrink-0">
+              {user?.name?.slice(0, 2).toUpperCase() || 'KM'}
+            </div>
+          )}
           <div className="truncate">
             <p className="text-xs font-bold text-white truncate leading-tight">
-              {user?.name}
+              {keeperProfile.name || user?.name}
             </p>
             <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
           </div>
@@ -1076,6 +1250,8 @@ export default function ShopkeeperDashboard() {
                   {activeTab === 'PRODUCTS' && 'Menu Items & Stock Controls'}
                   {activeTab === 'CATEGORIES' && 'Menu Groupings & Order'}
                   {activeTab === 'STATS' && "Today, This Week & This Month's Sales Breakdown"}
+                  {activeTab === 'DISCOUNTS' && 'Milestone Rewards & Promo Coupon Codes'}
+                  {activeTab === 'PROFILE' && 'Store Logo, Ambience Photos & Restaurant Story'}
                 </span>
               </div>
               <h1 className="text-lg sm:text-2xl font-black text-slate-900 mt-0.5">
@@ -1083,6 +1259,8 @@ export default function ShopkeeperDashboard() {
                 {activeTab === 'PRODUCTS' && 'Menu Items & Stock Controls'}
                 {activeTab === 'CATEGORIES' && 'Category Management'}
                 {activeTab === 'STATS' && 'Sales & Revenue Analytics'}
+                {activeTab === 'DISCOUNTS' && 'Discounts & Promotional Offers'}
+                {activeTab === 'PROFILE' && 'Restaurant Profile & Ambience Gallery'}
               </h1>
             </div>
           </div>
@@ -2157,6 +2335,426 @@ export default function ShopkeeperDashboard() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ================= TAB 6: RESTAURANT PROFILE & AMBIENCE ================= */}
+          {activeTab === 'PROFILE' && (
+            <div className="space-y-6 max-w-5xl">
+              {/* Header Banner */}
+              <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="space-y-2 max-w-2xl">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-xs text-white text-xs font-black tracking-wide uppercase">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                      Customer Dining Impression
+                    </span>
+                    <h2 className="text-xl sm:text-3xl font-black font-display tracking-tight text-white">
+                      Restaurant Profile & Ambience Showcase
+                    </h2>
+                    <p className="text-amber-100 text-xs sm:text-sm font-medium leading-relaxed">
+                      Upload your shop logo, share your restaurant&apos;s ambition & culinary story, and showcase your interior dining atmosphere. These photos and details are prominently shown to diners whenever they scan your QR code.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={isSavingProfile}
+                    className="px-6 py-3 bg-white text-amber-800 hover:bg-amber-50 font-black text-xs sm:text-sm rounded-2xl shadow-xl transition flex items-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
+                  >
+                    {isSavingProfile ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    )}
+                    <span>{isSavingProfile ? 'Saving Changes...' : 'Save All Changes'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {profileSuccess && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl flex items-center justify-between shadow-xs animate-in fade-in duration-300">
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span className="text-xs sm:text-sm font-bold">
+                      Restaurant profile, logo and ambience photos updated successfully! Diners scanning your QR code will see the new experience immediately.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column: Logo & Branding */}
+                <div className="lg:col-span-1 space-y-6">
+                  {/* Shop Logo Card */}
+                  <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                        <Store className="w-4 h-4 text-amber-500" />
+                        Restaurant Logo
+                      </h3>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Branding
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Replaces the default letter badge on the customer QR menu and receipts.
+                    </p>
+
+                    <div className="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 gap-3">
+                      {shopProfile.logoUrl ? (
+                        <div className="relative group">
+                          <img
+                            src={shopProfile.logoUrl}
+                            alt="Shop Logo"
+                            className="w-28 h-28 object-cover rounded-2xl border-2 border-white shadow-md"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShopProfile((prev) => ({ ...prev, logoUrl: '' }))}
+                            className="absolute -top-2 -right-2 p-1.5 bg-rose-600 text-white rounded-full shadow-md hover:bg-rose-700 transition cursor-pointer"
+                            title="Remove Logo"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-24 h-24 rounded-2xl bg-amber-100 border border-amber-200 flex flex-col items-center justify-center text-amber-700">
+                          <Store className="w-8 h-8 opacity-60" />
+                          <span className="text-[10px] font-bold mt-1">No Logo</span>
+                        </div>
+                      )}
+
+                      <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs transition">
+                        {isUploadingLogo ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Uploading Logo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>{shopProfile.logoUrl ? 'Change Logo' : 'Upload Logo'}</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingLogo}
+                          onChange={handleUploadShopLogo}
+                          className="hidden"
+                        />
+                      </label>
+                      <input
+                        type="url"
+                        value={shopProfile.logoUrl}
+                        onChange={(e) => setShopProfile((prev) => ({ ...prev, logoUrl: e.target.value }))}
+                        placeholder="Or paste image URL"
+                        className="w-full text-[11px] px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Shopkeeper Personal Avatar Card */}
+                  <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                        <ChefHat className="w-4 h-4 text-amber-500" />
+                        Host / Chef Profile
+                      </h3>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Staff
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Your staff &amp; host picture displayed in kitchen management and restaurant info.
+                    </p>
+
+                    <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                      {keeperProfile.avatarUrl ? (
+                        <div className="relative">
+                          <img
+                            src={keeperProfile.avatarUrl}
+                            alt="Chef Avatar"
+                            className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setKeeperProfile((prev) => ({ ...prev, avatarUrl: '' }))}
+                            className="absolute -top-1.5 -right-1.5 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition cursor-pointer"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-300 text-amber-700 flex items-center justify-center font-black text-lg">
+                          {keeperProfile.name ? keeperProfile.name.slice(0, 2).toUpperCase() : 'CH'}
+                        </div>
+                      )}
+
+                      <div className="flex-1 space-y-2">
+                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl transition">
+                          {isUploadingAvatar ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5" />
+                          )}
+                          <span>{keeperProfile.avatarUrl ? 'Change Photo' : 'Upload Photo'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            disabled={isUploadingAvatar}
+                            onChange={handleUploadKeeperAvatar}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-1">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Manager / Head Chef Name
+                        </label>
+                        <input
+                          type="text"
+                          value={keeperProfile.name}
+                          onChange={(e) => setKeeperProfile((prev) => ({ ...prev, name: e.target.value }))}
+                          placeholder="Chef or Manager Name"
+                          className="w-full text-xs px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Direct Contact Mobile
+                        </label>
+                        <input
+                          type="tel"
+                          value={keeperProfile.mobile}
+                          onChange={(e) => setKeeperProfile((prev) => ({ ...prev, mobile: e.target.value }))}
+                          placeholder="Mobile number"
+                          className="w-full text-xs px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 text-slate-900"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Restaurant Story & Ambience Gallery */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* General Info & Story */}
+                  <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-xs space-y-4">
+                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      Culinary Story &amp; Restaurant Ambition
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Tell customers what makes your restaurant unique — your culinary roots, fresh ingredients, kitchen hygiene, signature recipes, and dining experience.
+                    </p>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                          Restaurant Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={shopProfile.name}
+                          onChange={(e) => setShopProfile((prev) => ({ ...prev, name: e.target.value }))}
+                          placeholder="e.g. The Rustic Spoon Cafe"
+                          className="w-full text-xs px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 font-bold text-slate-900"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                          Ambition, Story &amp; Dining Philosophy
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={shopProfile.description}
+                          onChange={(e) => setShopProfile((prev) => ({ ...prev, description: e.target.value }))}
+                          placeholder="e.g. Crafted with passion! We source fresh organic farm produce daily and slow-cook our sauces to perfection. Experience our warm cozy vibes and delightful culinary creations..."
+                          className="w-full text-xs px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 text-slate-900 leading-relaxed"
+                        />
+                        <span className="text-[10px] text-slate-400 mt-1 block">
+                          This description will be highlighted on the mobile QR scan page in the &apos;About Us &amp; Ambition&apos; showcase.
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                            Restaurant Physical Address
+                          </label>
+                          <input
+                            type="text"
+                            value={shopProfile.address}
+                            onChange={(e) => setShopProfile((prev) => ({ ...prev, address: e.target.value }))}
+                            placeholder="Street, City, Landmark"
+                            className="w-full text-xs px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 text-slate-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                            Order Helpline / Support Phone
+                          </label>
+                          <input
+                            type="tel"
+                            value={shopProfile.phone}
+                            onChange={(e) => setShopProfile((prev) => ({ ...prev, phone: e.target.value }))}
+                            placeholder="e.g. +91 98765 43210"
+                            className="w-full text-xs px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 text-slate-900"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ambience Gallery Card */}
+                  <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-xs space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                          <ImageIcon className="w-4 h-4 text-amber-500" />
+                          Ambience &amp; Atmosphere Gallery ({shopProfile.ambienceImages?.length || 0})
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Photos of your dining hall, open kitchen, aesthetic lighting, and cozy corners.
+                        </p>
+                      </div>
+
+                      <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold rounded-xl shadow-xs transition shrink-0">
+                        {isUploadingAmbience ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Uploading Photo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4" />
+                            <span>Add Ambience Photo</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingAmbience}
+                          onChange={handleUploadAmbienceImage}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Ambience Gallery Grid */}
+                    {(!shopProfile.ambienceImages || shopProfile.ambienceImages.length === 0) ? (
+                      <div className="p-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+                          <ImageIcon className="w-6 h-6 opacity-70" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-700">No ambience photos uploaded yet</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Upload photos of your dining seating, mood lighting, outdoor patio, or bar counter to inspire visiting diners.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {shopProfile.ambienceImages.map((imgUrl, idx) => (
+                          <div
+                            key={idx}
+                            className="relative group rounded-2xl overflow-hidden aspect-4/3 bg-slate-100 border border-slate-200 shadow-xs"
+                          >
+                            <img
+                              src={imgUrl}
+                              alt={`Ambience photo ${idx + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-2.5">
+                              <span className="text-[10px] font-bold text-white bg-black/40 px-2 py-0.5 rounded">
+                                #{idx + 1}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAmbienceImage(idx)}
+                                className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow transition cursor-pointer"
+                                title="Delete image"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Paste URL directly */}
+                    <div className="pt-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          id="ambience-url-input"
+                          placeholder="Or paste an image web URL and click Add"
+                          className="flex-1 text-xs px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const input = e.currentTarget;
+                              const val = input.value.trim();
+                              if (val) {
+                                setShopProfile((prev) => ({
+                                  ...prev,
+                                  ambienceImages: [...(prev.ambienceImages || []), val],
+                                }));
+                                input.value = '';
+                              }
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const input = document.getElementById('ambience-url-input') as HTMLInputElement;
+                            if (input && input.value.trim()) {
+                              setShopProfile((prev) => ({
+                                ...prev,
+                                ambienceImages: [...(prev.ambienceImages || []), input.value.trim()],
+                              }));
+                              input.value = '';
+                            }
+                          }}
+                          className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                        >
+                          Add URL
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Save Action */}
+                  <div className="flex items-center justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveProfile}
+                      disabled={isSavingProfile}
+                      className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-orange-600/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isSavingProfile ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Saving Profile &amp; Ambience...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Save Profile &amp; Ambience</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

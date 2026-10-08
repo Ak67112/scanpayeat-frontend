@@ -19,6 +19,12 @@ import {
   Sparkles,
   ArrowRight,
   Flame,
+  ChefHat,
+  Image as ImageIcon,
+  X,
+  ChevronRight,
+  Heart,
+  Quote,
 } from 'lucide-react';
 
 export default function ShopMenuPage() {
@@ -34,6 +40,8 @@ export default function ShopMenuPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [isAmbienceOpen, setIsAmbienceOpen] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -121,9 +129,17 @@ export default function ShopMenuPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
             <div className="flex items-center space-x-4 sm:space-x-5">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-tr from-red-700 to-rose-600 text-white flex items-center justify-center font-black text-3xl shadow-xl shadow-red-700/20 font-display shrink-0 border-2 border-white">
-                {shop.name.charAt(0)}
-              </div>
+              {shop.logoUrl ? (
+                <img
+                  src={shop.logoUrl}
+                  alt={shop.name}
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl object-cover shadow-xl border-2 border-white shrink-0 ring-2 ring-red-100"
+                />
+              ) : (
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-tr from-red-700 to-rose-600 text-white flex items-center justify-center font-black text-3xl shadow-xl shadow-red-700/20 font-display shrink-0 border-2 border-white">
+                  {shop.name.charAt(0)}
+                </div>
+              )}
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-2xl sm:text-4xl font-black text-slate-950 truncate font-display">
@@ -147,6 +163,20 @@ export default function ShopMenuPage() {
                       <span>{shop.phone}</span>
                     </span>
                   )}
+                  {shop.shopkeepers?.[0] && (
+                    <span className="flex items-center gap-1.5 bg-amber-50 text-amber-900 px-2.5 py-0.5 rounded-full border border-amber-200">
+                      {shop.shopkeepers[0].avatarUrl ? (
+                        <img
+                          src={shop.shopkeepers[0].avatarUrl}
+                          alt={shop.shopkeepers[0].name}
+                          className="w-4 h-4 rounded-full object-cover shrink-0"
+                        />
+                      ) : (
+                        <ChefHat className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                      )}
+                      <span className="truncate">Chef {shop.shopkeepers[0].name}</span>
+                    </span>
+                  )}
                   <span className="flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-red-700 shrink-0" />
                     <span>Table QR Activated</span>
@@ -167,6 +197,95 @@ export default function ShopMenuPage() {
           </div>
         </div>
       </div>
+
+      {/* Restaurant Ambition & Ambience Showcase */}
+      {(shop.description || (shop.ambienceImages && shop.ambienceImages.length > 0)) && (
+        <div className="bg-[#F5EFE6] border-b border-[#E8DFC8]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-red-100 text-red-700">
+                  <Sparkles className="w-4 h-4" />
+                </span>
+                <h2 className="text-sm sm:text-base font-black text-slate-900 font-display uppercase tracking-wide">
+                  Dining Ambience &amp; Culinary Ambition
+                </h2>
+                {shop.ambienceImages && shop.ambienceImages.length > 0 && (
+                  <span className="text-[11px] font-bold text-red-800 bg-red-100 px-2.5 py-0.5 rounded-full">
+                    {shop.ambienceImages.length} Photos
+                  </span>
+                )}
+              </div>
+
+              {shop.description && (
+                <button
+                  onClick={() => setIsAmbienceOpen((prev) => !prev)}
+                  className="text-xs font-bold text-red-700 hover:text-red-900 flex items-center gap-1 self-start md:self-auto cursor-pointer"
+                >
+                  <span>{isAmbienceOpen ? 'Hide Restaurant Story' : 'Read Our Culinary Story'}</span>
+                  <ChevronRight
+                    className={`w-3.5 h-3.5 transition-transform ${isAmbienceOpen ? 'rotate-90' : ''}`}
+                  />
+                </button>
+              )}
+            </div>
+
+            {/* Expandable / Featured Culinary Philosophy Story */}
+            {shop.description && (isAmbienceOpen || (!shop.ambienceImages || shop.ambienceImages.length === 0)) && (
+              <div className="mb-4 p-4 sm:p-5 bg-white rounded-2xl border border-[#E8DFC8] shadow-xs relative overflow-hidden animate-in fade-in duration-200">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-red-50 text-red-700 shrink-0">
+                    <Quote className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1.5 flex-1">
+                    <p className="text-xs sm:text-sm text-stone-700 font-medium leading-relaxed italic">
+                      &ldquo;{shop.description}&rdquo;
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      {shop.shopkeepers?.[0]?.avatarUrl && (
+                        <img
+                          src={shop.shopkeepers[0].avatarUrl}
+                          alt="Chef"
+                          className="w-5 h-5 rounded-full object-cover border border-red-200"
+                        />
+                      )}
+                      <span className="text-[11px] font-black text-slate-900">
+                        — {shop.shopkeepers?.[0]?.name ? `Chef ${shop.shopkeepers[0].name} & Kitchen Team` : `${shop.name} Kitchen Team`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Ambience Photos Strip */}
+            {shop.ambienceImages && shop.ambienceImages.length > 0 && (
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">
+                {shop.ambienceImages.map((imgUrl, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setLightboxImage(imgUrl)}
+                    className="relative group shrink-0 w-44 sm:w-56 h-32 sm:h-36 rounded-2xl overflow-hidden border-2 border-white shadow-xs hover:shadow-md transition snap-start cursor-pointer focus:outline-hidden"
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`Ambience ${i + 1}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-2.5">
+                      <span className="text-[10px] font-bold text-white bg-black/40 px-2 py-0.5 rounded backdrop-blur-xs">
+                        View Photo
+                      </span>
+                      <ImageIcon className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Filter Bar & Search */}
       <div className="sticky top-20 z-30 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#E8DFC8] py-3.5">
@@ -263,6 +382,35 @@ export default function ShopMenuPage() {
               <ArrowRight className="w-4 h-4" />
             </div>
           </button>
+        </div>
+      )}
+
+      {/* Ambience Full-screen Lightbox Modal */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setLightboxImage(null)}
+              className="absolute -top-12 right-0 text-white/80 hover:text-white p-2 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer"
+              title="Close image"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Ambience full preview"
+              className="max-h-[82vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl border border-white/20"
+            />
+            <p className="text-stone-300 text-xs font-medium mt-3">
+              {shop.name} • Dining Ambience &amp; Interior Atmosphere
+            </p>
+          </div>
         </div>
       )}
     </div>
