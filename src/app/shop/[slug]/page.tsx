@@ -22,6 +22,7 @@ import {
   ChefHat,
   Image as ImageIcon,
   X,
+  ChevronLeft,
   ChevronRight,
   Heart,
   Quote,
@@ -42,6 +43,33 @@ export default function ShopMenuPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [isAmbienceOpen, setIsAmbienceOpen] = useState(false);
+
+  // Ambience photo carousel state & ref
+  const ambienceRef = React.useRef<HTMLDivElement>(null);
+  const [currentAmbienceIdx, setCurrentAmbienceIdx] = useState(0);
+
+  const scrollAmbience = (dir: 'prev' | 'next') => {
+    if (!ambienceRef.current || !shop?.ambienceImages || shop.ambienceImages.length === 0) return;
+    const count = shop.ambienceImages.length;
+    let nextIdx = dir === 'next' ? currentAmbienceIdx + 1 : currentAmbienceIdx - 1;
+    if (nextIdx >= count) nextIdx = 0;
+    if (nextIdx < 0) nextIdx = count - 1;
+    setCurrentAmbienceIdx(nextIdx);
+
+    const cardWidth = 320;
+    ambienceRef.current.scrollTo({
+      left: nextIdx * cardWidth,
+      behavior: 'smooth',
+    });
+  };
+
+  useEffect(() => {
+    if (!shop?.ambienceImages || shop.ambienceImages.length <= 1) return;
+    const interval = setInterval(() => {
+      scrollAmbience('next');
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [shop?.ambienceImages, currentAmbienceIdx]);
 
   useEffect(() => {
     if (!slug) return;
@@ -163,20 +191,6 @@ export default function ShopMenuPage() {
                       <span>{shop.phone}</span>
                     </span>
                   )}
-                  {shop.shopkeepers?.[0] && (
-                    <span className="flex items-center gap-1.5 bg-amber-50 text-amber-900 px-2.5 py-0.5 rounded-full border border-amber-200">
-                      {shop.shopkeepers[0].avatarUrl ? (
-                        <img
-                          src={shop.shopkeepers[0].avatarUrl}
-                          alt={shop.shopkeepers[0].name}
-                          className="w-4 h-4 rounded-full object-cover shrink-0"
-                        />
-                      ) : (
-                        <ChefHat className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                      )}
-                      <span className="truncate">Chef {shop.shopkeepers[0].name}</span>
-                    </span>
-                  )}
                   <span className="flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-red-700 shrink-0" />
                     <span>Table QR Activated</span>
@@ -242,15 +256,8 @@ export default function ShopMenuPage() {
                       &ldquo;{shop.description}&rdquo;
                     </p>
                     <div className="flex items-center gap-2 pt-1">
-                      {shop.shopkeepers?.[0]?.avatarUrl && (
-                        <img
-                          src={shop.shopkeepers[0].avatarUrl}
-                          alt="Chef"
-                          className="w-5 h-5 rounded-full object-cover border border-red-200"
-                        />
-                      )}
                       <span className="text-[11px] font-black text-slate-900">
-                        — {shop.shopkeepers?.[0]?.name ? `Chef ${shop.shopkeepers[0].name} & Kitchen Team` : `${shop.name} Kitchen Team`}
+                        — {shop.name} Culinary &amp; Hospitality Team
                       </span>
                     </div>
                   </div>
@@ -258,29 +265,93 @@ export default function ShopMenuPage() {
               </div>
             )}
 
-            {/* Ambience Photos Strip */}
+            {/* Ambience Photos Carousel */}
             {shop.ambienceImages && shop.ambienceImages.length > 0 && (
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">
-                {shop.ambienceImages.map((imgUrl, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setLightboxImage(imgUrl)}
-                    className="relative group shrink-0 w-44 sm:w-56 h-32 sm:h-36 rounded-2xl overflow-hidden border-2 border-white shadow-xs hover:shadow-md transition snap-start cursor-pointer focus:outline-hidden"
-                  >
-                    <img
-                      src={imgUrl}
-                      alt={`Ambience ${i + 1}`}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-2.5">
-                      <span className="text-[10px] font-bold text-white bg-black/40 px-2 py-0.5 rounded backdrop-blur-xs">
-                        View Photo
-                      </span>
-                      <ImageIcon className="w-3.5 h-3.5 text-white" />
+              <div className="relative group/carousel pt-1">
+                {/* Carousel Top Navigation Bar */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs text-stone-500 font-medium flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Swipe or click arrows to explore our dining space</span>
+                  </div>
+
+                  {shop.ambienceImages.length > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => scrollAmbience('prev')}
+                        className="p-2 rounded-xl bg-white hover:bg-stone-100 text-stone-700 border border-[#E8DFC8] shadow-xs transition cursor-pointer flex items-center justify-center hover:scale-105 active:scale-95"
+                        title="Previous photo"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => scrollAmbience('next')}
+                        className="p-2 rounded-xl bg-white hover:bg-stone-100 text-stone-700 border border-[#E8DFC8] shadow-xs transition cursor-pointer flex items-center justify-center hover:scale-105 active:scale-95"
+                        title="Next photo"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
                     </div>
-                  </button>
-                ))}
+                  )}
+                </div>
+
+                {/* Sliding Track */}
+                <div
+                  ref={ambienceRef}
+                  className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory scroll-smooth"
+                >
+                  {shop.ambienceImages.map((imgUrl, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setLightboxImage(imgUrl)}
+                      className="relative group shrink-0 w-60 sm:w-72 md:w-80 h-36 sm:h-44 md:h-48 rounded-2xl overflow-hidden border-2 border-white shadow-xs hover:shadow-md transition snap-start cursor-pointer focus:outline-hidden"
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`Ambience ${i + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-200 flex items-end justify-between p-3">
+                        <span className="text-[11px] font-bold text-white bg-black/50 px-2.5 py-1 rounded-md backdrop-blur-xs flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Photo #{i + 1}</span>
+                        </span>
+                        <span className="text-[10px] text-white/90 font-medium">Click to view</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Dot Indicators */}
+                {shop.ambienceImages.length > 1 && (
+                  <div className="flex items-center justify-center gap-1.5 pt-3">
+                    {shop.ambienceImages.map((_, dotIdx) => (
+                      <button
+                        key={dotIdx}
+                        type="button"
+                        onClick={() => {
+                          setCurrentAmbienceIdx(dotIdx);
+                          if (ambienceRef.current) {
+                            const cardWidth = 320;
+                            ambienceRef.current.scrollTo({
+                              left: dotIdx * cardWidth,
+                              behavior: 'smooth',
+                            });
+                          }
+                        }}
+                        className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                          currentAmbienceIdx === dotIdx
+                            ? 'w-6 bg-red-700'
+                            : 'w-2 bg-stone-300 hover:bg-stone-400'
+                        }`}
+                        title={`Go to slide ${dotIdx + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

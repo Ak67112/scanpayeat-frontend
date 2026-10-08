@@ -90,38 +90,52 @@ export default function Navbar() {
               )}
             </button>
 
-            {/* Customer Auth Actions */}
+            {/* Customer Auth Actions - Round Shaped & High-End Alignment */}
             {user ? (
-              <div className="flex items-center space-x-3 pl-3 border-l border-[#E8DFC8]">
+              <div className="flex items-center space-x-2 pl-3">
                 {user.role === 'SHOPKEEPER' && (
                   <a
                     href="/shopkeeper"
-                    className="text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-100/80 px-3 py-1.5 rounded-xl border border-amber-300 hover:bg-amber-200 transition"
+                    className="text-xs font-black uppercase tracking-wider text-amber-900 bg-amber-100/90 px-3 py-1.5 rounded-full border border-amber-300 hover:bg-amber-200 transition shadow-2xs"
                   >
-                    Staff Dashboard
+                    Staff
                   </a>
                 )}
                 {user.role === 'ADMIN' && (
                   <a
                     href="/admin"
-                    className="text-xs font-bold uppercase tracking-wider text-purple-900 bg-purple-100/80 px-3 py-1.5 rounded-xl border border-purple-300 hover:bg-purple-200 transition"
+                    className="text-xs font-black uppercase tracking-wider text-purple-900 bg-purple-100/90 px-3 py-1.5 rounded-full border border-purple-300 hover:bg-purple-200 transition shadow-2xs"
                   >
-                    Admin Console
+                    Admin
                   </a>
                 )}
-                <div className="flex flex-col text-right">
-                  <span className="text-xs font-bold text-stone-900 line-clamp-1">
-                    {user.name}
-                  </span>
-                  <span className="text-[10px] text-stone-500">{user.email}</span>
+
+                {/* Round Shaped Profile Pill */}
+                <div className="bg-white/95 border border-[#E8DFC8] rounded-full p-1 pl-1.5 pr-2.5 shadow-xs flex items-center gap-2.5 transition hover:border-stone-400">
+                  {/* Round Avatar with User Initial */}
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-red-700 to-amber-600 text-white font-black text-xs flex items-center justify-center shadow-xs ring-2 ring-white shrink-0">
+                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+
+                  {/* Clean Aligned User Info */}
+                  <div className="flex flex-col text-left leading-tight min-w-0">
+                    <span className="text-xs font-black text-stone-900 truncate max-w-[120px]">
+                      {user.name}
+                    </span>
+                    <span className="text-[10px] text-stone-500 truncate max-w-[130px] font-medium">
+                      {user.email}
+                    </span>
+                  </div>
+
+                  {/* Round Logout Button */}
+                  <button
+                    onClick={() => logout()}
+                    title="Sign Out"
+                    className="w-7 h-7 rounded-full bg-stone-100 hover:bg-rose-50 hover:text-rose-700 text-stone-500 flex items-center justify-center transition cursor-pointer ml-1 shrink-0"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => logout()}
-                  title="Logout"
-                  className="p-2 text-stone-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
               </div>
             ) : (
               <div className="flex items-center space-x-2 pl-2 border-l border-[#E8DFC8]">
@@ -171,12 +185,17 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-[#E8DFC8] bg-[#FAF7F2] px-4 pt-3 pb-6 space-y-3">
           {user && (
-            <div className="p-3 bg-white border border-[#E8DFC8] rounded-xl flex items-center justify-between">
-              <div>
-                <p className="font-bold text-stone-900 text-xs">{user.name}</p>
-                <p className="text-[10px] text-stone-500">{user.email}</p>
+            <div className="p-3 bg-white border border-[#E8DFC8] rounded-2xl flex items-center justify-between shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-red-700 to-amber-600 text-white font-black text-xs flex items-center justify-center shadow-xs ring-2 ring-white shrink-0">
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div>
+                  <p className="font-bold text-stone-900 text-xs">{user.name}</p>
+                  <p className="text-[10px] text-stone-500">{user.email}</p>
+                </div>
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-900">
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-200">
                 {user.role}
               </span>
             </div>

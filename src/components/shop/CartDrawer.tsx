@@ -18,7 +18,6 @@ import {
   CheckCircle,
   AlertCircle,
   CreditCard,
-  Zap,
   Tag,
   Gift,
   Sparkles,
@@ -117,15 +116,10 @@ export default function CartDrawer() {
     if (!shopId || items.length === 0) return;
 
     if (!user) {
-      // Prompt user to login or continue
-      const proceed = window.confirm(
-        'For order tracking and receipt history, we recommend logging in. Proceed to checkout as customer?'
-      );
-      if (!proceed) {
-        setIsCartOpen(false);
-        router.push('/login');
-        return;
-      }
+      setIsCartOpen(false);
+      const redirectPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      router.push(`/login${redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ''}`);
+      return;
     }
 
     setIsCheckingOut(true);
@@ -272,73 +266,6 @@ export default function CartDrawer() {
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Checkout failed. Please try again.');
-    } finally {
-      setIsCheckingOut(false);
-    }
-  };
-
-  const handleInstantPay = async () => {
-    if (!shopId || items.length === 0) return;
-    setIsCheckingOut(true);
-    setErrorMessage('');
-    try {
-      const checkoutPayload = {
-        shopId,
-        items: items.map((i) => ({
-          productId: i.product.id,
-          quantity: i.quantity,
-        })),
-        notes: notes.trim() || undefined,
-        couponCode: appliedCoupon || undefined,
-      };
-
-      const checkoutRes = await publicApi.checkout(checkoutPayload);
-      const activeOrderId = checkoutRes.orderId || checkoutRes.order?.id;
-      const activeRzpOrderId =
-        checkoutRes.razorpayOrderId || checkoutRes.razorpayOrder?.id || `rzp_direct_${activeOrderId}`;
-
-      if (!activeOrderId) {
-        throw new Error('Order creation failed.');
-      }
-
-      // Automatically verify test payment
-      const mockSig = `sig_direct_${Date.now()}`;
-      const verifyRes = await publicApi
-        .verifyPayment({
-          orderId: activeOrderId,
-          razorpay_order_id: activeRzpOrderId,
-          razorpay_payment_id: `pay_direct_${Date.now()}`,
-          razorpay_signature: mockSig,
-        })
-        .catch(() => null);
-
-      const confirmed = {
-        id: activeOrderId,
-        orderCode: (verifyRes as any)?.orderCode || verifyRes?.order?.orderCode || checkoutRes.order?.orderCode,
-        tokenNumber: verifyRes?.tokenNumber || checkoutRes.order?.tokenNumber || `T-${activeOrderId}`,
-        orderStatus: 'CONFIRMED',
-        paymentStatus: 'PAID',
-        totalAmount: checkoutRes.totalAmount ?? finalPayable,
-        total: checkoutRes.totalAmount ?? finalPayable,
-        subtotal: subtotal,
-        discountAmount: checkoutRes.discountAmount ?? discountAmount,
-        couponCode: checkoutRes.couponCode ?? appliedCoupon,
-        discountReason: checkoutRes.discountReason ?? discountReason,
-        items: items.map((i) => ({
-          id: i.product.id,
-          product: i.product,
-          quantity: i.quantity,
-          price: i.product.price,
-        })),
-        shop: checkoutRes.order?.shop || { id: shopId, name: 'Food Counter' },
-        createdAt: new Date().toISOString(),
-      } as any;
-
-      clearCart();
-      setIsCartOpen(false);
-      setConfirmedOrder(confirmed);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Direct checkout failed.');
     } finally {
       setIsCheckingOut(false);
     }
@@ -566,34 +493,69 @@ export default function CartDrawer() {
               </div>
 
               <div className="space-y-2">
-                <button
-                  onClick={handleCheckout}
-                  disabled={isCheckingOut}
-                  className="w-full py-3.5 px-4 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white font-display font-black text-sm tracking-wider uppercase rounded-xl shadow-lg shadow-red-700/20 hover:shadow-xl transition flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
-                >
-                  {isCheckingOut ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Processing Order...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="w-4 h-4" />
-                      <span>Pay with Razorpay (₹{finalPayable})</span>
-                      <ArrowRight className="w-4 h-4 ml-1" />
-                    </>
-                  )}
-                </button>
+                {user ? (
+                  <button
+                    onClick={handleCheckout}
+                    disabled={isCheckingOut}
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white font-display font-black text-sm tracking-wider uppercase rounded-xl shadow-lg shadow-red-700/20 hover:shadow-xl transition flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isCheckingOut ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Processing Order...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="w-4 h-4" />
+                        <span>Pay for Order (₹{finalPayable})</span>
+                        <ArrowRight className="w-4 h-4 ml-1" />
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-1.5 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+                        <AlertCircle className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-amber-950 uppercase tracking-wide">
+                          Sign In Required to Order
+                        </h4>
+                        <p className="text-[11px] text-amber-800 font-medium mt-0.5 leading-relaxed">
+                          Please sign in or create an account to place your order and receive your live kitchen counter token.
+                        </p>
+                      </div>
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={handleInstantPay}
-                  disabled={isCheckingOut}
-                  className="w-full py-2.5 px-4 bg-[#141A16] hover:bg-black text-amber-400 font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 border border-stone-800 shadow-xs"
-                >
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Instant Counter Token Checkout (Fast Track)</span>
-                </button>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCartOpen(false);
+                          const redirectPath = typeof window !== 'undefined' ? window.location.pathname : '';
+                          router.push(`/login${redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ''}`);
+                        }}
+                        className="py-2.5 px-3 bg-red-700 hover:bg-red-800 text-white font-black text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <span>Sign In to Pay</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCartOpen(false);
+                          const redirectPath = typeof window !== 'undefined' ? window.location.pathname : '';
+                          router.push(`/register${redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ''}`);
+                        }}
+                        className="py-2.5 px-3 bg-white hover:bg-amber-100/60 text-amber-950 font-bold text-xs rounded-xl border border-amber-300 transition flex items-center justify-center cursor-pointer"
+                      >
+                        <span>Create Account</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-center space-x-1 text-[11px] text-stone-500 font-medium">
