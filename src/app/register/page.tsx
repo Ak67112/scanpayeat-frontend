@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { authApi } from '../../lib/api';
 import {
   ShoppingBag,
   User as UserIcon,
@@ -43,20 +44,20 @@ export default function RegisterPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('Image size must be less than 5MB');
+      return;
+    }
+
     setIsUploadingAvatar(true);
     setErrorMessage('');
     try {
-      // Convert to high quality data URL for instant zero-latency client avatar, or upload
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setAvatarUrl(event.target.result as string);
-        }
-        setIsUploadingAvatar(false);
-      };
-      reader.readAsDataURL(file);
+      // Upload directly to cloud storage via cloud API endpoint
+      const uploadedUrl = await authApi.uploadImage(file);
+      setAvatarUrl(uploadedUrl);
     } catch (err: any) {
-      setErrorMessage('Failed to read image file');
+      setErrorMessage(err.message || 'Failed to upload photo to cloud storage');
+    } finally {
       setIsUploadingAvatar(false);
     }
   };
@@ -157,11 +158,16 @@ export default function RegisterPage() {
                 <div className="text-left space-y-1">
                   <button
                     type="button"
+                    disabled={isUploadingAvatar}
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer disabled:opacity-60"
                   >
-                    <UploadCloud className="w-3.5 h-3.5" />
-                    <span>Upload your photo</span>
+                    {isUploadingAvatar ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                    ) : (
+                      <UploadCloud className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isUploadingAvatar ? 'Uploading to cloud...' : 'Upload your photo'}</span>
                   </button>
                   <p className="text-[10px] text-slate-400">or choose from presets below</p>
                 </div>
@@ -257,11 +263,16 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isUploadingAvatar}
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 mt-2"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
+              ) : isUploadingAvatar ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Uploading Photo...</span>
+                </>
               ) : (
                 <span>Register & Start Ordering</span>
               )}

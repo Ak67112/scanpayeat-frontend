@@ -91,6 +91,24 @@ export const authApi = {
       // Ignore network failures on logout
     }
   },
+
+  async uploadImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/upload`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    });
+
+    const json = await response.json().catch(() => ({ success: false, message: 'Upload failed' }));
+    if (!response.ok || !json.success) {
+      throw new Error(json.message || 'Image upload to cloud storage failed');
+    }
+
+    return (json.data as { imageUrl: string }).imageUrl;
+  },
 };
 
 // ================= PUBLIC / CUSTOMER SCAN API =================
@@ -375,7 +393,8 @@ export const customerApi = {
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const response = await fetch(`${API_BASE_URL}/api/customer/upload`, {
+    const url = token ? `${API_BASE_URL}/api/customer/upload` : `${API_BASE_URL}/api/auth/upload`;
+    const response = await fetch(url, {
       method: 'POST',
       headers,
       body: formData,
