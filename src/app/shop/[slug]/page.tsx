@@ -44,39 +44,30 @@ export default function ShopMenuPage() {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [isAmbienceOpen, setIsAmbienceOpen] = useState(false);
 
-  // Ambience photo carousel state
+  // Ambience photo carousel state & ref
+  const ambienceRef = React.useRef<HTMLDivElement>(null);
   const [currentAmbienceIdx, setCurrentAmbienceIdx] = useState(0);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   const scrollAmbience = (dir: 'prev' | 'next') => {
-    if (!shop?.ambienceImages || shop.ambienceImages.length === 0) return;
+    if (!ambienceRef.current || !shop?.ambienceImages || shop.ambienceImages.length === 0) return;
     const count = shop.ambienceImages.length;
     let nextIdx = dir === 'next' ? currentAmbienceIdx + 1 : currentAmbienceIdx - 1;
     if (nextIdx >= count) nextIdx = 0;
     if (nextIdx < 0) nextIdx = count - 1;
     setCurrentAmbienceIdx(nextIdx);
-  };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartX(e.touches[0].clientX);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX === null) return;
-    const diff = touchStartX - e.changedTouches[0].clientX;
-    if (diff > 45) {
-      scrollAmbience('next');
-    } else if (diff < -45) {
-      scrollAmbience('prev');
-    }
-    setTouchStartX(null);
+    const cardWidth = 320;
+    ambienceRef.current.scrollTo({
+      left: nextIdx * cardWidth,
+      behavior: 'smooth',
+    });
   };
 
   useEffect(() => {
     if (!shop?.ambienceImages || shop.ambienceImages.length <= 1) return;
     const interval = setInterval(() => {
       scrollAmbience('next');
-    }, 5000);
+    }, 4500);
     return () => clearInterval(interval);
   }, [shop?.ambienceImages, currentAmbienceIdx]);
 
@@ -268,11 +259,11 @@ export default function ShopMenuPage() {
               </div>
             )}
 
-            {/* Ambience Photos Carousel - True One-By-One Showcase */}
+            {/* Ambience Photos Carousel - Classic Gallery Row */}
             {ambienceList.length > 0 && (
-              <div className="relative pt-1 space-y-3">
+              <div className="relative group/carousel pt-1">
                 {/* Carousel Top Navigation Bar */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-3">
                   <div className="text-xs text-stone-500 font-medium flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span>Swipe or click arrows to explore our dining space</span>
@@ -280,15 +271,11 @@ export default function ShopMenuPage() {
 
                   {ambienceList.length > 1 && (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-bold text-stone-600 bg-white px-2.5 py-1 rounded-lg border border-[#E8DFC8]">
-                        {currentAmbienceIdx + 1} / {ambienceList.length}
-                      </span>
                       <button
                         type="button"
                         onClick={() => scrollAmbience('prev')}
                         className="p-2 rounded-xl bg-white hover:bg-stone-100 text-stone-700 border border-[#E8DFC8] shadow-xs transition cursor-pointer flex items-center justify-center hover:scale-105 active:scale-95"
                         title="Previous photo"
-                        aria-label="Previous photo"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
@@ -297,7 +284,6 @@ export default function ShopMenuPage() {
                         onClick={() => scrollAmbience('next')}
                         className="p-2 rounded-xl bg-white hover:bg-stone-100 text-stone-700 border border-[#E8DFC8] shadow-xs transition cursor-pointer flex items-center justify-center hover:scale-105 active:scale-95"
                         title="Next photo"
-                        aria-label="Next photo"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
@@ -305,126 +291,59 @@ export default function ShopMenuPage() {
                   )}
                 </div>
 
-                {/* Hero Showcase Slide Track - One By One Image */}
-                <div 
-                  className="relative w-full h-64 sm:h-80 md:h-[420px] rounded-3xl overflow-hidden shadow-md border-2 border-white bg-stone-900 group"
-                  onTouchStart={handleTouchStart}
-                  onTouchEnd={handleTouchEnd}
+                {/* Sliding Track */}
+                <div
+                  ref={ambienceRef}
+                  className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory scroll-smooth"
                 >
-                  {/* Sliding Container - Glides 1 Image by 1 Image */}
-                  <div
-                    className="flex h-full w-full transition-transform duration-500 ease-out"
-                    style={{ transform: `translateX(-${currentAmbienceIdx * 100}%)` }}
-                  >
-                    {ambienceList.map((imgUrl, i) => (
-                      <div
-                        key={i}
-                        className="min-w-full w-full h-full relative shrink-0 cursor-pointer overflow-hidden"
-                        onClick={() => setLightboxImage(imgUrl)}
-                      >
-                        <img
-                          src={imgUrl}
-                          alt={`Dining Ambience ${i + 1}`}
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        />
-                        {/* Slide Caption & Lightbox CTA */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-between p-4 sm:p-6 opacity-90 group-hover:opacity-100 transition-opacity">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-white bg-black/55 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20 flex items-center gap-1.5 shadow-xs">
-                              <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
-                              <span>Photo {i + 1} of {ambienceList.length}</span>
-                            </span>
-                            <span className="hidden sm:inline-flex text-[11px] font-semibold text-white/90 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
-                              Click to view full screen
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-white/90 font-medium drop-shadow-md">
-                              {shop.name} Atmosphere &amp; Dining Room
-                            </span>
-                            <span className="text-xs font-bold text-amber-300 flex items-center gap-1 bg-black/60 px-3 py-1 rounded-full backdrop-blur-xs">
-                              Tap to View Large
-                            </span>
-                          </div>
-                        </div>
+                  {ambienceList.map((imgUrl, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setLightboxImage(imgUrl)}
+                      className="relative group shrink-0 w-60 sm:w-72 md:w-80 h-36 sm:h-44 md:h-48 rounded-2xl overflow-hidden border-2 border-white shadow-xs hover:shadow-md transition snap-start cursor-pointer focus:outline-hidden"
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`Ambience ${i + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-200 flex items-end justify-between p-3">
+                        <span className="text-[11px] font-bold text-white bg-black/50 px-2.5 py-1 rounded-md backdrop-blur-xs flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Photo #{i + 1}</span>
+                        </span>
+                        <span className="text-[10px] text-white/90 font-medium">Click to view</span>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Floating Next/Prev Arrow Overlays on the Hero Slide */}
-                  {ambienceList.length > 1 && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          scrollAmbience('prev');
-                        }}
-                        className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/25 flex items-center justify-center transition hover:scale-110 active:scale-95 shadow-xl cursor-pointer"
-                        title="Previous photo"
-                        aria-label="Previous photo"
-                      >
-                        <ChevronLeft className="w-5 h-5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          scrollAmbience('next');
-                        }}
-                        className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/25 flex items-center justify-center transition hover:scale-110 active:scale-95 shadow-xl cursor-pointer"
-                        title="Next photo"
-                        aria-label="Next photo"
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </button>
-                    </>
-                  )}
+                    </button>
+                  ))}
                 </div>
 
-                {/* Bottom Thumbnail Strip & Dot Indicators */}
+                {/* Dot Indicators */}
                 {ambienceList.length > 1 && (
-                  <div className="flex flex-col items-center gap-2 pt-1">
-                    {/* Thumbnail Row */}
-                    <div className="flex items-center justify-center gap-2 sm:gap-2.5 overflow-x-auto max-w-full pb-1 scrollbar-none">
-                      {ambienceList.map((imgUrl, thumbIdx) => (
-                        <button
-                          key={thumbIdx}
-                          type="button"
-                          onClick={() => setCurrentAmbienceIdx(thumbIdx)}
-                          className={`relative shrink-0 w-14 h-10 sm:w-18 sm:h-12 rounded-xl overflow-hidden border-2 transition cursor-pointer ${
-                            currentAmbienceIdx === thumbIdx
-                              ? 'border-red-600 ring-2 ring-red-400 scale-105 opacity-100 shadow-md'
-                              : 'border-stone-300 opacity-60 hover:opacity-100'
-                          }`}
-                          title={`Go to photo ${thumbIdx + 1}`}
-                        >
-                          <img
-                            src={imgUrl}
-                            alt={`Thumb ${thumbIdx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Dot Indicators */}
-                    <div className="flex items-center gap-1.5">
-                      {ambienceList.map((_, dotIdx) => (
-                        <button
-                          key={dotIdx}
-                          type="button"
-                          onClick={() => setCurrentAmbienceIdx(dotIdx)}
-                          className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                            currentAmbienceIdx === dotIdx
-                              ? 'w-6 bg-red-700'
-                              : 'w-1.5 bg-stone-300 hover:bg-stone-400'
-                          }`}
-                          title={`Slide ${dotIdx + 1}`}
-                        />
-                      ))}
-                    </div>
+                  <div className="flex items-center justify-center gap-1.5 pt-3">
+                    {ambienceList.map((_, dotIdx) => (
+                      <button
+                        key={dotIdx}
+                        type="button"
+                        onClick={() => {
+                          setCurrentAmbienceIdx(dotIdx);
+                          if (ambienceRef.current) {
+                            const cardWidth = 320;
+                            ambienceRef.current.scrollTo({
+                              left: dotIdx * cardWidth,
+                              behavior: 'smooth',
+                            });
+                          }
+                        }}
+                        className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                          currentAmbienceIdx === dotIdx
+                            ? 'w-6 bg-red-700'
+                            : 'w-2 bg-stone-300 hover:bg-stone-400'
+                        }`}
+                        title={`Go to slide ${dotIdx + 1}`}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
