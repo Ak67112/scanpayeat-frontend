@@ -11,8 +11,11 @@ import {
   Store,
   Receipt,
   UtensilsCrossed,
+  Camera,
 } from 'lucide-react';
-import { Order } from '../../types';
+import { Order, FoodStoryData } from '../../types';
+import { publicApi } from '../../lib/api';
+import FoodStoryModal from './FoodStoryModal';
 
 interface OrderSuccessModalProps {
   order: Order;
@@ -27,6 +30,48 @@ export default function OrderSuccessModal({
 }: OrderSuccessModalProps) {
   const router = useRouter();
   const [showCelebration, setShowCelebration] = useState(false);
+  const [isStoryOpen, setIsStoryOpen] = useState(false);
+  const [storyData, setStoryData] = useState<FoodStoryData | null>(null);
+  const [isLoadingStory, setIsLoadingStory] = useState(false);
+
+  const handleOpenStory = async () => {
+    setIsStoryOpen(true);
+    if (!storyData) {
+      setIsLoadingStory(true);
+      try {
+        const data = await publicApi.getOrderStoryData(order.id);
+        setStoryData(data);
+      } catch (err) {
+        // Fallback to local order details
+        setStoryData({
+          customer: {
+            name: order.customerName || 'Food Lover',
+            profileImage: null,
+          },
+          restaurant: {
+            name: order.shop?.name || 'Restaurant',
+            location: order.shop?.address || 'Dine-In',
+            logo: order.shop?.logoUrl || null,
+          },
+          order: {
+            id: order.id,
+            orderNumber: order.orderCode || String(order.id),
+            tokenNumber: order.tokenNumber || `ORD-${order.id}`,
+            totalAmount: Number(order.totalAmount ?? order.total ?? 0),
+            createdAt: order.createdAt || new Date().toISOString(),
+            items: (order.items || []).map((i: any) => ({
+              name: i.productName || i.name,
+              image: i.product?.imageUrl || i.imageUrl || null,
+              quantity: i.quantity || 1,
+              unitPrice: Number(i.unitPrice || i.price || 0),
+            })),
+          },
+        });
+      } finally {
+        setIsLoadingStory(false);
+      }
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -148,15 +193,41 @@ export default function OrderSuccessModal({
                 <span>Discount ({order.discountReason || order.couponCode || 'Offer'})</span>
                 <span>-₹{Number(order.discountAmount)}</span>
               </div>
+              {order.cgstAmount && Number(order.cgstAmount) > 0 && (
+                <div className="flex items-center justify-between text-slate-500">
+                  <span>CGST ({Number(order.cgstRate || 2.5)}%)</span>
+                  <span>+₹{Number(order.cgstAmount).toFixed(2)}</span>
+                </div>
+              )}
+              {order.sgstAmount && Number(order.sgstAmount) > 0 && (
+                <div className="flex items-center justify-between text-slate-500">
+                  <span>SGST ({Number(order.sgstRate || 2.5)}%)</span>
+                  <span>+₹{Number(order.sgstAmount).toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between pt-1 font-bold text-slate-900 border-t border-slate-200/50">
                 <span>Total Paid</span>
-                <span className="text-base text-red-700 font-black">₹{totalAmount}</span>
+                <span className="text-base text-red-700 font-black">₹{totalAmount.toFixed(2)}</span>
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between border-t border-slate-200/70 pt-2 font-bold text-slate-900">
-              <span>Total Paid</span>
-              <span className="text-base text-red-700 font-black">₹{totalAmount}</span>
+            <div className="space-y-1 border-t border-slate-200/70 pt-2">
+              {order.cgstAmount && Number(order.cgstAmount) > 0 && (
+                <div className="flex items-center justify-between text-slate-500">
+                  <span>CGST ({Number(order.cgstRate || 2.5)}%)</span>
+                  <span>+₹{Number(order.cgstAmount).toFixed(2)}</span>
+                </div>
+              )}
+              {order.sgstAmount && Number(order.sgstAmount) > 0 && (
+                <div className="flex items-center justify-between text-slate-500">
+                  <span>SGST ({Number(order.sgstRate || 2.5)}%)</span>
+                  <span>+₹{Number(order.sgstAmount).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-1 font-bold text-slate-900 border-t border-slate-200/50">
+                <span>Total Paid</span>
+                <span className="text-base text-red-700 font-black">₹{totalAmount.toFixed(2)}</span>
+              </div>
             </div>
           )}
 
@@ -168,6 +239,15 @@ export default function OrderSuccessModal({
 
         {/* Action Buttons */}
         <div className="space-y-2 pt-1">
+          {/* Create Food Story Button */}
+          <button
+            onClick={handleOpenStory}
+            className="w-full py-3 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 hover:from-purple-700 hover:via-pink-700 hover:to-orange-600 text-white font-black text-xs rounded-xl shadow-lg shadow-pink-500/25 transition flex items-center justify-center gap-2 cursor-pointer transform hover:scale-[1.01]"
+          >
+            <Camera className="w-4 h-4" />
+            <span>Create My Food Story 📸✨</span>
+          </button>
+
           <button
             onClick={handleTrackLive}
             className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-orange-500/25 transition flex items-center justify-center gap-2 cursor-pointer"
@@ -178,12 +258,20 @@ export default function OrderSuccessModal({
 
           <button
             onClick={onClose}
-            className="w-full py-2.5 text-slate-500 hover:text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer"
+            className="w-full py-2 text-slate-500 hover:text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer"
           >
             Back to Menu
           </button>
         </div>
       </div>
+
+      {/* Instagram-Style Food Story Modal */}
+      <FoodStoryModal
+        isOpen={isStoryOpen}
+        onClose={() => setIsStoryOpen(false)}
+        storyData={storyData}
+        isLoading={isLoadingStory}
+      />
     </div>
   );
 }

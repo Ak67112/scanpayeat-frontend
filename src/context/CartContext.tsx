@@ -77,7 +77,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     saveCart(nextItems, targetShopId, targetShopSlug);
-    setIsCartOpen(true);
   };
 
   const removeFromCart = (productId: number) => {

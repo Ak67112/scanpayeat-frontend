@@ -8,6 +8,13 @@ import {
   ShopkeeperStats,
   OrderStatus,
   Coupon,
+  ShopkeeperWallet,
+  WalletTransaction,
+  PaymentGatewaySettings,
+  ShopGatewaySettings,
+  ShopTaxSettings,
+  WalletRechargeOrder,
+  FoodStoryData,
 } from '../types';
 
 const API_BASE_URL =
@@ -200,6 +207,10 @@ export const publicApi = {
     return apiFetch<{ order: Order }>(`/api/orders/${orderId}`);
   },
 
+  async getOrderStoryData(orderId: number | string) {
+    return apiFetch<FoodStoryData>(`/api/orders/${orderId}/story-data`);
+  },
+
   async getMyOrders() {
     return apiFetch<{ orders: Order[] }>('/api/me/orders');
   },
@@ -367,6 +378,71 @@ export const shopkeeperApi = {
     keeperAvatarUrl?: string;
   }) {
     return apiFetch<{ shop: Shop }>('/api/shop/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getWallet() {
+    return apiFetch<{ wallet: ShopkeeperWallet; transactions: WalletTransaction[] }>('/api/shop/wallet');
+  },
+
+  async rechargeWalletCreateOrder(amount: number) {
+    return apiFetch<WalletRechargeOrder>('/api/shop/wallet/recharge/create-order', {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    });
+  },
+
+  async rechargeWalletVerify(data: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    amount: number;
+  }) {
+    return apiFetch<{
+      wallet: ShopkeeperWallet;
+      transaction: WalletTransaction;
+      alreadyCredited: boolean;
+    }>('/api/shop/wallet/recharge/verify', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getGatewaySettings() {
+    return apiFetch<ShopGatewaySettings>('/api/shop/gateway-settings');
+  },
+
+  async updateGatewaySettings(data: {
+    keyId?: string;
+    keySecret?: string;
+    isCustomGatewayEnabled?: boolean;
+  }) {
+    return apiFetch<ShopGatewaySettings>('/api/shop/gateway-settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async testGatewayConnection(data?: { keyId?: string; keySecret?: string }) {
+    return apiFetch<{ success: boolean; message: string }>('/api/shop/gateway-settings/test', {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    });
+  },
+
+  async getTaxSettings() {
+    return apiFetch<ShopTaxSettings>('/api/shop/tax-settings');
+  },
+
+  async updateTaxSettings(data: {
+    gstEnabled?: boolean;
+    cgstRate?: number;
+    sgstRate?: number;
+    gstNumber?: string;
+  }) {
+    return apiFetch<ShopTaxSettings>('/api/shop/tax-settings', {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -552,5 +628,215 @@ export const adminApi = {
       method: 'PATCH',
       body: JSON.stringify({ isActive }),
     });
+  },
+
+  // --- Payment Gateway Settings ---
+  async getPaymentGatewaySettings() {
+    return apiFetch<{ settings: PaymentGatewaySettings }>('/api/admin/payment-gateway');
+  },
+
+  async updatePaymentGatewaySettings(data: {
+    keyId: string;
+    keySecret?: string;
+    webhookSecret?: string;
+    environment: 'TEST' | 'LIVE';
+    currency: string;
+    platformFeeType?: 'PERCENT' | 'FIXED';
+    platformFeeValue?: number;
+    isActive: boolean;
+  }) {
+    return apiFetch<{ settings: PaymentGatewaySettings }>('/api/admin/payment-gateway', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async testPaymentGatewayConnection(data: {
+    keyId?: string;
+    keySecret?: string;
+    environment?: 'TEST' | 'LIVE';
+  }) {
+    return apiFetch<{ success: boolean; message: string; error?: string }>(
+      '/api/admin/payment-gateway/test-connection',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  // --- Shopkeeper Wallets ---
+  async getWallets(params?: {
+    search?: string;
+    lowBalanceOnly?: boolean;
+    qrEnabledOnly?: boolean;
+    page?: number;
+    limit?: number;
+  }) {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set('search', params.search);
+    if (params?.lowBalanceOnly) qs.set('lowBalanceOnly', 'true');
+    if (params?.qrEnabledOnly !== undefined) qs.set('qrEnabledOnly', String(params.qrEnabledOnly));
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.limit) qs.set('limit', String(params.limit));
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return apiFetch<{
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+      wallets: ShopkeeperWallet[];
+    }>(`/api/admin/wallets${query}`);
+  },
+
+  async getWallet(shopkeeperId: number) {
+    return apiFetch<{ wallet: ShopkeeperWallet }>(`/api/admin/wallets/${shopkeeperId}`);
+  },
+
+  async creditWallet(
+    shopkeeperId: number,
+    data: { amount: number; reference?: string; notes?: string; idempotencyKey?: string }
+  ) {
+    return apiFetch<{
+      wallet: ShopkeeperWallet;
+      transaction: WalletTransaction;
+      isDuplicate?: boolean;
+    }>(`/api/admin/wallets/${shopkeeperId}/credit`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async debitWallet(
+    shopkeeperId: number,
+    data: { amount: number; reference?: string; notes?: string; idempotencyKey?: string }
+  ) {
+    return apiFetch<{
+      wallet: ShopkeeperWallet;
+      transaction: WalletTransaction;
+      isDuplicate?: boolean;
+    }>(`/api/admin/wallets/${shopkeeperId}/debit`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async setWalletLimit(shopkeeperId: number, minWalletLimit: number) {
+    return apiFetch<{
+      walletId: number;
+      shopkeeperId: number;
+      minWalletLimit: number;
+      balance: number;
+      isBreached: boolean;
+      message: string;
+    }>(`/api/admin/wallets/${shopkeeperId}/limit`, {
+      method: 'PATCH',
+      body: JSON.stringify({ minWalletLimit }),
+    });
+  },
+
+  async updateWalletQrStatus(shopkeeperId: number, isQrEnabled: boolean) {
+    return apiFetch<{
+      walletId: number;
+      shopkeeperId: number;
+      isQrEnabled: boolean;
+      message: string;
+    }>(`/api/admin/wallets/${shopkeeperId}/qr-status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isQrEnabled }),
+    });
+  },
+
+  async updateShopkeeperQrStatus(shopkeeperId: number, isQrEnabled: boolean) {
+    return this.updateWalletQrStatus(shopkeeperId, isQrEnabled);
+  },
+
+  async getWalletTransactions(params?: {
+    walletId?: number;
+    shopkeeperId?: number;
+    type?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const qs = new URLSearchParams();
+    if (params?.walletId) qs.set('walletId', String(params.walletId));
+    if (params?.shopkeeperId) qs.set('shopkeeperId', String(params.shopkeeperId));
+    if (params?.type && params.type !== 'ALL') qs.set('type', params.type);
+    if (params?.startDate) qs.set('startDate', params.startDate);
+    if (params?.endDate) qs.set('endDate', params.endDate);
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.limit) qs.set('limit', String(params.limit));
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return apiFetch<{
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+      transactions: WalletTransaction[];
+    }>(`/api/admin/wallets/transactions${query}`);
+  },
+
+  // --- Shopkeeper Gateway & GST Management ---
+  async getShopkeeperGatewayGst(shopkeeperId: number) {
+    return apiFetch<{
+      shopkeeperId: number;
+      shopkeeperName: string;
+      shopId: number;
+      shopName: string;
+      isCustomGatewayEnabled: boolean;
+      razorpayKeyId: string | null;
+      hasKeySecret: boolean;
+      keySecretMasked: string | null;
+      gstEnabled: boolean;
+      gstNumber: string | null;
+      cgstRate: number;
+      sgstRate: number;
+    }>(`/api/admin/shopkeepers/${shopkeeperId}/gateway-gst`);
+  },
+
+  async updateShopkeeperGatewayGst(
+    shopkeeperId: number,
+    data: {
+      isCustomGatewayEnabled?: boolean;
+      razorpayKeyId?: string | null;
+      razorpayKeySecret?: string | null;
+      gstEnabled?: boolean;
+      gstNumber?: string | null;
+      cgstRate?: number;
+      sgstRate?: number;
+    }
+  ) {
+    return apiFetch<{
+      shopkeeperId: number;
+      shopkeeperName: string;
+      shopId: number;
+      shopName: string;
+      isCustomGatewayEnabled: boolean;
+      razorpayKeyId: string | null;
+      hasKeySecret: boolean;
+      keySecretMasked: string | null;
+      gstEnabled: boolean;
+      gstNumber: string | null;
+      cgstRate: number;
+      sgstRate: number;
+    }>(`/api/admin/shopkeepers/${shopkeeperId}/gateway-gst`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async testShopkeeperGateway(
+    shopkeeperId: number,
+    data?: { keyId?: string; keySecret?: string }
+  ) {
+    return apiFetch<{ success: boolean; message: string }>(
+      `/api/admin/shopkeepers/${shopkeeperId}/test-gateway`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data || {}),
+      }
+    );
   },
 };

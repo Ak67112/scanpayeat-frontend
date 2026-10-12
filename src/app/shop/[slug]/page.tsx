@@ -175,9 +175,15 @@ export default function ShopMenuPage() {
                   <h1 className="text-2xl sm:text-4xl font-black text-slate-950 truncate font-display">
                     {shop.name}
                   </h1>
-                  <span className="bg-emerald-100 text-emerald-900 text-[10px] sm:text-[11px] font-extrabold px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1.5 shrink-0">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> Kitchen Open
-                  </span>
+                  {shop.isQrActive !== false ? (
+                    <span className="bg-emerald-100 text-emerald-900 text-[10px] sm:text-[11px] font-extrabold px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1.5 shrink-0">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> Kitchen Open
+                    </span>
+                  ) : (
+                    <span className="bg-rose-100 text-rose-900 text-[10px] sm:text-[11px] font-extrabold px-3 py-1 rounded-full border border-rose-300 flex items-center gap-1.5 shrink-0">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-700" /> QR Ordering Paused
+                    </span>
+                  )}
                 </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-y-1.5 gap-x-4 text-xs text-stone-500 font-medium">
@@ -195,14 +201,29 @@ export default function ShopMenuPage() {
                   )}
                   <span className="flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-red-700 shrink-0" />
-                    <span>Table QR Activated</span>
+                    <span>Table QR {shop.isQrActive !== false ? 'Activated' : 'Paused'}</span>
                   </span>
                 </div>
               </div>
             </div>
-
-
           </div>
+
+          {/* Warning banner if QR ordering is paused / below limit */}
+          {shop.isQrActive === false && (
+            <div className="mt-4 p-4 sm:p-5 bg-rose-50 border-2 border-rose-300 rounded-2xl flex items-start gap-3.5 text-rose-900 shadow-xs animate-in fade-in">
+              <div className="p-2 bg-rose-100 text-rose-700 rounded-xl shrink-0 mt-0.5">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-display font-black text-sm uppercase tracking-wide text-rose-950">
+                  Online QR Ordering is Currently Paused
+                </h3>
+                <p className="text-xs text-rose-800 mt-0.5 font-medium leading-relaxed">
+                  {shop.qrClosedReason || 'This outlet is currently not accepting online QR payments. Please place your order directly at the restaurant counter.'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -419,6 +440,7 @@ export default function ShopMenuPage() {
                 product={product}
                 shopId={shop.id}
                 shopSlug={shop.slug}
+                isQrActive={shop.isQrActive !== false}
               />
             ))}
           </div>
@@ -430,7 +452,11 @@ export default function ShopMenuPage() {
         <div className="fixed bottom-6 inset-x-4 max-w-md mx-auto z-40">
           <button
             onClick={() => setIsCartOpen(true)}
-            className="w-full py-4 px-6 bg-red-700 hover:bg-red-800 text-white rounded-2xl shadow-2xl shadow-red-900/40 flex items-center justify-between border-2 border-white transform active:scale-98 transition cursor-pointer"
+            className={`w-full py-4 px-6 rounded-2xl shadow-2xl flex items-center justify-between border-2 border-white transform active:scale-98 transition cursor-pointer ${
+              shop.isQrActive !== false
+                ? 'bg-red-700 hover:bg-red-800 text-white shadow-red-900/40'
+                : 'bg-stone-800 text-stone-200 shadow-stone-900/40'
+            }`}
           >
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-bold text-xs font-display">
@@ -443,7 +469,7 @@ export default function ShopMenuPage() {
             </div>
 
             <div className="flex items-center space-x-2 text-xs font-black uppercase tracking-wider">
-              <span>View Cart & Checkout</span>
+              <span>{shop.isQrActive !== false ? 'View Cart & Checkout' : 'View Tray (Ordering Paused)'}</span>
               <ArrowRight className="w-4 h-4" />
             </div>
           </button>

@@ -42,9 +42,19 @@ import {
   CalendarRange,
   Filter,
   Printer,
+  Wallet,
+  CreditCard,
+  PlusCircle,
+  History,
 } from 'lucide-react';
+import WalletsManagementTab from '../../components/admin/WalletsManagementTab';
+import PaymentGatewaySettingsTab from '../../components/admin/PaymentGatewaySettingsTab';
+import WalletLedgerTab from '../../components/admin/WalletLedgerTab';
+import WalletLimitModal from '../../components/admin/WalletLimitModal';
+import WalletTransactionsModal from '../../components/admin/WalletTransactionsModal';
+import { ShopkeeperGatewayModal } from '../../components/admin/ShopkeeperGatewayModal';
 
-type AdminTab = 'OVERVIEW' | 'OUTLETS_SALES' | 'SHOPS' | 'SHOPKEEPERS' | 'ORDERS' | 'COUPONS';
+type AdminTab = 'OVERVIEW' | 'OUTLETS_SALES' | 'SHOPS' | 'SHOPKEEPERS' | 'ORDERS' | 'COUPONS' | 'WALLETS' | 'GATEWAY_SETTINGS' | 'LEDGER';
 type DatePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 
 export default function AdminDashboard() {
@@ -52,6 +62,7 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('OVERVIEW');
+  const [ledgerInitialKeeperId, setLedgerInitialKeeperId] = useState<number | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [shopkeepers, setShopkeepers] = useState<(User & { shop: Shop })[]>([]);
@@ -155,6 +166,12 @@ export default function AdminDashboard() {
 
   // QR Modal
   const [selectedQrShop, setSelectedQrShop] = useState<Shop | null>(null);
+
+  // Shopkeeper Wallet Modals & Actions
+  const [selectedLimitKeeper, setSelectedLimitKeeper] = useState<any | null>(null);
+  const [selectedLedgerKeeper, setSelectedLedgerKeeper] = useState<any | null>(null);
+  const [selectedGatewayGstKeeper, setSelectedGatewayGstKeeper] = useState<any | null>(null);
+  const [togglingKeeperQrId, setTogglingKeeperQrId] = useState<number | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -275,6 +292,63 @@ export default function AdminDashboard() {
     } catch (err: any) {
       alert(err.message || 'Failed to update shopkeeper status');
     }
+  };
+
+  // Toggle Shopkeeper QR Payment Permission
+  const handleToggleKeeperQr = async (k: any) => {
+    const currentStatus = k.wallet?.isQrEnabled !== false;
+    setTogglingKeeperQrId(k.id);
+    try {
+      await adminApi.updateShopkeeperQrStatus(k.id, !currentStatus);
+      setShopkeepers((prev: any) =>
+        prev.map((item: any) =>
+          item.id === k.id
+            ? {
+                ...item,
+                wallet: item.wallet
+                  ? { ...item.wallet, isQrEnabled: !currentStatus }
+                  : {
+                      id: 0,
+                      shopkeeperId: k.id,
+                      isQrEnabled: !currentStatus,
+                      balance: 0,
+                      minWalletLimit: 100,
+                      totalCredits: 0,
+                      totalDebits: 0,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                      isBreached: false,
+                    },
+              }
+            : item
+        )
+      );
+    } catch (err: any) {
+      alert(err.message || 'Failed to update QR payment status');
+    } finally {
+      setTogglingKeeperQrId(null);
+    }
+  };
+
+
+  const handleLimitSuccess = (shopkeeperId: number, newLimit: number) => {
+    setShopkeepers((prev: any) =>
+      prev.map((item: any) =>
+        item.id === shopkeeperId
+          ? {
+              ...item,
+              wallet: item.wallet
+                ? {
+                    ...item.wallet,
+                    minWalletLimit: newLimit,
+                    isBreached: Number(item.wallet?.balance ?? 0) < newLimit,
+                  }
+                : item.wallet,
+            }
+          : item
+      )
+    );
+    loadData();
   };
 
   // Create Shop
@@ -950,6 +1024,71 @@ export default function AdminDashboard() {
         </button>
 
         <div className="pt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          Wallets & Gateway
+        </div>
+
+        <button
+          onClick={() => {
+            setActiveTab('WALLETS');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'WALLETS'
+              ? 'bg-purple-600 text-white shadow-md shadow-purple-900/20'
+              : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            <Wallet className="w-4 h-4 text-emerald-400" />
+            <span>Wallets & Limits</span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-800/50 font-mono">
+            ACTIVE
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('GATEWAY_SETTINGS');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'GATEWAY_SETTINGS'
+              ? 'bg-purple-600 text-white shadow-md shadow-purple-900/20'
+              : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            <CreditCard className="w-4 h-4 text-sky-400" />
+            <span>Payment Gateway</span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-950/80 text-sky-300 border border-sky-800/50 font-mono">
+            RAZORPAY
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            setLedgerInitialKeeperId(null);
+            setActiveTab('LEDGER');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'LEDGER'
+              ? 'bg-purple-600 text-white shadow-md shadow-purple-900/20'
+              : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            <History className="w-4 h-4 text-amber-400" />
+            <span>Wallet Ledger</span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-950/80 text-amber-300 border border-amber-800/50 font-mono">
+            AUDIT
+          </span>
+        </button>
+
+        <div className="pt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
           Documentation & API
         </div>
 
@@ -1036,6 +1175,10 @@ export default function AdminDashboard() {
                   {activeTab === 'SHOPS' && 'Tenant Outlets Management'}
                   {activeTab === 'SHOPKEEPERS' && 'Assigned Kitchen Managers'}
                   {activeTab === 'ORDERS' && 'Global Transaction Audit'}
+                  {activeTab === 'COUPONS' && 'Platform Coupons & Offers'}
+                  {activeTab === 'WALLETS' && 'Prepaid Wallets & Minimum Balance Limits'}
+                  {activeTab === 'GATEWAY_SETTINGS' && 'Razorpay Centralized Credentials & Settings'}
+                  {activeTab === 'LEDGER' && 'Global Inflow/Outflow Audit & Transaction History'}
                 </span>
               </div>
               <h1 className="text-lg sm:text-2xl font-black text-slate-900 mt-0.5">
@@ -1044,6 +1187,10 @@ export default function AdminDashboard() {
                 {activeTab === 'SHOPS' && 'Registered Shops & Subdomains'}
                 {activeTab === 'SHOPKEEPERS' && 'Shopkeeper Accounts'}
                 {activeTab === 'ORDERS' && 'Platform Orders Audit'}
+                {activeTab === 'COUPONS' && 'Platform Coupons & Offers'}
+                {activeTab === 'WALLETS' && 'Shopkeeper Wallets & Limits'}
+                {activeTab === 'GATEWAY_SETTINGS' && 'Payment Gateway Settings'}
+                {activeTab === 'LEDGER' && 'Wallet Transactions Ledger'}
               </h1>
             </div>
           </div>
@@ -1748,21 +1895,24 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
+                <div className="overflow-x-auto min-w-full">
+                  <table className="w-full min-w-[1050px] text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
                         <th className="p-4">Name & Email</th>
                         <th className="p-4">Assigned Shop</th>
                         <th className="p-4">Mobile</th>
                         <th className="p-4">Status</th>
-                        <th className="p-4 text-right">Actions</th>
+                        <th className="p-4">Wallet Balance</th>
+                        <th className="p-4">Min Limit</th>
+                        <th className="p-4">QR Pay</th>
+                        <th className="p-4 text-right min-w-[340px]">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {paginatedKeepers.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="p-8 text-center text-slate-400">
+                          <td colSpan={8} className="p-8 text-center text-slate-400">
                             No shopkeepers found. Click &apos;Provision Keeper&apos; above.
                           </td>
                         </tr>
@@ -1778,9 +1928,21 @@ export default function AdminDashboard() {
                               </span>
                             </td>
                             <td className="p-4">
-                              <span className="font-bold text-purple-700">
+                              <span className="font-bold text-purple-700 block text-xs">
                                 {k.shop?.name || `Shop #${k.shopId}`}
                               </span>
+                              <div className="flex flex-wrap items-center gap-1 mt-1">
+                                {k.shop?.isCustomGatewayEnabled ? (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                    <CreditCard className="w-2.5 h-2.5" />
+                                    Custom Gateway
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                    Platform Default
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="p-4 font-medium text-slate-600">
                               {k.mobile || '—'}
@@ -1796,33 +1958,103 @@ export default function AdminDashboard() {
                                 {k.isActive !== false ? 'ACTIVE' : 'DISABLED'}
                               </span>
                             </td>
-                            <td className="p-4 text-right space-x-1.5">
+                            <td className="p-4">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={`font-mono font-bold text-xs ${
+                                    k.wallet?.isBreached ? 'text-rose-600' : 'text-slate-900'
+                                  }`}
+                                >
+                                  ₹{Number(k.wallet?.balance ?? 0).toFixed(2)}
+                                </span>
+                                {k.wallet?.isBreached && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-rose-100 text-rose-700 border border-rose-200">
+                                    LOW
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4 font-mono text-xs text-slate-600">
+                              ₹{Number(k.wallet?.minWalletLimit ?? 0).toFixed(2)}
+                            </td>
+                            <td className="p-4">
                               <button
-                                onClick={() => openEditKeeper(k)}
-                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-slate-200"
-                              >
-                                <Edit2 className="w-3.5 h-3.5 text-blue-600" />
-                                <span>Edit</span>
-                              </button>
-
-                              <button
-                                onClick={() => handleToggleKeeperStatus(k.id, k.isActive !== false)}
-                                className={`px-2.5 py-1.5 rounded-lg font-bold transition cursor-pointer border ${
-                                  k.isActive !== false
-                                    ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200'
-                                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200'
+                                onClick={() => handleToggleKeeperQr(k)}
+                                disabled={togglingKeeperQrId === k.id}
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold inline-flex items-center gap-1 cursor-pointer transition ${
+                                  k.wallet?.isQrEnabled !== false
+                                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
+                                    : 'bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300'
                                 }`}
+                                title="Click to enable/disable QR payments"
                               >
-                                {k.isActive !== false ? 'Deactivate' : 'Activate'}
+                                <QrCode className="w-3 h-3" />
+                                {k.wallet?.isQrEnabled !== false ? 'ENABLED' : 'PAUSED'}
                               </button>
+                            </td>
+                            <td className="p-4 text-right whitespace-nowrap min-w-[340px]">
+                              <div className="inline-flex items-center justify-end gap-1.5 flex-wrap">
+                                <button
+                                  onClick={() => setSelectedGatewayGstKeeper(k)}
+                                  className="h-7 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-purple-200 text-[11px]"
+                                  title="Configure Razorpay Merchant Gateway for this Shopkeeper"
+                                >
+                                  <CreditCard className="w-3 h-3 text-purple-600" />
+                                  <span>Gateway</span>
+                                </button>
 
-                              <button
-                                onClick={() => setDeleteKeeperTarget(k)}
-                                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-rose-200"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>Delete</span>
-                              </button>
+                                <button
+                                  onClick={() => setSelectedLimitKeeper(k)}
+                                  className="h-7 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-slate-200 text-[11px]"
+                                  title="Set Minimum Wallet Limit"
+                                >
+                                  <SlidersHorizontal className="w-3 h-3 text-slate-600" />
+                                  <span>Limit</span>
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    setLedgerInitialKeeperId(k.id);
+                                    setActiveTab('LEDGER');
+                                  }}
+                                  className="h-7 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-blue-200 text-[11px]"
+                                  title="Open Wallet Ledger filtered for this Shopkeeper"
+                                >
+                                  <History className="w-3 h-3 text-blue-600" />
+                                  <span>Ledger</span>
+                                </button>
+
+                                <button
+                                  onClick={() => openEditKeeper(k)}
+                                  className="h-7 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-slate-200 text-[11px]"
+                                  title="Edit Shopkeeper Details"
+                                >
+                                  <Edit2 className="w-3 h-3 text-blue-600" />
+                                  <span>Edit</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleToggleKeeperStatus(k.id, k.isActive !== false)}
+                                  className={`h-7 px-2.5 rounded-lg font-bold transition cursor-pointer border text-[11px] inline-flex items-center gap-1 ${
+                                    k.isActive !== false
+                                      ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200'
+                                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200'
+                                  }`}
+                                  title={k.isActive !== false ? 'Deactivate Shopkeeper' : 'Activate Shopkeeper'}
+                                >
+                                  <Power className="w-3 h-3" />
+                                  <span>{k.isActive !== false ? 'Deactivate' : 'Activate'}</span>
+                                </button>
+
+                                <button
+                                  onClick={() => setDeleteKeeperTarget(k)}
+                                  className="h-7 px-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-rose-200 text-[11px]"
+                                  title="Delete Shopkeeper"
+                                >
+                                  <Trash2 className="w-3 h-3 text-rose-600" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -2393,6 +2625,24 @@ export default function AdminDashboard() {
                 )}
               </div>
             </div>
+          )}
+
+          {/* ================= TAB: WALLETS & LIMITS ================= */}
+          {activeTab === 'WALLETS' && (
+            <WalletsManagementTab />
+          )}
+
+          {/* ================= TAB: PAYMENT GATEWAY SETTINGS ================= */}
+          {activeTab === 'GATEWAY_SETTINGS' && (
+            <PaymentGatewaySettingsTab />
+          )}
+
+          {/* ================= TAB: WALLET TRANSACTIONS LEDGER ================= */}
+          {activeTab === 'LEDGER' && (
+            <WalletLedgerTab
+              initialShopkeeperFilter={ledgerInitialKeeperId}
+              onClearShopkeeperFilter={() => setLedgerInitialKeeperId(null)}
+            />
           )}
         </main>
       </div>
@@ -3320,6 +3570,24 @@ export default function AdminDashboard() {
                       </div>
                     </>
                   )}
+                {selectedReceiptOrder.taxableAmount && Number(selectedReceiptOrder.taxableAmount) > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Taxable Amount</span>
+                    <span className="font-mono">₹{Number(selectedReceiptOrder.taxableAmount).toFixed(2)}</span>
+                  </div>
+                )}
+                {selectedReceiptOrder.cgstAmount && Number(selectedReceiptOrder.cgstAmount) > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>CGST ({Number(selectedReceiptOrder.cgstRate || 2.5)}%)</span>
+                    <span className="font-mono">+₹{Number(selectedReceiptOrder.cgstAmount).toFixed(2)}</span>
+                  </div>
+                )}
+                {selectedReceiptOrder.sgstAmount && Number(selectedReceiptOrder.sgstAmount) > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>SGST ({Number(selectedReceiptOrder.sgstRate || 2.5)}%)</span>
+                    <span className="font-mono">+₹{Number(selectedReceiptOrder.sgstAmount).toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-baseline pt-2 border-t border-purple-200/60">
                   <span className="font-extrabold text-slate-900 text-sm">Net Total</span>
                   <span className="font-black text-slate-900 text-xl font-mono">
@@ -3351,6 +3619,29 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+
+      <WalletLimitModal
+        isOpen={!!selectedLimitKeeper}
+        onClose={() => setSelectedLimitKeeper(null)}
+        target={selectedLimitKeeper}
+        onSuccess={(shopkeeperId, newLimit) => {
+          handleLimitSuccess(shopkeeperId, newLimit);
+        }}
+      />
+
+      <WalletTransactionsModal
+        isOpen={!!selectedLedgerKeeper}
+        onClose={() => setSelectedLedgerKeeper(null)}
+        target={selectedLedgerKeeper}
+      />
+
+      <ShopkeeperGatewayModal
+        isOpen={!!selectedGatewayGstKeeper}
+        onClose={() => setSelectedGatewayGstKeeper(null)}
+        shopkeeper={selectedGatewayGstKeeper}
+        onSaved={loadData}
+      />
     </div>
   );
 }

@@ -9,9 +9,15 @@ interface ProductCardProps {
   product: Product;
   shopId: number;
   shopSlug: string;
+  isQrActive?: boolean;
 }
 
-export default function ProductCard({ product, shopId, shopSlug }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  shopId,
+  shopSlug,
+  isQrActive = true,
+}: ProductCardProps) {
   const { addToCart, updateQuantity, getItemQuantity } = useCart();
   const quantity = getItemQuantity(product.id);
 
@@ -79,10 +85,18 @@ export default function ProductCard({ product, shopId, shopSlug }: ProductCardPr
         {/* Action Controls */}
         <div className="pt-3 border-t border-[#E8DFC8] flex items-center justify-between">
           <span className="text-[11px] font-bold text-stone-500">
-            {product.isAvailable ? 'Cooked to order' : 'Out of stock'}
+            {!isQrActive
+              ? 'Ordering paused'
+              : product.isAvailable
+              ? 'Cooked to order'
+              : 'Out of stock'}
           </span>
 
-          {product.isAvailable ? (
+          {!isQrActive ? (
+            <span className="px-3 py-1.5 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-xl border border-slate-200">
+              Ordering Paused
+            </span>
+          ) : product.isAvailable ? (
             quantity > 0 ? (
               <div className="flex items-center space-x-2 bg-red-50 border border-red-200 rounded-2xl p-1 shadow-xs">
                 <button

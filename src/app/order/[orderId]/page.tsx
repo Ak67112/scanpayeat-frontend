@@ -18,7 +18,10 @@ import {
   Receipt,
   Sparkles,
   PartyPopper,
+  Camera,
 } from 'lucide-react';
+import { FoodStoryData } from '../../../types';
+import FoodStoryModal from '../../../components/shop/FoodStoryModal';
 
 const STATUS_STEPS: { status: OrderStatus; label: string; icon: any; desc: string }[] = [
   {
@@ -57,6 +60,48 @@ export default function OrderTrackingPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isAlertPlaying, setIsAlertPlaying] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [isStoryOpen, setIsStoryOpen] = useState(false);
+  const [storyData, setStoryData] = useState<FoodStoryData | null>(null);
+  const [isLoadingStory, setIsLoadingStory] = useState(false);
+
+  const handleOpenStory = async () => {
+    setIsStoryOpen(true);
+    if (!storyData && order) {
+      setIsLoadingStory(true);
+      try {
+        const data = await publicApi.getOrderStoryData(order.id);
+        setStoryData(data);
+      } catch (err) {
+        // Fallback to local order details
+        setStoryData({
+          customer: {
+            name: order.customerName || 'Food Lover',
+            profileImage: null,
+          },
+          restaurant: {
+            name: order.shop?.name || 'Restaurant',
+            location: order.shop?.address || 'Dine-In',
+            logo: order.shop?.logoUrl || null,
+          },
+          order: {
+            id: order.id,
+            orderNumber: order.orderCode || String(order.id),
+            tokenNumber: order.tokenNumber || `ORD-${order.id}`,
+            totalAmount: Number(order.totalAmount ?? order.total ?? 0),
+            createdAt: order.createdAt || new Date().toISOString(),
+            items: (order.items || []).map((i: any) => ({
+              name: i.productName || i.name,
+              image: i.product?.imageUrl || i.imageUrl || null,
+              quantity: i.quantity || 1,
+              unitPrice: Number(i.unitPrice || i.price || 0),
+            })),
+          },
+        });
+      } finally {
+        setIsLoadingStory(false);
+      }
+    }
+  };
 
   const playFanfare = () => {
     try {
@@ -232,6 +277,36 @@ export default function OrderTrackingPage() {
           </div>
         </div>
 
+        {/* Create Food Story Call-To-Action Banner */}
+        <div className="bg-gradient-to-r from-purple-950 via-slate-900 to-pink-950 border border-pink-500/30 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-white shadow-xl shadow-purple-950/20">
+          <div className="flex items-center gap-3.5 text-center sm:text-left">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center text-white shrink-0 shadow-lg shadow-pink-500/30">
+              <Camera className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <h4 className="font-black text-sm sm:text-base text-white">
+                  Share Your Food Story
+                </h4>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-xs">
+                  9:16 Story
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Generate an Instagram & WhatsApp Story with your token, dishes, and stickers!
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleOpenStory}
+            className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-extrabold text-xs rounded-2xl shadow-lg shadow-purple-600/30 transition flex items-center justify-center gap-2 cursor-pointer shrink-0 transform hover:scale-[1.02]"
+          >
+            <Camera className="w-4 h-4" />
+            <span>Create My Food Story 📸</span>
+          </button>
+        </div>
+
         {/* Live Status Progress Steps */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
@@ -327,15 +402,41 @@ export default function OrderTrackingPage() {
                 <span>-₹{Number(order.discountAmount)}</span>
               </div>
             )}
+            {order.taxableAmount && Number(order.taxableAmount) > 0 && (
+              <div className="flex justify-between text-slate-500">
+                <span>Taxable Amount</span>
+                <span>₹{Number(order.taxableAmount).toFixed(2)}</span>
+              </div>
+            )}
+            {order.cgstAmount && Number(order.cgstAmount) > 0 && (
+              <div className="flex justify-between text-slate-600">
+                <span>CGST ({Number(order.cgstRate || 2.5)}%)</span>
+                <span>+₹{Number(order.cgstAmount).toFixed(2)}</span>
+              </div>
+            )}
+            {order.sgstAmount && Number(order.sgstAmount) > 0 && (
+              <div className="flex justify-between text-slate-600">
+                <span>SGST ({Number(order.sgstRate || 2.5)}%)</span>
+                <span>+₹{Number(order.sgstAmount).toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-extrabold text-sm text-slate-900 pt-2 border-t border-slate-100">
               <span>Total Paid</span>
               <span className="text-red-700 font-black font-display text-base">
-                ₹{Number(order.totalAmount ?? order.total ?? order.subtotal ?? 0)}
+                ₹{Number(order.totalAmount ?? order.total ?? order.subtotal ?? 0).toFixed(2)}
               </span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Instagram-Style Food Story Modal */}
+      <FoodStoryModal
+        isOpen={isStoryOpen}
+        onClose={() => setIsStoryOpen(false)}
+        storyData={storyData}
+        isLoading={isLoadingStory}
+      />
     </div>
   );
 }

@@ -37,6 +37,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Calendar,
   AlertTriangle,
   Info,
@@ -47,10 +48,18 @@ import {
   Table as TableIcon,
   Filter,
   CalendarRange,
+  AlertCircle,
   Printer,
+  Wallet,
+  CreditCard,
+  Lock,
+  ShieldCheck,
+  Zap,
+  Key,
 } from 'lucide-react';
+import { ShopkeeperWallet, WalletTransaction, ShopGatewaySettings, ShopTaxSettings } from '../../types';
 
-type TabView = 'ORDERS' | 'PRODUCTS' | 'CATEGORIES' | 'STATS' | 'DISCOUNTS' | 'PROFILE';
+type TabView = 'ORDERS' | 'PRODUCTS' | 'CATEGORIES' | 'STATS' | 'DISCOUNTS' | 'PROFILE' | 'WALLET' | 'TAX_SETTINGS';
 
 export default function ShopkeeperDashboard() {
   const { user, logout, isLoading: authLoading } = useAuth();
@@ -61,6 +70,30 @@ export default function ShopkeeperDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [stats, setStats] = useState<ShopkeeperStats | null>(null);
+
+  // Wallet & QR state
+  const [walletData, setWalletData] = useState<{
+    wallet: ShopkeeperWallet | null;
+    transactions: WalletTransaction[];
+  }>({ wallet: null, transactions: [] });
+  const [isWalletLoading, setIsWalletLoading] = useState(false);
+
+  // Wallet Recharge Modal State
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const [rechargeAmount, setRechargeAmount] = useState<number | ''>(500);
+  const [isRecharging, setIsRecharging] = useState(false);
+  const [rechargeError, setRechargeError] = useState<string | null>(null);
+  const [rechargeSuccess, setRechargeSuccess] = useState<string | null>(null);
+
+  // Shop Tax (GST) Settings State
+  const [taxSettings, setTaxSettings] = useState<ShopTaxSettings | null>(null);
+  const [gstEnabled, setGstEnabled] = useState(false);
+  const [gstNumber, setGstNumber] = useState('');
+  const [cgstRate, setCgstRate] = useState<number>(2.5);
+  const [sgstRate, setSgstRate] = useState<number>(2.5);
+  const [isSavingTax, setIsSavingTax] = useState(false);
+  const [taxSuccessMsg, setTaxSuccessMsg] = useState<string | null>(null);
+  const [taxErrorMsg, setTaxErrorMsg] = useState<string | null>(null);
 
   // Shop & Ambience Profile state
   const [shopProfile, setShopProfile] = useState<{
@@ -128,6 +161,7 @@ export default function ShopkeeperDashboard() {
 
   // Selected Order for Receipt Details Modal
   const [selectedReceiptOrder, setSelectedReceiptOrder] = useState<Order | null>(null);
+  const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
 
   // Custom date filter for Stats / Reports
   const [statsDatePreset, setStatsDatePreset] = useState<DatePreset>('TODAY');
@@ -248,7 +282,17 @@ export default function ShopkeeperDashboard() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [ordersRes, prodsRes, catsRes, statsRes, ruleRes, couponsRes, profileRes] = await Promise.all([
+      const [
+        ordersRes,
+        prodsRes,
+        catsRes,
+        statsRes,
+        ruleRes,
+        couponsRes,
+        profileRes,
+        walletRes,
+        taxRes,
+      ] = await Promise.all([
         shopkeeperApi.getOrders().catch(() => ({ orders: [] })),
         shopkeeperApi.getProducts().catch(() => ({ products: [] })),
         shopkeeperApi.getCategories().catch(() => ({ categories: [] })),
@@ -256,6 +300,8 @@ export default function ShopkeeperDashboard() {
         shopkeeperApi.getRewardRule().catch(() => ({ rule: null })),
         shopkeeperApi.getCoupons().catch(() => ({ coupons: [] })),
         shopkeeperApi.getProfile().catch(() => ({ shop: null, shopkeeper: null })),
+        shopkeeperApi.getWallet().catch(() => ({ wallet: null, transactions: [] })),
+        shopkeeperApi.getTaxSettings().catch(() => null),
       ]);
 
       const incomingCats = Array.isArray(catsRes) ? catsRes : (catsRes?.categories || []);
@@ -271,6 +317,22 @@ export default function ShopkeeperDashboard() {
       if (ruleRes?.rule) setRewardRule(ruleRes.rule);
       const incomingCoupons = Array.isArray(couponsRes) ? couponsRes : (couponsRes?.coupons || []);
       setCoupons(incomingCoupons);
+
+      if (walletRes && 'wallet' in walletRes && walletRes.wallet) {
+        setWalletData({
+          wallet: walletRes.wallet,
+          transactions: walletRes.transactions || [],
+        });
+      }
+
+      if (taxRes) {
+        const tx = (taxRes as any).settings || taxRes;
+        setTaxSettings(tx);
+        setGstEnabled(tx.gstEnabled || false);
+        setGstNumber(tx.gstNumber || '');
+        setCgstRate(Number(tx.cgstRate ?? 2.5));
+        setSgstRate(Number(tx.sgstRate ?? 2.5));
+      }
 
       if (profileRes?.shop) {
         setShopProfile({
@@ -295,6 +357,156 @@ export default function ShopkeeperDashboard() {
       console.error('Failed to load shopkeeper data:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadWallet = async () => {
+    setIsWalletLoading(true);
+    try {
+      const res = await shopkeeperApi.getWallet();
+      setWalletData({
+        wallet: res.wallet || null,
+        transactions: res.transactions || [],
+      });
+    } catch (err) {
+      console.error('Failed to reload wallet:', err);
+    } finally {
+      setIsWalletLoading(false);
+    }
+  };
+
+  const handleRechargeWallet = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const amountNum = Number(rechargeAmount);
+    if (!amountNum || amountNum < 10) {
+      setRechargeError('Please enter a recharge amount of at least ₹10.');
+      return;
+    }
+
+    setIsRecharging(true);
+    setRechargeError(null);
+    setRechargeSuccess(null);
+
+    try {
+      // 1. Create recharge order via global centralized gateway
+      const orderRes = await shopkeeperApi.rechargeWalletCreateOrder(amountNum);
+      const activeOrderId = orderRes.orderId;
+      const activeKeyId = orderRes.keyId;
+      const activeAmount = orderRes.amount;
+
+      // 2. Launch Razorpay Checkout
+      const win = window as any;
+      const isRealRazorpay =
+        win.Razorpay &&
+        activeKeyId &&
+        activeKeyId !== 'rzp_test_placeholder' &&
+        activeOrderId &&
+        !activeOrderId.startsWith('rzp_mock_');
+
+      if (isRealRazorpay) {
+        const options = {
+          key: activeKeyId,
+          amount: activeAmount,
+          currency: 'INR',
+          name: 'Scan-Pay-Eat Platform',
+          description: `Shopkeeper Wallet Top-up (₹${amountNum})`,
+          order_id: activeOrderId,
+          prefill: {
+            name: user?.name || 'Shopkeeper',
+            email: user?.email || '',
+            contact: user?.mobile || '',
+          },
+          theme: {
+            color: '#D97706',
+          },
+          handler: async function (response: any) {
+            try {
+              const verifyRes = await shopkeeperApi.rechargeWalletVerify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                amount: amountNum,
+              });
+
+              const credited = (verifyRes as any).creditedAmount ?? (verifyRes as any).transaction?.amount ?? amountNum;
+              const newBal = (verifyRes as any).newBalance ?? (verifyRes as any).wallet?.balance ?? 0;
+
+              setRechargeSuccess(
+                `🎉 Success! ₹${Number(credited).toFixed(2)} added to your wallet. New balance: ₹${Number(newBal).toFixed(2)}.`
+              );
+              setShowRechargeModal(false);
+              await loadWallet();
+            } catch (err: any) {
+              setRechargeError(err.message || 'Payment verification failed.');
+            } finally {
+              setIsRecharging(false);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setIsRecharging(false);
+            },
+          },
+        };
+
+        const rzp = new win.Razorpay(options);
+        rzp.on('payment.failed', function (resp: any) {
+          setRechargeError(resp.error?.description || 'Payment failed. Please retry.');
+          setIsRecharging(false);
+        });
+        rzp.open();
+      } else {
+        // Fallback simulated payment for local environment
+        const mockSig = `sig_sim_${Date.now()}`;
+        const verifyRes = await shopkeeperApi.rechargeWalletVerify({
+          razorpay_order_id: activeOrderId,
+          razorpay_payment_id: `pay_mock_${Date.now()}`,
+          razorpay_signature: mockSig,
+          amount: amountNum,
+        });
+
+        const credited = (verifyRes as any).creditedAmount ?? (verifyRes as any).transaction?.amount ?? amountNum;
+        const newBal = (verifyRes as any).newBalance ?? (verifyRes as any).wallet?.balance ?? 0;
+
+        setRechargeSuccess(
+          `🎉 ₹${Number(credited).toFixed(2)} recharged successfully! New balance: ₹${Number(newBal).toFixed(2)}.`
+        );
+        setShowRechargeModal(false);
+        await loadWallet();
+        setIsRecharging(false);
+      }
+    } catch (err: any) {
+      setRechargeError(err.message || 'Failed to initiate wallet recharge.');
+      setIsRecharging(false);
+    }
+  };
+
+  const handleSaveTax = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingTax(true);
+    setTaxErrorMsg(null);
+    setTaxSuccessMsg(null);
+    try {
+      const res = await shopkeeperApi.updateTaxSettings({
+        gstEnabled,
+        gstNumber: gstNumber.trim() || undefined,
+        cgstRate: Number(cgstRate) || 0,
+        sgstRate: Number(sgstRate) || 0,
+      });
+      const tx = (res as any).settings || res;
+      if (tx) {
+        setTaxSettings(tx);
+        setGstEnabled(tx.gstEnabled);
+        setGstNumber(tx.gstNumber || '');
+        setCgstRate(Number(tx.cgstRate ?? 2.5));
+        setSgstRate(Number(tx.sgstRate ?? 2.5));
+      }
+      setTaxSuccessMsg('GST tax settings saved successfully!');
+      setTimeout(() => setTaxSuccessMsg(null), 5000);
+    } catch (err: any) {
+      setTaxErrorMsg(err.message || 'Failed to update GST settings');
+    } finally {
+      setIsSavingTax(false);
     }
   };
 
@@ -526,13 +738,19 @@ export default function ShopkeeperDashboard() {
 
   // Status transitions
   const handleStatusChange = async (orderId: number, nextStatus: OrderStatus) => {
+    setUpdatingOrderId(orderId);
     try {
       await shopkeeperApi.updateOrderStatus(orderId, nextStatus);
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, orderStatus: nextStatus } : o))
       );
+      setSelectedReceiptOrder((prev) =>
+        prev && prev.id === orderId ? { ...prev, orderStatus: nextStatus } : prev
+      );
     } catch (err: any) {
       alert(err.message || 'Failed to update order status');
+    } finally {
+      setUpdatingOrderId(null);
     }
   };
 
@@ -1261,6 +1479,56 @@ export default function ShopkeeperDashboard() {
           )}
         </button>
 
+        <button
+          onClick={() => {
+            setActiveTab('WALLET');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'WALLET'
+              ? 'bg-amber-500 text-white shadow-md shadow-amber-900/20'
+              : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            <Wallet className="w-4 h-4 text-emerald-400" />
+            <span>Wallet & QR Status</span>
+          </div>
+          {walletData.wallet && (
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                walletData.wallet.balance < walletData.wallet.minWalletLimit || !walletData.wallet.isQrEnabled
+                  ? 'bg-rose-950/80 text-rose-300 border border-rose-800/50'
+                  : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/50'
+              }`}
+            >
+              ₹{Number(walletData.wallet.balance).toFixed(0)}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('TAX_SETTINGS');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'TAX_SETTINGS'
+              ? 'bg-amber-500 text-white shadow-md shadow-amber-900/20'
+              : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            <Percent className="w-4 h-4 text-emerald-400" />
+            <span>GST &amp; Taxes</span>
+          </div>
+          {gstEnabled && (
+            <span className="text-[9px] px-1 py-0.5 rounded font-extrabold bg-emerald-950/80 text-emerald-300 border border-emerald-800/50 uppercase">
+              Active
+            </span>
+          )}
+        </button>
+
         <div className="pt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
           Store Front
         </div>
@@ -1358,6 +1626,8 @@ export default function ShopkeeperDashboard() {
                   {activeTab === 'STATS' && "Today, This Week & This Month's Sales Breakdown"}
                   {activeTab === 'DISCOUNTS' && 'Milestone Rewards & Promo Coupon Codes'}
                   {activeTab === 'PROFILE' && 'Store Logo, Ambience Photos & Restaurant Story'}
+                  {activeTab === 'WALLET' && 'Prepaid Balance & QR Payment Permission'}
+                  {activeTab === 'TAX_SETTINGS' && 'Restaurant GSTIN & Tax Rates'}
                 </span>
               </div>
               <h1 className="text-lg sm:text-2xl font-black text-slate-900 mt-0.5">
@@ -1367,6 +1637,8 @@ export default function ShopkeeperDashboard() {
                 {activeTab === 'STATS' && 'Sales & Revenue Analytics'}
                 {activeTab === 'DISCOUNTS' && 'Discounts & Promotional Offers'}
                 {activeTab === 'PROFILE' && 'Restaurant Profile & Ambience Gallery'}
+                {activeTab === 'WALLET' && 'Prepaid Wallet & QR Status'}
+                {activeTab === 'TAX_SETTINGS' && 'GST & Tax Settings'}
               </h1>
             </div>
           </div>
@@ -1436,6 +1708,29 @@ export default function ShopkeeperDashboard() {
               />
             </button>
 
+            {walletData.wallet && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('WALLET')}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition cursor-pointer shrink-0 ${
+                  walletData.wallet.balance < walletData.wallet.minWalletLimit || !walletData.wallet.isQrEnabled
+                    ? 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                }`}
+                title="Click to view prepaid wallet details"
+              >
+                <Wallet className="w-3.5 h-3.5" />
+                <span className="font-mono">₹{Number(walletData.wallet.balance).toFixed(2)}</span>
+                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-white/80 shadow-2xs">
+                  {walletData.wallet.balance < walletData.wallet.minWalletLimit
+                    ? 'Low Limit'
+                    : !walletData.wallet.isQrEnabled
+                    ? 'QR Paused'
+                    : 'QR Active'}
+                </span>
+              </button>
+            )}
+
             <button
               onClick={loadData}
               title="Refresh Data"
@@ -1445,6 +1740,31 @@ export default function ShopkeeperDashboard() {
             </button>
           </div>
         </header>
+
+        {/* Low Wallet Balance or Paused QR Warning Banner */}
+        {walletData.wallet &&
+          (walletData.wallet.balance < walletData.wallet.minWalletLimit ||
+            !walletData.wallet.isQrEnabled) && (
+            <div className="bg-rose-50 border-b border-rose-200 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 text-rose-900 text-xs">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>
+                  <strong>QR Ordering is currently paused:</strong>{' '}
+                  {walletData.wallet.balance < walletData.wallet.minWalletLimit
+                    ? `Your prepaid balance (₹${Number(walletData.wallet.balance).toFixed(2)}) is below the required limit (₹${Number(walletData.wallet.minWalletLimit).toFixed(2)}).`
+                    : 'QR ordering has been deactivated by administration.'}{' '}
+                  Customer checkouts are blocked until your wallet is topped up.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('WALLET')}
+                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold shrink-0 text-[11px] cursor-pointer"
+              >
+                View Wallet
+              </button>
+            </div>
+          )}
 
         {/* Incoming Order Flash Alert */}
         {newOrderAlert && (
@@ -1691,21 +2011,35 @@ export default function ShopkeeperDashboard() {
                             </div>
 
                             <div className="flex items-center gap-1.5">
-                              <span
-                                className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full ${
-                                  order.orderStatus === 'CONFIRMED'
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : order.orderStatus === 'PREPARING'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : order.orderStatus === 'READY'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : order.orderStatus === 'PENDING'
-                                    ? 'bg-orange-100 text-orange-900 border border-orange-300'
-                                    : 'bg-slate-100 text-slate-600'
-                                }`}
-                              >
-                                {order.orderStatus}
-                              </span>
+                              <div className="relative inline-flex items-center">
+                                <select
+                                  value={order.orderStatus}
+                                  disabled={updatingOrderId === order.id}
+                                  onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
+                                  className={`text-[10px] font-black uppercase pl-2.5 pr-6 py-1 rounded-full border cursor-pointer appearance-none transition shadow-2xs focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                                    order.orderStatus === 'CONFIRMED'
+                                      ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                                      : order.orderStatus === 'PREPARING'
+                                      ? 'bg-blue-100 text-blue-900 border-blue-300 hover:bg-blue-200'
+                                      : order.orderStatus === 'READY'
+                                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200 animate-pulse'
+                                      : order.orderStatus === 'COMPLETED'
+                                      ? 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                                      : order.orderStatus === 'CANCELLED'
+                                      ? 'bg-rose-100 text-rose-900 border-rose-300 hover:bg-rose-200'
+                                      : 'bg-orange-100 text-orange-900 border-orange-300 hover:bg-orange-200'
+                                  }`}
+                                  title="Click to switch status"
+                                >
+                                  <option value="PENDING">🕒 PENDING</option>
+                                  <option value="CONFIRMED">📋 CONFIRMED</option>
+                                  <option value="PREPARING">👨‍🍳 PREPARING</option>
+                                  <option value="READY">🔔 READY</option>
+                                  <option value="COMPLETED">✅ COMPLETED</option>
+                                  <option value="CANCELLED">❌ CANCELLED</option>
+                                </select>
+                                <ChevronDown className="w-3 h-3 absolute right-1.5 pointer-events-none opacity-60" />
+                              </div>
                             </div>
                           </div>
 
@@ -1780,32 +2114,34 @@ export default function ShopkeeperDashboard() {
                             )}
                           </div>
 
-                          {/* Ticket Action Button */}
-                          <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
+                          {/* Ticket Action Button & Flexible Status Switcher */}
+                          <div className="p-3.5 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
                             {order.orderStatus === 'PENDING' && (
-                              <div className="flex items-center gap-2 w-full">
-                                <button
-                                  onClick={() => handleStatusChange(order.id, 'PREPARING')}
-                                  className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-                                >
-                                  <ChefHat className="w-4 h-4" />
-                                  <span>Accept &amp; Cook</span>
-                                </button>
-                                <button
-                                  onClick={() => handleStatusChange(order.id, 'CONFIRMED')}
-                                  className="py-2.5 px-3 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer"
-                                >
-                                  Accept
-                                </button>
-                              </div>
+                              <button
+                                onClick={() => handleStatusChange(order.id, 'PREPARING')}
+                                disabled={updatingOrderId === order.id}
+                                className="flex-1 py-2 px-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                              >
+                                {updatingOrderId === order.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <ChefHat className="w-3.5 h-3.5" />
+                                )}
+                                <span>Accept &amp; Cook</span>
+                              </button>
                             )}
 
                             {order.orderStatus === 'CONFIRMED' && (
                               <button
                                 onClick={() => handleStatusChange(order.id, 'PREPARING')}
-                                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                                disabled={updatingOrderId === order.id}
+                                className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                               >
-                                <ChefHat className="w-4 h-4" />
+                                {updatingOrderId === order.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <ChefHat className="w-3.5 h-3.5" />
+                                )}
                                 <span>Start Cooking</span>
                               </button>
                             )}
@@ -1813,28 +2149,73 @@ export default function ShopkeeperDashboard() {
                             {order.orderStatus === 'PREPARING' && (
                               <button
                                 onClick={() => handleStatusChange(order.id, 'READY')}
-                                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                                disabled={updatingOrderId === order.id}
+                                className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                               >
-                                <Bell className="w-4 h-4" />
-                                <span>Mark Ready for Counter</span>
+                                {updatingOrderId === order.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Bell className="w-3.5 h-3.5" />
+                                )}
+                                <span>Mark Ready</span>
                               </button>
                             )}
 
                             {order.orderStatus === 'READY' && (
                               <button
                                 onClick={() => handleStatusChange(order.id, 'COMPLETED')}
-                                className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                                disabled={updatingOrderId === order.id}
+                                className="flex-1 py-2 px-3 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                               >
-                                <CheckCircle2 className="w-4 h-4" />
-                                <span>Complete &amp; Hand Over</span>
+                                {updatingOrderId === order.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                )}
+                                <span>Complete Order</span>
                               </button>
                             )}
 
                             {order.orderStatus === 'COMPLETED' && (
-                              <div className="flex-1 text-center py-1.5 text-xs font-bold text-slate-400">
-                                ✓ Fulfilled &amp; Closed
-                              </div>
+                              <button
+                                onClick={() => handleStatusChange(order.id, 'READY')}
+                                disabled={updatingOrderId === order.id}
+                                className="flex-1 py-2 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                <span>Reopen</span>
+                              </button>
                             )}
+
+                            {order.orderStatus === 'CANCELLED' && (
+                              <button
+                                onClick={() => handleStatusChange(order.id, 'CONFIRMED')}
+                                disabled={updatingOrderId === order.id}
+                                className="flex-1 py-2 px-3 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                <span>Restore</span>
+                              </button>
+                            )}
+
+                            {/* Flexible Status Switcher Dropdown */}
+                            <div className="relative">
+                              <select
+                                value={order.orderStatus}
+                                disabled={updatingOrderId === order.id}
+                                onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
+                                className="h-8.5 px-2.5 pr-6 text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:border-slate-400 rounded-xl cursor-pointer appearance-none shadow-2xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                title="Switch status to any state"
+                              >
+                                <option value="PENDING">🕒 Pending</option>
+                                <option value="CONFIRMED">📋 Confirmed</option>
+                                <option value="PREPARING">👨‍🍳 Cooking</option>
+                                <option value="READY">🔔 Ready</option>
+                                <option value="COMPLETED">✅ Completed</option>
+                                <option value="CANCELLED">❌ Cancelled</option>
+                              </select>
+                              <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-2.5 pointer-events-none text-slate-400" />
+                            </div>
 
                             <button
                               onClick={() => setSelectedReceiptOrder(order)}
@@ -1926,22 +2307,34 @@ export default function ShopkeeperDashboard() {
                                     </div>
                                   </td>
                                   <td className="p-4">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span
-                                        className={`px-2.5 py-1 rounded-md font-black text-[10px] uppercase tracking-wider ${
+                                    <div className="relative inline-flex items-center">
+                                      <select
+                                        value={order.orderStatus}
+                                        disabled={updatingOrderId === order.id}
+                                        onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
+                                        className={`px-2.5 py-1 pr-6 rounded-lg font-black text-[10px] uppercase tracking-wider border cursor-pointer appearance-none transition focus:outline-none focus:ring-2 focus:ring-amber-500 ${
                                           order.orderStatus === 'COMPLETED'
-                                            ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                                            ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
                                             : order.orderStatus === 'READY'
-                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse'
+                                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200 animate-pulse'
                                             : order.orderStatus === 'PREPARING'
-                                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                            ? 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200'
+                                            : order.orderStatus === 'CANCELLED'
+                                            ? 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200'
                                             : order.orderStatus === 'PENDING'
-                                            ? 'bg-orange-100 text-orange-900 border border-orange-300'
-                                            : 'bg-amber-100 text-amber-900 border border-amber-300'
+                                            ? 'bg-orange-100 text-orange-900 border-orange-300 hover:bg-orange-200'
+                                            : 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
                                         }`}
+                                        title="Click to switch status"
                                       >
-                                        {order.orderStatus}
-                                      </span>
+                                        <option value="PENDING">🕒 PENDING</option>
+                                        <option value="CONFIRMED">📋 CONFIRMED</option>
+                                        <option value="PREPARING">👨‍🍳 PREPARING</option>
+                                        <option value="READY">🔔 READY</option>
+                                        <option value="COMPLETED">✅ COMPLETED</option>
+                                        <option value="CANCELLED">❌ CANCELLED</option>
+                                      </select>
+                                      <ChevronDown className="w-3 h-3 absolute right-1.5 pointer-events-none opacity-60" />
                                     </div>
                                   </td>
                                   <td className="p-4">
@@ -1969,37 +2362,77 @@ export default function ShopkeeperDashboard() {
                                     {order.orderStatus === 'PENDING' && (
                                       <button
                                         onClick={() => handleStatusChange(order.id, 'PREPARING')}
-                                        className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-[11px] rounded-lg shadow-2xs transition inline-flex items-center gap-1 cursor-pointer"
+                                        disabled={updatingOrderId === order.id}
+                                        className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-[11px] rounded-lg shadow-2xs transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
                                       >
-                                        <ChefHat className="w-3 h-3" />
+                                        {updatingOrderId === order.id ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <ChefHat className="w-3 h-3" />
+                                        )}
                                         <span>Cook</span>
                                       </button>
                                     )}
                                     {order.orderStatus === 'CONFIRMED' && (
                                       <button
                                         onClick={() => handleStatusChange(order.id, 'PREPARING')}
-                                        className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer"
+                                        disabled={updatingOrderId === order.id}
+                                        className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
                                       >
-                                        <ChefHat className="w-3 h-3" />
+                                        {updatingOrderId === order.id ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <ChefHat className="w-3 h-3" />
+                                        )}
                                         <span>Cook</span>
                                       </button>
                                     )}
                                     {order.orderStatus === 'PREPARING' && (
                                       <button
                                         onClick={() => handleStatusChange(order.id, 'READY')}
-                                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer"
+                                        disabled={updatingOrderId === order.id}
+                                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
                                       >
-                                        <Bell className="w-3 h-3" />
+                                        {updatingOrderId === order.id ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Bell className="w-3 h-3" />
+                                        )}
                                         <span>Ready</span>
                                       </button>
                                     )}
                                     {order.orderStatus === 'READY' && (
                                       <button
                                         onClick={() => handleStatusChange(order.id, 'COMPLETED')}
-                                        className="px-2.5 py-1.5 bg-slate-900 hover:bg-black text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer"
+                                        disabled={updatingOrderId === order.id}
+                                        className="px-2.5 py-1.5 bg-slate-900 hover:bg-black text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
                                       >
-                                        <CheckCircle2 className="w-3 h-3" />
+                                        {updatingOrderId === order.id ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <CheckCircle2 className="w-3 h-3" />
+                                        )}
                                         <span>Fulfill</span>
+                                      </button>
+                                    )}
+                                    {order.orderStatus === 'COMPLETED' && (
+                                      <button
+                                        onClick={() => handleStatusChange(order.id, 'READY')}
+                                        disabled={updatingOrderId === order.id}
+                                        className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                      >
+                                        <RefreshCw className="w-3 h-3" />
+                                        <span>Reopen</span>
+                                      </button>
+                                    )}
+                                    {order.orderStatus === 'CANCELLED' && (
+                                      <button
+                                        onClick={() => handleStatusChange(order.id, 'CONFIRMED')}
+                                        disabled={updatingOrderId === order.id}
+                                        className="px-2.5 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                      >
+                                        <RefreshCw className="w-3 h-3" />
+                                        <span>Restore</span>
                                       </button>
                                     )}
 
@@ -3441,6 +3874,420 @@ export default function ShopkeeperDashboard() {
               </div>
             </div>
           )}
+
+          {/* ================= TAB 7: PREPAID WALLET & QR STATUS ================= */}
+          {activeTab === 'WALLET' && (
+            <div className="space-y-6 max-w-5xl">
+              {/* Header Banner */}
+              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-slate-800">
+                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1.5">
+                      <Wallet className="w-3.5 h-3.5" />
+                      PREPAID OUTLET WALLET
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-black">
+                      Wallet &amp; QR Payment Status
+                    </h2>
+                    <p className="text-slate-400 text-xs sm:text-sm max-w-xl">
+                      Prepaid balance required to keep online QR ordering active. Top up your wallet anytime via secure online payments.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setShowRechargeModal(true)}
+                      className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Recharge Wallet</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={loadWallet}
+                      disabled={isWalletLoading}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isWalletLoading ? 'animate-spin' : ''}`} />
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status & Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                      Current Wallet Balance
+                    </span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+                        ₹{Number(walletData.wallet?.balance ?? 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <p className="text-[11px] text-slate-500">
+                      Prepaid balance for QR ordering.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowRechargeModal(true)}
+                      className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black rounded-lg shadow-2xs transition inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Add Money</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    Minimum Required Limit
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-700 font-mono">
+                      ₹{Number(walletData.wallet?.minWalletLimit ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-2">
+                    If balance drops below this threshold, QR ordering pauses.
+                  </p>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    QR Payment Status
+                  </span>
+                  <div>
+                    {walletData.wallet?.balance !== undefined &&
+                    walletData.wallet.balance >= walletData.wallet.minWalletLimit &&
+                    walletData.wallet.isQrEnabled ? (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black border border-emerald-300">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>ACTIVE &amp; ACCEPTING</span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-800 text-xs font-black border border-rose-300">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                        <span>
+                          {walletData.wallet && !walletData.wallet.isQrEnabled
+                            ? 'PAUSED BY ADMIN'
+                            : 'BELOW MINIMUM LIMIT'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-2">
+                    {walletData.wallet?.balance !== undefined &&
+                    walletData.wallet.balance >= walletData.wallet.minWalletLimit &&
+                    walletData.wallet.isQrEnabled
+                      ? 'Customers can scan QR and pay online smoothly.'
+                      : 'Recharge your wallet to resume customer QR ordering.'}
+                  </p>
+                  {walletData.wallet &&
+                    walletData.wallet.balance < walletData.wallet.minWalletLimit && (
+                      <button
+                        type="button"
+                        onClick={() => setShowRechargeModal(true)}
+                        className="mt-2 text-xs font-bold text-amber-600 hover:text-amber-700 inline-flex items-center gap-1 cursor-pointer underline"
+                      >
+                        <span>Top up now (need ₹{(Number(walletData.wallet.minWalletLimit) - Number(walletData.wallet.balance)).toFixed(2)} more)</span>
+                        <ArrowUpRight className="w-3 h-3" />
+                      </button>
+                    )}
+                </div>
+              </div>
+
+              {/* Transactions Ledger */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Wallet Ledger &amp; Top-up History
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Audit trail of recharge credits and balance adjustments.
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {walletData.transactions.length} entries
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto min-w-full">
+                  <table className="w-full min-w-[680px] text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
+                        <th className="p-3.5">Type</th>
+                        <th className="p-3.5">Amount</th>
+                        <th className="p-3.5">Previous Balance</th>
+                        <th className="p-3.5">New Balance</th>
+                        <th className="p-3.5">Reference / Notes</th>
+                        <th className="p-3.5 text-right">Date &amp; Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {walletData.transactions.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-slate-400">
+                            No transactions recorded yet. Click &quot;Recharge Wallet&quot; to add funds.
+                          </td>
+                        </tr>
+                      ) : (
+                        walletData.transactions.map((tx) => (
+                          <tr key={tx.id} className="hover:bg-slate-50/80 transition">
+                            <td className="p-3.5">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-black inline-flex items-center gap-1 ${
+                                  tx.type === 'CREDIT'
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    : 'bg-rose-100 text-rose-800 border border-rose-200'
+                                }`}
+                              >
+                                {tx.type}
+                              </span>
+                            </td>
+                            <td className="p-3.5 font-bold font-mono">
+                              <span className={tx.type === 'CREDIT' ? 'text-emerald-600' : 'text-rose-600'}>
+                                {tx.type === 'CREDIT' ? '+' : '-'}₹{Number(tx.amount).toFixed(2)}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-slate-500 font-mono">
+                              ₹{Number(tx.previousBalance).toFixed(2)}
+                            </td>
+                            <td className="p-3.5 font-bold text-slate-900 font-mono">
+                              ₹{Number(tx.newBalance).toFixed(2)}
+                            </td>
+                            <td className="p-3.5 text-slate-600">
+                              <span className="block font-medium">{tx.notes || '—'}</span>
+                              {tx.reference && (
+                                <span className="text-[10px] text-slate-400 font-mono block">
+                                  Ref: {tx.reference}
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3.5 text-right text-slate-500 whitespace-nowrap">
+                              {new Date(tx.createdAt).toLocaleString('en-IN', {
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                              })}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ================= TAB 8: GST & TAX SETTINGS ================= */}
+          {activeTab === 'TAX_SETTINGS' && (
+            <div className="space-y-6 max-w-2xl mx-auto">
+              {/* Header Banner */}
+              <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-slate-800">
+                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1.5">
+                      <Percent className="w-3.5 h-3.5" />
+                      RESTAURANT TAXATION
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-black">
+                      GST Tax Rates &amp; Details
+                    </h2>
+                    <p className="text-slate-400 text-xs sm:text-sm max-w-xl">
+                      Configure your restaurant&apos;s GSTIN and tax rates (CGST &amp; SGST). If enabled, GST will be added to every customer food order during checkout.
+                    </p>
+                  </div>
+                  <button
+                    onClick={loadData}
+                    disabled={isLoading}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* CARD: GST & TAX SETTINGS */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
+                <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200">
+                      <Percent className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black text-slate-900">
+                        Goods &amp; Services Tax (GST)
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Customise tax rates and GST identification for your orders
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full border ${
+                      gstEnabled
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    {gstEnabled ? 'GST Active' : 'GST Disabled'}
+                  </span>
+                </div>
+
+                {taxSuccessMsg && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{taxSuccessMsg}</span>
+                  </div>
+                )}
+
+                {taxErrorMsg && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{taxErrorMsg}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveTax} className="space-y-5 text-xs">
+                  {/* Toggle */}
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <label
+                        htmlFor="gstEnabledToggle"
+                        className="font-bold text-sm text-slate-800 cursor-pointer block"
+                      >
+                        Enable GST on Food Orders
+                      </label>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        If active, CGST &amp; SGST are calculated at checkout and printed on customer bills.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        id="gstEnabledToggle"
+                        checked={gstEnabled}
+                        onChange={(e) => setGstEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+
+                  {/* GSTIN */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      GSTIN (GST Identification Number)
+                    </label>
+                    <input
+                      type="text"
+                      value={gstNumber}
+                      onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                      placeholder="e.g. 29AAAAA0000A1Z5"
+                      className="w-full text-xs font-mono px-3.5 py-2.5 border border-slate-300 rounded-xl bg-white text-slate-900 uppercase focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Printed on customer receipts and audit tickets.
+                    </p>
+                  </div>
+
+                  {/* Rates */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        CGST Rate (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="28"
+                        value={cgstRate}
+                        onChange={(e) => setCgstRate(parseFloat(e.target.value) || 0)}
+                        className="w-full text-xs font-mono px-3.5 py-2.5 border border-slate-300 rounded-xl bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Central GST (default 2.5%)
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        SGST Rate (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="28"
+                        value={sgstRate}
+                        onChange={(e) => setSgstRate(parseFloat(e.target.value) || 0)}
+                        className="w-full text-xs font-mono px-3.5 py-2.5 border border-slate-300 rounded-xl bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        State GST (default 2.5%)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tax Calculation Preview Box */}
+                  <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-extrabold uppercase text-emerald-900 tracking-wider">
+                        Live Tax Breakdown Preview
+                      </span>
+                      <span className="text-xs font-black text-emerald-800">
+                        Total GST: {(Number(cgstRate || 0) + Number(sgstRate || 0)).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 text-xs text-emerald-950 font-mono">
+                      <div className="flex justify-between">
+                        <span>Example Food Item:</span>
+                        <span>₹100.00</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-800">
+                        <span>CGST ({Number(cgstRate || 0).toFixed(2)}%):</span>
+                        <span>+₹{(100 * (Number(cgstRate || 0) / 100)).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-800">
+                        <span>SGST ({Number(sgstRate || 0).toFixed(2)}%):</span>
+                        <span>+₹{(100 * (Number(sgstRate || 0) / 100)).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold pt-1.5 border-t border-emerald-200 text-emerald-950">
+                        <span>Customer Total:</span>
+                        <span>
+                          ₹{(100 + 100 * ((Number(cgstRate || 0) + Number(sgstRate || 0)) / 100)).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Submit */}
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={isSavingTax}
+                      className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl shadow-xs transition inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isSavingTax ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      )}
+                      <span>{isSavingTax ? 'Saving...' : 'Save GST Settings'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
@@ -4133,6 +4980,132 @@ export default function ShopkeeperDashboard() {
         </div>
       )}
 
+      {/* ================= MODAL: WALLET RECHARGE ================= */}
+      {showRechargeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 w-full max-w-md shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    Recharge Prepaid Wallet
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Add funds to keep QR payments active
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRechargeModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {rechargeError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{rechargeError}</span>
+              </div>
+            )}
+
+            {rechargeSuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{rechargeSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleRechargeWallet} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">
+                  Select Quick Recharge Amount
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[200, 500, 1000, 2000, 3000, 5000].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setRechargeAmount(amt)}
+                      className={`py-2 px-3 rounded-xl font-mono font-bold text-xs border transition cursor-pointer ${
+                        Number(rechargeAmount) === amt
+                          ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200'
+                      }`}
+                    >
+                      +₹{amt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Or Enter Custom Amount (₹)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold">₹</span>
+                  <input
+                    type="number"
+                    min="10"
+                    step="1"
+                    value={rechargeAmount}
+                    onChange={(e) =>
+                      setRechargeAmount(e.target.value ? Number(e.target.value) : '')
+                    }
+                    placeholder="e.g. 500"
+                    className="w-full text-sm font-mono font-bold pl-8 pr-3 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Minimum top-up is ₹10. Current balance: ₹
+                  {Number(walletData.wallet?.balance ?? 0).toFixed(2)}.
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl flex items-start gap-2">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-900 leading-relaxed">
+                  Processed securely using the central Razorpay payment gateway. Your wallet is updated atomically upon payment verification.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRechargeModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isRecharging || !rechargeAmount || Number(rechargeAmount) < 10}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs shadow-md transition inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isRecharging ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Opening Razorpay...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="w-4 h-4" />
+                      <span>Pay ₹{Number(rechargeAmount || 0)} &amp; Top Up</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ================= RECEIPT & TICKET MODAL ================= */}
       {selectedReceiptOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -4271,6 +5244,24 @@ export default function ShopkeeperDashboard() {
                       </div>
                     </>
                   )}
+                {selectedReceiptOrder.taxableAmount && Number(selectedReceiptOrder.taxableAmount) > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Taxable Amount</span>
+                    <span className="font-mono">₹{Number(selectedReceiptOrder.taxableAmount).toFixed(2)}</span>
+                  </div>
+                )}
+                {selectedReceiptOrder.cgstAmount && Number(selectedReceiptOrder.cgstAmount) > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>CGST ({Number(selectedReceiptOrder.cgstRate || 2.5)}%)</span>
+                    <span className="font-mono">+₹{Number(selectedReceiptOrder.cgstAmount).toFixed(2)}</span>
+                  </div>
+                )}
+                {selectedReceiptOrder.sgstAmount && Number(selectedReceiptOrder.sgstAmount) > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>SGST ({Number(selectedReceiptOrder.sgstRate || 2.5)}%)</span>
+                    <span className="font-mono">+₹{Number(selectedReceiptOrder.sgstAmount).toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-baseline pt-2 border-t border-amber-200/60">
                   <span className="font-extrabold text-slate-900 text-sm">Net Total</span>
                   <span className="font-black text-slate-900 text-xl font-mono">
@@ -4291,27 +5282,42 @@ export default function ShopkeeperDashboard() {
                 <span>Print Ticket</span>
               </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Direct Status Selector Dropdown */}
+                <div className="relative">
+                  <select
+                    value={selectedReceiptOrder.orderStatus}
+                    disabled={updatingOrderId === selectedReceiptOrder.id}
+                    onChange={(e) => handleStatusChange(selectedReceiptOrder.id, e.target.value as OrderStatus)}
+                    className="h-8.5 px-2.5 pr-6 text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:border-slate-400 rounded-xl cursor-pointer appearance-none shadow-2xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    title="Change status directly"
+                  >
+                    <option value="PENDING">🕒 Pending</option>
+                    <option value="CONFIRMED">📋 Confirmed</option>
+                    <option value="PREPARING">👨‍🍳 Cooking</option>
+                    <option value="READY">🔔 Ready</option>
+                    <option value="COMPLETED">✅ Completed</option>
+                    <option value="CANCELLED">❌ Cancelled</option>
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-2.5 pointer-events-none text-slate-400" />
+                </div>
+
                 {selectedReceiptOrder.orderStatus === 'PENDING' && (
                   <button
                     type="button"
-                    onClick={() => {
-                      handleStatusChange(selectedReceiptOrder.id, 'PREPARING');
-                      setSelectedReceiptOrder(null);
-                    }}
-                    className="px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black rounded-xl text-xs transition cursor-pointer"
+                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'PREPARING')}
+                    disabled={updatingOrderId === selectedReceiptOrder.id}
+                    className="px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
                   >
-                    Accept & Cook
+                    Accept &amp; Cook
                   </button>
                 )}
                 {selectedReceiptOrder.orderStatus === 'CONFIRMED' && (
                   <button
                     type="button"
-                    onClick={() => {
-                      handleStatusChange(selectedReceiptOrder.id, 'PREPARING');
-                      setSelectedReceiptOrder(null);
-                    }}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'PREPARING')}
+                    disabled={updatingOrderId === selectedReceiptOrder.id}
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
                   >
                     Start Cooking
                   </button>
@@ -4319,11 +5325,9 @@ export default function ShopkeeperDashboard() {
                 {selectedReceiptOrder.orderStatus === 'PREPARING' && (
                   <button
                     type="button"
-                    onClick={() => {
-                      handleStatusChange(selectedReceiptOrder.id, 'READY');
-                      setSelectedReceiptOrder(null);
-                    }}
-                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'READY')}
+                    disabled={updatingOrderId === selectedReceiptOrder.id}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
                   >
                     Mark Ready
                   </button>
@@ -4331,13 +5335,31 @@ export default function ShopkeeperDashboard() {
                 {selectedReceiptOrder.orderStatus === 'READY' && (
                   <button
                     type="button"
-                    onClick={() => {
-                      handleStatusChange(selectedReceiptOrder.id, 'COMPLETED');
-                      setSelectedReceiptOrder(null);
-                    }}
-                    className="px-3 py-2 bg-slate-900 hover:bg-black text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'COMPLETED')}
+                    disabled={updatingOrderId === selectedReceiptOrder.id}
+                    className="px-3 py-2 bg-slate-900 hover:bg-black text-white font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
                   >
                     Complete
+                  </button>
+                )}
+                {selectedReceiptOrder.orderStatus === 'COMPLETED' && (
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'READY')}
+                    disabled={updatingOrderId === selectedReceiptOrder.id}
+                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
+                  >
+                    Reopen Order
+                  </button>
+                )}
+                {selectedReceiptOrder.orderStatus === 'CANCELLED' && (
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'CONFIRMED')}
+                    disabled={updatingOrderId === selectedReceiptOrder.id}
+                    className="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
+                  >
+                    Restore Order
                   </button>
                 )}
                 <button

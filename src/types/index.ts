@@ -11,6 +11,7 @@ export interface User {
   shopName?: string | null;
   shopSlug?: string | null;
   isActive?: boolean;
+  wallet?: ShopkeeperWallet | null;
 }
 
 export interface Shop {
@@ -29,6 +30,14 @@ export interface Shop {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  razorpayKeyId?: string | null;
+  isCustomGatewayEnabled?: boolean;
+  gstEnabled?: boolean;
+  cgstRate?: number;
+  sgstRate?: number;
+  gstNumber?: string | null;
+  isQrActive?: boolean;
+  qrClosedReason?: string | null;
   _count?: {
     products?: number;
     orders?: number;
@@ -107,6 +116,11 @@ export interface Order {
   discountAmount?: number;
   couponCode?: string | null;
   discountReason?: string | null;
+  taxableAmount?: number | null;
+  cgstRate?: number;
+  sgstRate?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
   tax?: number;
   discount?: number;
   totalAmount: number;
@@ -241,4 +255,106 @@ export interface DiscountCheckResult {
   } | null;
   reason?: string | null;
 }
+
+export interface WalletTransaction {
+  id: number;
+  walletId: number;
+  type: 'CREDIT' | 'DEBIT' | 'REFUND' | 'ADJUSTMENT';
+  amount: number;
+  previousBalance: number;
+  newBalance: number;
+  reference: string;
+  idempotencyKey?: string | null;
+  adminId?: number | null;
+  orderId?: number | null;
+  notes?: string | null;
+  createdAt: string;
+  shopkeeper?: {
+    id: number;
+    name: string;
+    email: string;
+    shop?: { id: number; name: string; slug: string };
+  };
+}
+
+export interface ShopkeeperWallet {
+  id: number;
+  shopkeeperId: number;
+  balance: number;
+  minWalletLimit: number;
+  isQrEnabled: boolean;
+  isBreached?: boolean;
+  totalCredits: number;
+  totalDebits: number;
+  createdAt: string;
+  updatedAt: string;
+  transactions?: WalletTransaction[];
+  lastTransaction?: WalletTransaction | null;
+  recentTransactions?: WalletTransaction[];
+  shopkeeper?: User & { shop?: Shop };
+}
+
+export interface PaymentGatewaySettings {
+  id?: number;
+  provider: string;
+  keyId: string;
+  keySecretMasked: string;
+  webhookSecretMasked?: string;
+  isKeySecretSet: boolean;
+  isWebhookSecretSet?: boolean;
+  environment: 'TEST' | 'LIVE';
+  currency: string;
+  isActive: boolean;
+  updatedAt?: string;
+}
+
+export interface ShopGatewaySettings {
+  keyId: string;
+  keySecretMasked: string;
+  isKeySecretSet: boolean;
+  isCustomGatewayEnabled: boolean;
+}
+
+export interface ShopTaxSettings {
+  gstEnabled: boolean;
+  cgstRate: number;
+  sgstRate: number;
+  totalGstRate: number;
+  gstNumber: string;
+}
+
+export interface WalletRechargeOrder {
+  orderId: string;
+  amount: number;
+  amountInPaise: number;
+  currency: string;
+  keyId: string;
+}
+
+export interface FoodStoryData {
+  customer: {
+    name: string;
+    profileImage?: string | null;
+  };
+  restaurant: {
+    name: string;
+    logo?: string | null;
+    location?: string | null;
+  };
+  order: {
+    id: number;
+    orderNumber: string;
+    tokenNumber: string;
+    totalAmount: number;
+    createdAt: string;
+    items: Array<{
+      name: string;
+      image?: string | null;
+      quantity: number;
+      unitPrice?: number;
+    }>;
+  };
+}
+
+
 
