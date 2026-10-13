@@ -118,6 +118,19 @@ export default function FoodStoryModal({
     );
   };
 
+  // Helper to convert base64 DataURL to Blob without fetch
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const parts = dataUrl.split(';base64,');
+    const contentType = parts[0].split(':')[1] || 'image/png';
+    const raw = window.atob(parts[1]);
+    const rawLength = raw.length;
+    const uInt8Array = new Uint8Array(rawLength);
+    for (let i = 0; i < rawLength; ++i) {
+      uInt8Array[i] = raw.charCodeAt(i);
+    }
+    return new Blob([uInt8Array], { type: contentType });
+  };
+
   // Generate PNG Data URL from storyRef
   const generateStoryPng = async (): Promise<string | null> => {
     if (!storyRef.current) return null;
@@ -127,14 +140,19 @@ export default function FoodStoryModal({
         cacheBust: true,
         pixelRatio: 2.5,
         quality: 0.98,
-        skipFonts: false,
+        skipFonts: true, // Prevents SecurityError: Failed to read 'cssRules' on cross-origin Google Fonts
+        fontEmbedCSS: '',
       });
       return dataUrl;
     } catch (err) {
       console.error('Error generating food story image:', err);
       try {
         if (storyRef.current) {
-          return await toPng(storyRef.current, { pixelRatio: 2 });
+          return await toPng(storyRef.current, {
+            pixelRatio: 2,
+            skipFonts: true,
+            fontEmbedCSS: '',
+          });
         }
       } catch (retryErr) {
         console.error('Retry generation failed:', retryErr);
@@ -160,7 +178,7 @@ export default function FoodStoryModal({
     link.click();
     document.body.removeChild(link);
 
-    setShareSuccessMessage('Image downloaded! You can now post it to your Story.');
+    setShareSuccessMessage('High-res image downloaded! You can now post it to your Story.');
     setTimeout(() => setShareSuccessMessage(null), 4000);
   };
 
@@ -173,8 +191,7 @@ export default function FoodStoryModal({
     }
 
     try {
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
+      const blob = dataUrlToBlob(dataUrl);
       const file = new File([blob], `ScanPayEat-Story-${tokenNumber}.png`, {
         type: 'image/png',
       });
@@ -185,10 +202,16 @@ export default function FoodStoryModal({
           title: `${restaurantName} - Food Story`,
           text: `Dining at ${restaurantName}! Token #${tokenNumber} • Scanned. Ordered. Loved. 🧡 #ScanPayEat`,
         });
-        setShareSuccessMessage('Shared successfully!');
+        setShareSuccessMessage('Image shared to Story!');
       } else {
+        // Desktop / fallback
         handleDownload();
-        setShareSuccessMessage('Image saved! Open Instagram and add it to your Story.');
+        try {
+          if (navigator.clipboard && window.ClipboardItem) {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          }
+        } catch (e) {}
+        setShareSuccessMessage('Image downloaded & copied! Open Instagram to post to your Story.');
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
@@ -197,22 +220,57 @@ export default function FoodStoryModal({
     }
   };
 
-  // 3. Share to WhatsApp
+  // 3. Share to WhatsApp (Native Web Share API with File + Desktop Clipboard Fallback)
   const handleShareWhatsApp = async () => {
     const dataUrl = await generateStoryPng();
-    if (dataUrl) {
+    if (!dataUrl) {
+      alert('Failed to generate story image. Please try downloading instead.');
+      return;
+    }
+
+    try {
+      const blob = dataUrlToBlob(dataUrl);
+      const file = new File([blob], `ScanPayEat-Story-${tokenNumber}.png`, {
+        type: 'image/png',
+      });
+
+      const messageText = `Just ordered delicious food at *${restaurantName}*! 🍔✨\nOrder #${orderNumber} • Token #${tokenNumber}\n\nScanned. Ordered. Loved. 🧡\n#ScanPayEat`;
+
+      // On Mobile iOS/Android: share the actual IMAGE file directly via Web Share API
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `${restaurantName} - Food Story`,
+          text: messageText,
+        });
+        setShareSuccessMessage('Image shared to WhatsApp!');
+        return;
+      }
+
+      // On Desktop: Download image, copy image to clipboard, and open WhatsApp Web
       const link = document.createElement('a');
       link.download = `ScanPayEat-Story-${tokenNumber}.png`;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    }
 
-    const message = encodeURIComponent(
-      `Just ordered delicious food at *${restaurantName}*! 🍔✨\nOrder #${orderNumber} • Token #${tokenNumber}\n\nScanned. Ordered. Loved. 🧡\n#ScanPayEat`
-    );
-    window.open(`https://api.whatsapp.com/send?text=${message}`, '_blank');
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        }
+      } catch (clipErr) {
+        // Clipboard API fallback
+      }
+
+      const encodedMessage = encodeURIComponent(messageText);
+      window.open(`https://api.whatsapp.com/send?text=${encodedMessage}`, '_blank');
+      setShareSuccessMessage('Image downloaded & copied to clipboard! Paste (Cmd+V / Ctrl+V) in WhatsApp chat or status.');
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        handleDownload();
+      }
+    }
   };
 
   return (
