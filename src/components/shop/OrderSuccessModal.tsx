@@ -129,7 +129,7 @@ export default function OrderSuccessModal({
       />
 
       {/* Modal Dialog with Scale-Up Animation */}
-      <div className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 z-10 text-center space-y-5 animate-in zoom-in-95 duration-300">
+      <div className="relative w-full max-w-md bg-white rounded-3xl p-5 sm:p-8 shadow-2xl border border-slate-100 z-10 text-center space-y-4 sm:space-y-5 animate-in zoom-in-95 duration-300 max-h-[92vh] overflow-y-auto">
         {/* Animated Success Ring Icon */}
         <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full bg-emerald-100 animate-ping opacity-75" />

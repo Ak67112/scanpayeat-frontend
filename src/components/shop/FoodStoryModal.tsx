@@ -16,9 +16,10 @@ import {
   Loader2,
   RefreshCw,
   Edit3,
-  Flame,
   Heart,
   Palette,
+  Eye,
+  Sliders,
 } from 'lucide-react';
 import { FoodStoryData } from '../../types';
 
@@ -79,12 +80,14 @@ export default function FoodStoryModal({
   // Sharing states
   const [isExporting, setIsExporting] = useState(false);
   const [shareSuccessMessage, setShareSuccessMessage] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<'PREVIEW' | 'CUSTOMIZE'>('PREVIEW');
 
   useEffect(() => {
     if (isOpen) {
       setShareSuccessMessage(null);
       setIsExporting(false);
       setImageError(false);
+      setMobileTab('PREVIEW');
     }
   }, [isOpen]);
 
@@ -221,17 +224,52 @@ export default function FoodStoryModal({
       />
 
       {/* Main Container */}
-      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl z-10 overflow-hidden flex flex-col md:flex-row max-h-[92vh]">
+      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl z-10 overflow-hidden flex flex-col md:flex-row max-h-[95vh] md:max-h-[90vh]">
         {/* Close Button Top Right */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 z-30 p-2 bg-black/50 hover:bg-black/80 text-white rounded-full backdrop-blur-sm transition cursor-pointer"
+          className="absolute top-3 right-3 z-30 p-2 bg-black/60 hover:bg-black/90 text-white rounded-full backdrop-blur-md transition cursor-pointer border border-white/20 shadow-lg"
+          title="Close modal"
         >
           <X className="w-5 h-5" />
         </button>
 
+        {/* Mobile Tab Switcher (< md) */}
+        <div className="md:hidden flex items-center justify-between p-2.5 bg-slate-950 border-b border-slate-800 pr-14 shrink-0">
+          <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800/80 w-full max-w-xs">
+            <button
+              type="button"
+              onClick={() => setMobileTab('PREVIEW')}
+              className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                mobileTab === 'PREVIEW'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Story Preview</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('CUSTOMIZE')}
+              className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                mobileTab === 'CUSTOMIZE'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Customize &amp; Share</span>
+            </button>
+          </div>
+        </div>
+
         {/* ================= LEFT: 9:16 Story Canvas Preview ================= */}
-        <div className="flex-1 bg-slate-950 p-4 sm:p-6 flex items-center justify-center overflow-hidden">
+        <div
+          className={`flex-1 bg-slate-950 p-3 sm:p-5 md:p-6 flex flex-col items-center justify-center overflow-y-auto max-h-[85vh] ${
+            mobileTab === 'CUSTOMIZE' ? 'hidden md:flex' : 'flex'
+          }`}
+        >
           {isLoading ? (
             <div className="flex flex-col items-center justify-center space-y-3 py-20 text-white">
               <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
@@ -240,14 +278,15 @@ export default function FoodStoryModal({
               </p>
             </div>
           ) : (
-            /* 9:16 Canvas (Instagram Story aspect ratio) */
-            <div
-              ref={storyRef}
-              className="relative w-[340px] sm:w-[360px] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl flex flex-col justify-between select-none bg-slate-950 text-white"
-              style={{
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-              }}
-            >
+            <>
+              {/* 9:16 Canvas (Instagram Story aspect ratio) */}
+              <div
+                ref={storyRef}
+                className="relative aspect-[9/16] h-[52vh] sm:h-[60vh] md:h-[68vh] max-h-[640px] w-auto max-w-[360px] rounded-2xl overflow-hidden shadow-2xl flex flex-col justify-between select-none bg-slate-950 text-white shrink-0"
+                style={{
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                }}
+              >
               {/* STYLE 1: NATIVE IG STICKER STYLE (Focus on Food & Location) */}
               {activeStyle === 'STICKER' && (
                 <>
@@ -535,170 +574,208 @@ export default function FoodStoryModal({
                 </div>
               )}
             </div>
+
+            {/* Mobile Quick Action Strip (under story preview) */}
+            <div className="md:hidden mt-3 w-full max-w-xs flex gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setMobileTab('CUSTOMIZE')}
+                className="flex-1 py-2 px-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Customize</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleShareInstagram}
+                disabled={isExporting}
+                className="flex-1 py-2 px-2 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 hover:from-purple-700 hover:to-orange-600 text-white text-xs font-extrabold rounded-xl shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <InstagramIcon className="w-3.5 h-3.5" />
+                <span>Share Story</span>
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ================= RIGHT: Controls & Share Flow ================= */}
+      <div
+        className={`w-full md:w-88 bg-slate-900 p-4 sm:p-5 md:p-6 flex flex-col justify-between overflow-y-auto max-h-[85vh] border-t md:border-t-0 md:border-l border-slate-800 ${
+          mobileTab === 'PREVIEW' ? 'hidden md:flex' : 'flex'
+        }`}
+      >
+        <div className="space-y-4">
+          <div>
+            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-pink-500/20 to-amber-500/20 text-pink-300 border border-pink-500/30 text-[10px] font-black uppercase tracking-wider">
+              <Camera className="w-3 h-3" />
+              Instagram Story Ready
+            </div>
+            <h2 className="text-lg font-black text-white mt-1">
+              Customize Food Story
+            </h2>
+            <p className="text-xs text-slate-300">
+              Share your food &amp; location directly to your Story.
+            </p>
+          </div>
+
+          {/* Design Style Selector */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-black uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
+              <Palette className="w-3.5 h-3.5 text-amber-400" />
+              <span>Story Design Style:</span>
+            </label>
+            <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setActiveStyle('STICKER')}
+                className={`py-1.5 px-2 rounded-lg text-xs font-black transition cursor-pointer text-center ${
+                  activeStyle === 'STICKER'
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
+                    : 'text-slate-300 hover:text-white bg-slate-900/60'
+                }`}
+              >
+                📍 IG Sticker
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveStyle('POLAROID')}
+                className={`py-1.5 px-2 rounded-lg text-xs font-black transition cursor-pointer text-center ${
+                  activeStyle === 'POLAROID'
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
+                    : 'text-slate-300 hover:text-white bg-slate-900/60'
+                }`}
+              >
+                📸 Polaroid
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveStyle('MINIMAL')}
+                className={`py-1.5 px-2 rounded-lg text-xs font-black transition cursor-pointer text-center ${
+                  activeStyle === 'MINIMAL'
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
+                    : 'text-slate-300 hover:text-white bg-slate-900/60'
+                }`}
+              >
+                ✨ Editorial
+              </button>
+            </div>
+          </div>
+
+          {/* Multiple Items Selector (if order has >1 dish) */}
+          {items.length > 1 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-100 block">
+                Select Featured Dish:
+              </label>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {items.map((item, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedItemIndex(idx)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                      selectedItemIndex === idx
+                        ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
+                        : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
+                    }`}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
-        </div>
 
-        {/* ================= RIGHT: Controls & Share Flow ================= */}
-        <div className="w-full md:w-84 bg-slate-900 p-5 sm:p-6 flex flex-col justify-between space-y-4 border-t md:border-t-0 md:border-l border-slate-800">
-          <div className="space-y-4">
-            <div>
-              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-pink-500/20 to-amber-500/20 text-pink-300 border border-pink-500/30 text-[10px] font-black uppercase tracking-wider">
-                <Camera className="w-3 h-3" />
-                Instagram Story Ready
-              </div>
-              <h2 className="text-lg font-black text-white mt-1">
-                Customize Food Story
-              </h2>
-              <p className="text-xs text-slate-400">
-                Share your food &amp; location directly to your Story.
-              </p>
-            </div>
-
-            {/* Design Style Selector */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
-                <Palette className="w-3.5 h-3.5 text-amber-400" />
-                Story Design Style:
+          {/* Caption Customizer */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-100">
+                Story Caption:
               </label>
-              <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setActiveStyle('STICKER')}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-black transition cursor-pointer text-center ${
-                    activeStyle === 'STICKER'
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  📍 IG Sticker
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveStyle('POLAROID')}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-black transition cursor-pointer text-center ${
-                    activeStyle === 'POLAROID'
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  📸 Polaroid
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveStyle('MINIMAL')}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-black transition cursor-pointer text-center ${
-                    activeStyle === 'MINIMAL'
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  ✨ Editorial
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingCaption(!isEditingCaption)}
+                className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                {isEditingCaption ? 'Done' : 'Edit'}
+              </button>
             </div>
 
-            {/* Multiple Items Selector (if order has >1 dish) */}
-            {items.length > 1 && (
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
-                  Select Featured Dish:
-                </label>
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {items.map((item, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setSelectedItemIndex(idx)}
-                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
-                        selectedItemIndex === idx
-                          ? 'bg-amber-500 text-white shadow-xs'
-                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                      }`}
-                    >
-                      {item.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Caption Customizer */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                  Story Caption:
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setIsEditingCaption(!isEditingCaption)}
-                  className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <Edit3 className="w-3 h-3" />
-                  {isEditingCaption ? 'Done' : 'Edit'}
-                </button>
-              </div>
-
-              {isEditingCaption ? (
-                <input
-                  type="text"
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  maxLength={60}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                  placeholder="Enter custom caption..."
-                />
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {CAPTION_PRESETS.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setCaption(preset)}
-                      className={`text-[10px] px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
-                        caption === preset
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                      }`}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Sticker Picker */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
-                <Smile className="w-3.5 h-3.5 text-amber-400" />
-                Add Stickers:
-              </label>
-              <div className="grid grid-cols-6 gap-1 bg-slate-950 p-2 rounded-xl border border-slate-800">
-                {STICKER_OPTIONS.map((stk, idx) => {
-                  const isSelected = selectedStickers.includes(stk);
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => toggleSticker(stk)}
-                      className={`h-9 rounded-lg text-lg flex items-center justify-center transition cursor-pointer ${
-                        isSelected
-                          ? 'bg-amber-500/30 border border-amber-500 scale-110 shadow-xs'
-                          : 'hover:bg-slate-800 text-slate-400'
-                      }`}
-                    >
-                      {stk}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Feedback notification banner */}
-            {shareSuccessMessage && (
-              <div className="p-2.5 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 font-bold flex items-center gap-2 animate-in fade-in">
-                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>{shareSuccessMessage}</span>
+            {isEditingCaption ? (
+              <input
+                type="text"
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                maxLength={60}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-amber-400 focus:ring-1 focus:ring-amber-400 font-medium"
+                placeholder="Enter custom caption..."
+              />
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {CAPTION_PRESETS.map((preset, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCaption(preset)}
+                    className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                      caption === preset
+                        ? 'bg-amber-500 text-white shadow-xs'
+                        : 'bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700/60'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
               </div>
             )}
           </div>
+
+          {/* Sticker Picker */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-black uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
+              <Smile className="w-3.5 h-3.5 text-amber-400" />
+              <span>Add Stickers:</span>
+            </label>
+            <div className="grid grid-cols-6 gap-1 bg-slate-950 p-2 rounded-xl border border-slate-800">
+              {STICKER_OPTIONS.map((stk, idx) => {
+                const isSelected = selectedStickers.includes(stk);
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => toggleSticker(stk)}
+                    className={`h-9 rounded-lg text-lg flex items-center justify-center transition cursor-pointer ${
+                      isSelected
+                        ? 'bg-amber-500/30 border-2 border-amber-400 scale-110 shadow-md'
+                        : 'hover:bg-slate-800 text-slate-200'
+                    }`}
+                  >
+                    {stk}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* On Mobile: Switch to Preview Button */}
+          <div className="md:hidden pt-1">
+            <button
+              type="button"
+              onClick={() => setMobileTab('PREVIEW')}
+              className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>View Full Story Preview</span>
+            </button>
+          </div>
+
+          {/* Feedback notification banner */}
+          {shareSuccessMessage && (
+            <div className="p-2.5 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 font-bold flex items-center gap-2 animate-in fade-in">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{shareSuccessMessage}</span>
+            </div>
+          )}
+        </div>
 
           {/* Action Sharing Buttons */}
           <div className="space-y-2 pt-2 border-t border-slate-800">
