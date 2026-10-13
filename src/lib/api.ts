@@ -452,14 +452,31 @@ export const shopkeeperApi = {
 // ================= CUSTOMER API =================
 export const customerApi = {
   async getProfile() {
-    return apiFetch<{ customer: any }>('/api/customer/profile');
+    try {
+      return await apiFetch<{ customer: any }>('/api/customer/profile');
+    } catch (err: any) {
+      if (err?.message?.includes('404') || err?.status === 404) {
+        return await apiFetch<{ customer: any }>('/api/me/profile');
+      }
+      throw err;
+    }
   },
 
   async updateProfile(data: { name?: string; mobile?: string; avatarUrl?: string }) {
-    return apiFetch<{ customer: any }>('/api/customer/profile', {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
+    try {
+      return await apiFetch<{ customer: any }>('/api/customer/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    } catch (err: any) {
+      if (err?.message?.includes('404') || err?.status === 404) {
+        return await apiFetch<{ customer: any }>('/api/me/profile', {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        });
+      }
+      throw err;
+    }
   },
 
   async uploadAvatar(file: File): Promise<string> {
@@ -469,13 +486,24 @@ export const customerApi = {
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const url = token ? `${API_BASE_URL}/api/customer/upload` : `${API_BASE_URL}/api/auth/upload`;
-    const response = await fetch(url, {
+    const url = `${API_BASE_URL}/api/customer/upload`;
+    let response = await fetch(url, {
       method: 'POST',
       headers,
       body: formData,
       credentials: 'include',
     });
+
+    if (response.status === 404) {
+      // Automatic fallback if edge cache has not yet refreshed /api/customer/upload
+      response = await fetch(`${API_BASE_URL}/api/auth/upload`, {
+        method: 'POST',
+        headers,
+        body: formData,
+        credentials: 'include',
+      });
+    }
+
     const json = await response.json().catch(() => ({ success: false, message: 'Upload failed' }));
     if (!response.ok || !json.success) {
       throw new Error(json.message || 'Avatar upload failed');

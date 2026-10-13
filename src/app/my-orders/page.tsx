@@ -64,6 +64,9 @@ export default function MyOrdersPage() {
       setProfileErrorMsg(err.message || 'Failed to upload photo');
     } finally {
       setIsUploadingAvatar(false);
+      if (e.target) {
+        e.target.value = '';
+      }
     }
   };
 
