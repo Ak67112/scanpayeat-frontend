@@ -73,7 +73,7 @@ export async function apiFetch<T = any>(
 
 // ================= AUTH API =================
 export const authApi = {
-  async register(data: { name: string; email: string; mobile?: string; avatarUrl?: string; password: string }) {
+  async register(data: { name: string; email?: string; mobile?: string; avatarUrl?: string; password: string }) {
     return apiFetch<{ user: User; accessToken: string }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),

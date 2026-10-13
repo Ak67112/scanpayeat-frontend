@@ -67,8 +67,14 @@ export default function RegisterPage() {
     setIsLoading(true);
     setErrorMessage('');
 
+    if (mobile.length !== 10) {
+      setErrorMessage('Please enter a valid 10-digit mobile number.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      await register(name, email, password, mobile || undefined, avatarUrl || undefined);
+      await register(name, email || undefined, password, mobile, avatarUrl || undefined);
       router.push('/my-orders');
     } catch (err: any) {
       setErrorMessage(err.message || 'Registration failed. Please check inputs.');
@@ -211,33 +217,37 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Email Address *
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  className="w-full text-xs pl-10 pr-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white text-slate-900 placeholder:text-slate-400"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Mobile Number (10 Digits)
+                Mobile Number (10 Digits) *
               </label>
               <div className="relative">
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
                   type="tel"
+                  inputMode="numeric"
                   pattern="[0-9]{10}"
+                  maxLength={10}
+                  required
                   value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
-                  placeholder="9876543210"
+                  onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="Enter 10-digit number (e.g. 9876543210)"
+                  className="w-full text-xs pl-10 pr-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white text-slate-900 placeholder:text-slate-400"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">Must be exactly 10 digits. Used for signing in.</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Email Address</span>
+                <span className="text-[10px] text-slate-400 font-normal">Optional</span>
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com (optional)"
                   className="w-full text-xs pl-10 pr-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white text-slate-900 placeholder:text-slate-400"
                 />
               </div>

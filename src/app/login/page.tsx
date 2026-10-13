@@ -9,6 +9,7 @@ import {
   AlertCircle,
   KeyRound,
   Mail,
+  Phone,
   Lock,
   ArrowRight,
   Clock,
@@ -20,8 +21,8 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const isExpired = searchParams.get('expired') === '30d';
 
-  const [email, setEmail] = useState('customer@demo.com');
-  const [password, setPassword] = useState('Customer@123');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -30,12 +31,26 @@ function LoginContent() {
     setIsLoading(true);
     setErrorMessage('');
 
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      setErrorMessage('Please enter your mobile number or email address.');
+      setIsLoading(false);
+      return;
+    }
+
+    // If only digits, verify it is 10 digits
+    if (/^\d+$/.test(trimmed) && trimmed.length !== 10) {
+      setErrorMessage('Please enter a valid 10-digit mobile number.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      await login(email, password, 'CUSTOMER');
+      await login(trimmed, password, 'CUSTOMER');
       const redirectParam = searchParams.get('redirect');
       router.push(redirectParam || '/my-orders');
     } catch (err: any) {
-      setErrorMessage(err.message || 'Invalid email or password.');
+      setErrorMessage(err.message || 'Invalid mobile number/email or password.');
     } finally {
       setIsLoading(false);
     }
@@ -84,19 +99,31 @@ function LoginContent() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Email Address
+              Mobile Number or Email
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              {/^\d+$/.test(identifier) ? (
+                <Phone className="w-4 h-4 text-emerald-600 absolute left-3.5 top-3" />
+              ) : (
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              )}
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
+                value={identifier}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (/^\d+$/.test(val)) {
+                    setIdentifier(val.slice(0, 10));
+                  } else {
+                    setIdentifier(val);
+                  }
+                }}
+                placeholder="Enter 10-digit mobile or email"
                 className="w-full text-xs pl-10 pr-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white text-slate-900 placeholder:text-slate-400"
               />
             </div>
+            <p className="text-[10px] text-slate-400 mt-1">Sign in with your 10-digit mobile number or registered email</p>
           </div>
 
           <div>
@@ -120,10 +147,10 @@ function LoginContent() {
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-[11px] text-slate-600 flex items-center justify-between">
             <span className="flex items-center gap-1.5 font-medium">
               <KeyRound className="w-3.5 h-3.5 text-slate-400" />
-              <span>Default credentials active</span>
+              <span>Use registered mobile number or email</span>
             </span>
             <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
-              Diner
+              Customer
             </span>
           </div>
 

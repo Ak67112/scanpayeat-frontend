@@ -7,8 +7,9 @@ export const metadata: Metadata = {
   title: 'Scanner Pay Eat | Seamless QR Dining & Instant Checkout',
   description: 'Contactless table QR ordering, instant UPI checkout, live kitchen token tracking, and rewards.',
   icons: {
-    icon: '/logo.png',
-    apple: '/logo.png',
+    icon: '/icon.png',
+    apple: '/icon.png',
+    shortcut: '/favicon.ico',
   },
 };
 
@@ -20,7 +21,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
       <head>
-        <link rel="icon" type="image/png" href="/logo.png" />
+        <link rel="icon" type="image/png" href="/icon.png" />
+        <link rel="apple-touch-icon" href="/icon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

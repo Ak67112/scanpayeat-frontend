@@ -26,10 +26,10 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string, role?: string) => Promise<User>;
+  login: (emailOrMobile: string, password: string, role?: string) => Promise<User>;
   register: (
     name: string,
-    email: string,
+    email: string | undefined,
     password: string,
     mobile?: string,
     avatarUrl?: string
@@ -163,14 +163,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (
     name: string,
-    email: string,
+    email: string | undefined,
     password: string,
     mobile?: string,
     avatarUrl?: string
   ): Promise<User> => {
     setIsLoading(true);
     try {
-      const res = await authApi.register({ name, email, mobile, password, avatarUrl });
+      const res = await authApi.register({
+        name,
+        email: email && email.trim() ? email.trim() : undefined,
+        mobile,
+        password,
+        avatarUrl,
+      });
       const now = Date.now().toString();
       setToken(res.accessToken);
       setUser(res.user);
