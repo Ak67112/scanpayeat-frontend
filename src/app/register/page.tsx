@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, Suspense } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '../../lib/api';
 import {
   ShoppingBag,
@@ -17,6 +17,7 @@ import {
   UploadCloud,
   Check,
 } from 'lucide-react';
+import GoogleAuthButton from '../../components/GoogleAuthButton';
 
 const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -26,9 +27,10 @@ const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
 ];
 
-export default function RegisterPage() {
+function RegisterContent() {
   const { register } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState('');
@@ -75,7 +77,8 @@ export default function RegisterPage() {
 
     try {
       await register(name, email || undefined, password, mobile, avatarUrl || undefined);
-      router.push('/my-orders');
+      const redirectParam = searchParams.get('redirect') || '/my-orders';
+      router.push(redirectParam);
     } catch (err: any) {
       setErrorMessage(err.message || 'Registration failed. Please check inputs.');
     } finally {
@@ -289,11 +292,28 @@ export default function RegisterPage() {
             </button>
           </form>
 
+          {/* Divider */}
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center text-[10px] uppercase tracking-wider font-extrabold text-slate-400">
+              <span className="bg-white px-2">Or register with</span>
+            </div>
+          </div>
+
+          {/* Google One-Tap & Sign-In */}
+          <GoogleAuthButton
+            redirectParam={searchParams.get('redirect') || '/my-orders'}
+            onError={(msg) => setErrorMessage(msg)}
+            label="Continue with Google"
+          />
+
           <div className="mt-6 pt-5 border-t border-slate-100 text-center">
             <p className="text-xs text-slate-600">
               Already have an account?{' '}
               <a
-                href="/login"
+                href={`/login${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect')!)}` : ''}`}
                 className="font-bold text-emerald-600 hover:text-emerald-700 transition"
               >
                 Sign In
@@ -303,5 +323,21 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-slate-50">
+          <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-200 shadow-xl flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+          </div>
+        </div>
+      }
+    >
+      <RegisterContent />
+    </Suspense>
   );
 }

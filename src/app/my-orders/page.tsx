@@ -26,7 +26,7 @@ import {
 type DatePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 
 export default function MyOrdersPage() {
-  const { user, isLoading: authLoading, refreshUser } = useAuth();
+  const { user, isLoading: authLoading, refreshUser, loginWithGoogle } = useAuth();
   const router = useRouter();
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -81,6 +81,30 @@ export default function MyOrdersPage() {
   const [selectedReceiptOrder, setSelectedReceiptOrder] = useState<Order | null>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+
+    // Handle OAuth redirect if user lands on /my-orders with authorization code
+    if (code) {
+      setIsLoading(true);
+      const redirectUri = `${window.location.origin}/my-orders`;
+      loginWithGoogle({ code, redirectUri })
+        .then(() => {
+          if (state && state !== '/my-orders') {
+            router.push(decodeURIComponent(state));
+          } else {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        })
+        .catch((err) => {
+          console.error('Google auth error on my-orders:', err);
+          router.push('/login?error=google_failed');
+        });
+      return;
+    }
+
     if (authLoading) return;
 
     if (!user) {
@@ -99,7 +123,7 @@ export default function MyOrdersPage() {
       .finally(() => {
         setIsLoading(false);
       });
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, loginWithGoogle]);
 
   // Extract distinct restaurants that the user has ordered from
   const availableShops = useMemo(() => {

@@ -14,9 +14,10 @@ import {
   ArrowRight,
   Clock,
 } from 'lucide-react';
+import GoogleAuthButton from '../../components/GoogleAuthButton';
 
 function LoginContent() {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const isExpired = searchParams.get('expired') === '30d';
@@ -25,6 +26,25 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Auto-handle Google OAuth redirect if redirected directly to /login
+  useEffect(() => {
+    const code = searchParams.get('code');
+    if (!code) return;
+
+    setIsLoading(true);
+    const redirectParam = searchParams.get('redirect') || searchParams.get('state') || '/my-orders';
+    const redirectUri = typeof window !== 'undefined' ? `${window.location.origin}/login` : '';
+
+    loginWithGoogle({ code, redirectUri })
+      .then(() => {
+        router.push(redirectParam);
+      })
+      .catch((err) => {
+        setErrorMessage(err.message || 'Google sign-in failed');
+        setIsLoading(false);
+      });
+  }, [searchParams, router, loginWithGoogle]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,11 +190,28 @@ function LoginContent() {
           </button>
         </form>
 
+        {/* Divider */}
+        <div className="relative my-5">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-200" />
+          </div>
+          <div className="relative flex justify-center text-[10px] uppercase tracking-wider font-extrabold text-slate-400">
+            <span className="bg-white px-2">Or continue with</span>
+          </div>
+        </div>
+
+        {/* Google One-Tap & Sign-In */}
+        <GoogleAuthButton
+          redirectParam={searchParams.get('redirect') || '/my-orders'}
+          onError={(msg) => setErrorMessage(msg)}
+          label="Continue with Google"
+        />
+
         <div className="mt-6 pt-5 border-t border-slate-100 text-center">
           <p className="text-xs text-slate-600">
             New customer?{' '}
             <a
-              href="/register"
+              href={`/register${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect')!)}` : ''}`}
               className="font-bold text-emerald-600 hover:text-emerald-700 transition"
             >
               Create a Free Account

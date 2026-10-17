@@ -34,6 +34,7 @@ interface AuthContextType {
     mobile?: string,
     avatarUrl?: string
   ) => Promise<User>;
+  loginWithGoogle: (data: { credential?: string; code?: string; redirectUri?: string }) => Promise<User>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -224,6 +225,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginWithGoogle = async (data: { credential?: string; code?: string; redirectUri?: string }): Promise<User> => {
+    setIsLoading(true);
+    try {
+      const res = await authApi.googleLogin(data);
+      const now = Date.now().toString();
+      setToken(res.accessToken);
+      setUser(res.user);
+      localStorage.setItem('scanpayeat_token', res.accessToken);
+      localStorage.setItem('scanpayeat_user', JSON.stringify(res.user));
+      localStorage.setItem('scanpayeat_login_time', now);
+      return res.user;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -232,6 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         register,
+        loginWithGoogle,
         logout,
         refreshUser,
       }}
