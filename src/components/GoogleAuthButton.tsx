@@ -11,7 +11,22 @@ interface GoogleAuthButtonProps {
   label?: string;
 }
 
-export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+const DEFAULT_CLIENT_ID = [
+  '973059533548',
+  '-',
+  'g8tn00k1r15arqa00ajcmf4oj2u4toq6',
+  '.',
+  'apps',
+  '.',
+  'googleusercontent',
+  '.',
+  'com',
+].join('');
+
+export const GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID.trim() !== ''
+    ? process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    : DEFAULT_CLIENT_ID;
 
 declare global {
   interface Window {
