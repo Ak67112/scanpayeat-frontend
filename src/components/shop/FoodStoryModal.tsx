@@ -533,25 +533,16 @@ export default function FoodStoryModal({
                   </div>
                 )}
 
-                {/* ================= TEMPLATE 1: LOCATION & FOOD ================= */}
+                {/* ================= TEMPLATE 1: CLASSIC STORY ================= */}
                 {template === 'LOCATION' && (
                   <>
-                    {/* Top: Instagram-Style Location Badge */}
-                    <div className="relative z-10 space-y-1.5 pt-1 text-left">
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 shadow-lg max-w-[85%]">
-                        <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-white shrink-0 shadow-xs">
-                          <MapPin className="w-2.5 h-2.5 text-white" />
-                        </div>
-                        <div className="text-left leading-tight min-w-0">
-                          <span className="font-black text-[11px] text-white tracking-tight truncate block">
-                            {restaurantName}
-                          </span>
-                          {restaurantLocation && (
-                            <span className="text-[9px] text-amber-200/80 font-medium truncate block">
-                              {restaurantLocation}
-                            </span>
-                          )}
-                        </div>
+                    {/* Top: Story Header / Time Sticker */}
+                    <div className="relative z-10 pt-1 text-left">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 shadow-md">
+                        <UtensilsCrossed className="w-3 h-3 text-amber-400" />
+                        <span className="text-[10px] font-black text-white tracking-wide">
+                          Food Story · {currentTimeStr}
+                        </span>
                       </div>
                     </div>
 
@@ -570,39 +561,27 @@ export default function FoodStoryModal({
                       )}
                     </div>
 
-                    {/* Bottom: Customer Profile & Brand Logo */}
-                    <div className="relative z-10 pt-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-purple-600 p-0.5 shadow-md shrink-0">
-                          <div className="w-full h-full rounded-full bg-stone-900 flex items-center justify-center overflow-hidden">
-                            {customerAvatar ? (
-                              <img
-                                src={customerAvatar}
-                                alt={customerName}
-                                crossOrigin="anonymous"
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-[11px] font-black text-amber-300">
-                                {customerName.charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
+                    {/* Bottom: Location Label (Replaced Name) & Small Brand Logo */}
+                    <div className="relative z-10 pt-2 flex items-center justify-between gap-2">
+                      {/* Location Badge */}
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 shadow-lg min-w-0 max-w-[70%]">
+                        <div className="w-4.5 h-4.5 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-white shrink-0 shadow-xs">
+                          <MapPin className="w-2.5 h-2.5 text-white" />
                         </div>
                         <div className="text-left leading-tight min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs font-black text-white truncate max-w-[120px]">
-                              {customerName}
+                          <span className="font-black text-[11px] text-white tracking-tight truncate block">
+                            {restaurantName}
+                          </span>
+                          {restaurantLocation && (
+                            <span className="text-[9px] text-amber-200/80 font-medium truncate block">
+                              {restaurantLocation}
                             </span>
-                            <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-stone-950 text-[9px] font-black inline-flex items-center justify-center shrink-0">
-                              ✓
-                            </span>
-                          </div>
+                          )}
                         </div>
                       </div>
 
                       {/* Small Brand Logo */}
-                      <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 shadow-xs">
+                      <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/20 shadow-xs shrink-0">
                         <img
                           src="/logo-icon.png"
                           alt="ScanPayEat"
@@ -644,37 +623,27 @@ export default function FoodStoryModal({
                       )}
                     </div>
 
-                    {/* Bottom: Customer Profile & Small Brand Logo */}
-                    <div className="relative z-10 pt-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400 to-rose-500 p-0.5 shadow-md shrink-0">
-                          <div className="w-full h-full rounded-full bg-stone-900 flex items-center justify-center overflow-hidden">
-                            {customerAvatar ? (
-                              <img
-                                src={customerAvatar}
-                                alt={customerName}
-                                crossOrigin="anonymous"
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-[11px] font-black text-amber-300">
-                                {customerName.charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
+                    {/* Bottom: Location Label (Replaced Name) & Small Brand Logo */}
+                    <div className="relative z-10 pt-2 flex items-center justify-between gap-2">
+                      {/* Location Badge */}
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 shadow-lg min-w-0 max-w-[70%]">
+                        <div className="w-4.5 h-4.5 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-white shrink-0 shadow-xs">
+                          <MapPin className="w-2.5 h-2.5 text-white" />
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs font-black text-white truncate max-w-[120px]">
-                            {customerName}
+                        <div className="text-left leading-tight min-w-0">
+                          <span className="font-black text-[11px] text-white tracking-tight truncate block">
+                            {restaurantName}
                           </span>
-                          <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-stone-950 text-[9px] font-black inline-flex items-center justify-center shrink-0">
-                            ✓
-                          </span>
+                          {restaurantLocation && (
+                            <span className="text-[9px] text-amber-200/80 font-medium truncate block">
+                              {restaurantLocation}
+                            </span>
+                          )}
                         </div>
                       </div>
 
                       {/* Small Brand Logo */}
-                      <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 shadow-xs">
+                      <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/20 shadow-xs shrink-0">
                         <img
                           src="/logo-icon.png"
                           alt="ScanPayEat"
