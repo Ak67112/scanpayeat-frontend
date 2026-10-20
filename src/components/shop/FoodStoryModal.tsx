@@ -321,11 +321,16 @@ export default function FoodStoryModal({
                         </div>
                       </div>
 
-                      {/* Dish Name */}
-                      <div className="pt-1 text-left">
-                        <h2 className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight drop-shadow-md truncate">
-                          {activeItem?.name}
+                      {/* Headline: Today's Craving instead of food name */}
+                      <div className="pt-1 text-left space-y-0.5">
+                        <h2 className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight drop-shadow-md">
+                          Today&apos;s Craving 🤤
                         </h2>
+                        {activeItem?.name && (
+                          <p className="text-xs font-bold text-amber-300 truncate">
+                            {activeItem.name}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -382,35 +387,25 @@ export default function FoodStoryModal({
                         </div>
                         <div className="text-left leading-tight min-w-0">
                           <div className="flex items-center gap-1">
-                            <span className="text-xs font-black text-white truncate max-w-[120px]">
+                            <span className="text-xs font-black text-white truncate max-w-[130px]">
                               {customerName}
                             </span>
                             <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-stone-950 text-[9px] font-black inline-flex items-center justify-center shrink-0">
                               ✓
                             </span>
                           </div>
-                          <span className="text-[9px] text-amber-300/80 font-semibold block">
-                            Verified Foodie
-                          </span>
                         </div>
                       </div>
 
-                      {/* Small Restaurant Logo */}
-                      <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-full border border-white/15">
-                        {restaurantLogo ? (
-                          <img
-                            src={restaurantLogo}
-                            alt={restaurantName}
-                            crossOrigin="anonymous"
-                            className="w-4 h-4 rounded-full object-cover shrink-0"
-                          />
-                        ) : (
-                          <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-[8px] font-black text-white shrink-0">
-                            {restaurantName.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <span className="text-[10px] font-bold text-white truncate max-w-[90px]">
-                          {restaurantName}
+                      {/* Our Brand Logo */}
+                      <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-full border border-white/15 shadow-2xs">
+                        <img
+                          src="/logo-icon.png"
+                          alt="ScanPayEat"
+                          className="w-4 h-4 rounded-full object-contain shrink-0"
+                        />
+                        <span className="text-[10px] font-black text-white tracking-tight">
+                          ScanPayEat
                         </span>
                       </div>
                     </div>
@@ -420,16 +415,16 @@ export default function FoodStoryModal({
                 {/* ================= TEMPLATE 2: TODAY'S CRAVING ================= */}
                 {template === 'CRAVING' && (
                   <>
-                    {/* Top: Today's Craving Header & Food Title */}
+                    {/* Top: Today's Craving Headline */}
                     <div className="relative z-10 space-y-0.5 text-center pt-1">
-                      <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/25 via-rose-500/25 to-orange-500/25 border border-amber-400/40 backdrop-blur-md shadow-md">
-                        <span className="text-[10px] uppercase font-black tracking-widest text-amber-300">
-                          ✨ Today&apos;s Craving ✨
-                        </span>
-                      </div>
-                      <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md truncate pt-1">
-                        {activeItem?.name}
+                      <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">
+                        Today&apos;s Craving 🤤
                       </h2>
+                      {activeItem?.name && (
+                        <p className="text-xs font-bold text-amber-300 truncate">
+                          {activeItem.name}
+                        </p>
+                      )}
                     </div>
 
                     {/* Center: Hero Food Frame with Floating Emojis */}
@@ -500,27 +495,25 @@ export default function FoodStoryModal({
                             )}
                           </div>
                         </div>
-                        <span className="text-xs font-black text-white truncate max-w-[130px]">
-                          {customerName}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-black text-white truncate max-w-[130px]">
+                            {customerName}
+                          </span>
+                          <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-stone-950 text-[9px] font-black inline-flex items-center justify-center shrink-0">
+                            ✓
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Small Restaurant Logo */}
-                      <div className="flex items-center gap-1.5 bg-white/10 px-2 py-0.5 rounded-full border border-white/15">
-                        {restaurantLogo ? (
-                          <img
-                            src={restaurantLogo}
-                            alt={restaurantName}
-                            crossOrigin="anonymous"
-                            className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
-                          />
-                        ) : (
-                          <div className="w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center text-[7px] font-black text-white shrink-0">
-                            {restaurantName.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <span className="text-[9px] font-bold text-white truncate max-w-[80px]">
-                          {restaurantName}
+                      {/* Our Brand Logo */}
+                      <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-full border border-white/15 shadow-2xs">
+                        <img
+                          src="/logo-icon.png"
+                          alt="ScanPayEat"
+                          className="w-4 h-4 rounded-full object-contain shrink-0"
+                        />
+                        <span className="text-[10px] font-black text-white tracking-tight">
+                          ScanPayEat
                         </span>
                       </div>
                     </div>
