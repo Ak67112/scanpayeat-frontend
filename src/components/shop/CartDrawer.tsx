@@ -231,7 +231,7 @@ export default function CartDrawer({ shop }: CartDrawerProps = {}) {
           order_id: activeRzpOrderId,
           prefill: {
             name: user?.name || 'Customer',
-            email: user?.email || 'customer@scanpayeat.com',
+            email: user?.email || 'customer@hotelkada.com',
             contact: user?.mobile || '9999999999',
           },
           theme: {

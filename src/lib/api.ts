@@ -20,7 +20,7 @@ import {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://scanpayeat-backend.vercel.app'
+    ? 'https://api.hotelkada.com'
     : 'http://localhost:5001');
 
 interface ApiResponse<T = any> {
@@ -33,7 +33,7 @@ interface ApiResponse<T = any> {
 // Token helper for SSR/client safety
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('scanpayeat_token');
+  return localStorage.getItem('hotelkada_token') || localStorage.getItem('scanpayeat_token');
 }
 
 export async function apiFetch<T = any>(

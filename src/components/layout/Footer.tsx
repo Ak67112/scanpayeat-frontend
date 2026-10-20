@@ -51,7 +51,7 @@ export default function Footer() {
             <a href="/" className="inline-block bg-white/95 px-3 py-1.5 rounded-2xl shadow-md border border-slate-700/50 hover:bg-white transition">
               <img
                 src="/logo.png"
-                alt="Scanner Pay Eat"
+                alt="Hotelkada"
                 className="h-9 w-auto object-contain"
               />
             </a>
@@ -177,7 +177,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-[#1E293B] mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-stone-400 gap-3">
-          <p>© {new Date().getFullYear()} Scanner Pay Eat. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Hotelkada. All rights reserved.</p>
           <div className="flex items-center space-x-3 font-medium">
             <span>Contactless Dining Made Effortless</span>
             <span>•</span>

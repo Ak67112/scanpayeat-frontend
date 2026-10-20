@@ -72,7 +72,7 @@ function CallbackContent() {
       <div className="flex justify-center">
         <img
           src="/logo.png"
-          alt="Scanner Pay Eat"
+          alt="Hotelkada"
           className="h-10 mx-auto object-contain"
         />
       </div>

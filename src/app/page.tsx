@@ -82,7 +82,7 @@ export default function HomePage() {
       <section className="relative overflow-hidden pt-12 pb-20 md:pt-16 md:pb-28 border-b border-[#E8DFC8]">
         {/* Ambient background watermark */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 text-[13vw] font-black uppercase text-emerald-950/4 select-none pointer-events-none tracking-widest font-display whitespace-nowrap z-0">
-          SCAN PAY EAT
+          HOTELKADA
         </div>
 
         {/* Ambient background blur spots */}
@@ -598,7 +598,7 @@ export default function HomePage() {
                 FASTER SERVICE, <br />HAPPIER FOOD LOVERS.
               </h2>
               <p className="text-xs sm:text-sm text-stone-400 leading-relaxed max-w-lg">
-                Scanner Pay Eat removes the stress of crowded dining. Scan the QR code at your table, choose your favorite dishes, pay via UPI, and enjoy hot food delivered right to your table.
+                Hotelkada removes the stress of crowded dining. Scan the QR code at your table, choose your favorite dishes, pay via UPI, and enjoy hot food delivered right to your table.
               </p>
             </div>
 
@@ -606,7 +606,7 @@ export default function HomePage() {
               <div className="bg-[#16202C] p-7 rounded-3xl border border-[#223142] shadow-2xl max-w-md w-full relative">
                 <div className="text-emerald-500 text-4xl font-serif leading-none mb-2">“</div>
                 <p className="text-xs text-stone-200 leading-relaxed font-medium">
-                  Scanner Pay Eat completely revolutionized dining out for us! We sat down, scanned the QR code on our table, applied a coupon code, and completed UPI payment in 15 seconds. In less than 8 minutes, piping hot food arrived. No bill waiting, zero line hassles!
+                  Hotelkada completely revolutionized dining out for us! We sat down, scanned the QR code on our table, applied a coupon code, and completed UPI payment in 15 seconds. In less than 8 minutes, piping hot food arrived. No bill waiting, zero line hassles!
                 </p>
 
                 <div className="mt-5 pt-4 border-t border-[#223142] flex items-center justify-between">
@@ -641,7 +641,7 @@ export default function HomePage() {
               READY FOR DELICIOUS DINING?
             </h2>
             <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
-              When dining at any partner restaurant, simply look for the Scanner Pay Eat QR code on your table to browse the menu, apply offers, and order instantly.
+              When dining at any partner restaurant, simply look for the Hotelkada QR code on your table to browse the menu, apply offers, and order instantly.
             </p>
           </div>
 

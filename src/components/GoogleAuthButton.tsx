@@ -139,7 +139,7 @@ export default function GoogleAuthButton({
   };
 
   const startOAuthRedirect = () => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://scanpayeat-frontend.vercel.app';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://hotelkada.com';
     const callbackUrl = `${origin}/auth/callback`;
     const defaultTarget = role === 'SHOPKEEPER' ? '/shopkeeper' : '/my-orders';
     const target = redirectParam || defaultTarget;

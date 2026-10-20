@@ -4,7 +4,7 @@ const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://scanpayeat-backend.vercel.app'
+    ? 'https://api.hotelkada.com'
     : 'http://localhost:5001');
 
 let socket: Socket | null = null;

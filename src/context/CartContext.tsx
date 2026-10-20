@@ -28,7 +28,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Restore cart from localStorage
-    const saved = localStorage.getItem('scanpayeat_cart');
+    const saved = localStorage.getItem('hotelkada_cart') || localStorage.getItem('scanpayeat_cart');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -48,7 +48,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setShopId(newShopId);
     setShopSlug(newShopSlug);
     localStorage.setItem(
-      'scanpayeat_cart',
+      'hotelkada_cart',
       JSON.stringify({ items: newItems, shopId: newShopId, shopSlug: newShopSlug })
     );
   };

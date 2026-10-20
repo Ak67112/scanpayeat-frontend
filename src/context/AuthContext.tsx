@@ -48,6 +48,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const router = useRouter();
 
   const clearAuth = (redirectExpiredRole?: string) => {
+    localStorage.removeItem('hotelkada_token');
+    localStorage.removeItem('hotelkada_user');
+    localStorage.removeItem('hotelkada_login_time');
     localStorage.removeItem('scanpayeat_token');
     localStorage.removeItem('scanpayeat_user');
     localStorage.removeItem('scanpayeat_login_time');
@@ -65,9 +68,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Hydrate token & user from localStorage on client boot
-    const storedToken = localStorage.getItem('scanpayeat_token');
-    const storedUser = localStorage.getItem('scanpayeat_user');
-    const storedLoginTime = localStorage.getItem('scanpayeat_login_time');
+    const storedToken = localStorage.getItem('hotelkada_token') || localStorage.getItem('scanpayeat_token');
+    const storedUser = localStorage.getItem('hotelkada_user') || localStorage.getItem('scanpayeat_user');
+    const storedLoginTime = localStorage.getItem('hotelkada_login_time') || localStorage.getItem('scanpayeat_login_time');
 
     if (storedToken) {
       let parsedUser: User | null = null;
@@ -90,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // If user had existing valid session without login_time, record current time
       if (!loginTimestamp) {
-        localStorage.setItem('scanpayeat_login_time', Date.now().toString());
+        localStorage.setItem('hotelkada_login_time', Date.now().toString());
       }
 
       setToken(storedToken);
@@ -104,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .then((res) => {
           if (res?.user) {
             setUser(res.user);
-            localStorage.setItem('scanpayeat_user', JSON.stringify(res.user));
+            localStorage.setItem('hotelkada_user', JSON.stringify(res.user));
           }
         })
         .catch(() => {
@@ -123,9 +126,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Periodic active session watcher to automatically log out expired tabs (every 30s)
   useEffect(() => {
     const interval = setInterval(() => {
-      const storedToken = localStorage.getItem('scanpayeat_token');
-      const storedLoginTime = localStorage.getItem('scanpayeat_login_time');
-      const storedUser = localStorage.getItem('scanpayeat_user');
+      const storedToken = localStorage.getItem('hotelkada_token') || localStorage.getItem('scanpayeat_token');
+      const storedLoginTime = localStorage.getItem('hotelkada_login_time') || localStorage.getItem('scanpayeat_login_time');
+      const storedUser = localStorage.getItem('hotelkada_user') || localStorage.getItem('scanpayeat_user');
 
       if (storedToken && storedLoginTime) {
         let role: string | undefined;
@@ -153,9 +156,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const now = Date.now().toString();
       setToken(res.accessToken);
       setUser(res.user);
-      localStorage.setItem('scanpayeat_token', res.accessToken);
-      localStorage.setItem('scanpayeat_user', JSON.stringify(res.user));
-      localStorage.setItem('scanpayeat_login_time', now);
+      localStorage.setItem('hotelkada_token', res.accessToken);
+      localStorage.setItem('hotelkada_user', JSON.stringify(res.user));
+      localStorage.setItem('hotelkada_login_time', now);
+      localStorage.removeItem('scanpayeat_token');
+      localStorage.removeItem('scanpayeat_user');
+      localStorage.removeItem('scanpayeat_login_time');
       return res.user;
     } finally {
       setIsLoading(false);
@@ -181,9 +187,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const now = Date.now().toString();
       setToken(res.accessToken);
       setUser(res.user);
-      localStorage.setItem('scanpayeat_token', res.accessToken);
-      localStorage.setItem('scanpayeat_user', JSON.stringify(res.user));
-      localStorage.setItem('scanpayeat_login_time', now);
+      localStorage.setItem('hotelkada_token', res.accessToken);
+      localStorage.setItem('hotelkada_user', JSON.stringify(res.user));
+      localStorage.setItem('hotelkada_login_time', now);
+      localStorage.removeItem('scanpayeat_token');
+      localStorage.removeItem('scanpayeat_user');
+      localStorage.removeItem('scanpayeat_login_time');
       return res.user;
     } finally {
       setIsLoading(false);
@@ -197,6 +206,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       // Ignore network failures on logout
     }
+    localStorage.removeItem('hotelkada_token');
+    localStorage.removeItem('hotelkada_user');
+    localStorage.removeItem('hotelkada_login_time');
     localStorage.removeItem('scanpayeat_token');
     localStorage.removeItem('scanpayeat_user');
     localStorage.removeItem('scanpayeat_login_time');
@@ -218,7 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await authApi.getMe();
       if (res?.user) {
         setUser(res.user);
-        localStorage.setItem('scanpayeat_user', JSON.stringify(res.user));
+        localStorage.setItem('hotelkada_user', JSON.stringify(res.user));
       }
     } catch (e) {
       // ignore
@@ -232,9 +244,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const now = Date.now().toString();
       setToken(res.accessToken);
       setUser(res.user);
-      localStorage.setItem('scanpayeat_token', res.accessToken);
-      localStorage.setItem('scanpayeat_user', JSON.stringify(res.user));
-      localStorage.setItem('scanpayeat_login_time', now);
+      localStorage.setItem('hotelkada_token', res.accessToken);
+      localStorage.setItem('hotelkada_user', JSON.stringify(res.user));
+      localStorage.setItem('hotelkada_login_time', now);
+      localStorage.removeItem('scanpayeat_token');
+      localStorage.removeItem('scanpayeat_user');
+      localStorage.removeItem('scanpayeat_login_time');
       return res.user;
     } finally {
       setIsLoading(false);

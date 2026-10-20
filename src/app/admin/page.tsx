@@ -1226,7 +1226,7 @@ export default function AdminDashboard() {
         </div>
 
         <a
-          href={typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5001/api-docs' : 'https://scanpayeat-backend.vercel.app/api-docs'}
+          href={typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5001/api-docs' : 'https://api.hotelkada.com/api-docs'}
           target="_blank"
           rel="noreferrer"
           className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800/70 hover:text-white transition"
@@ -2596,7 +2596,7 @@ export default function AdminDashboard() {
                     <span>Platform Promotional Coupons & Discounts</span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Create global coupons valid across <strong className="text-purple-700">ALL restaurants</strong> on ScanPayEat, or manage restaurant-exclusive discounts.
+                    Create global coupons valid across <strong className="text-purple-700">ALL restaurants</strong> on Hotelkada, or manage restaurant-exclusive discounts.
                   </p>
                 </div>
                 <button
@@ -2872,7 +2872,7 @@ export default function AdminDashboard() {
                     className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-l-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs font-mono"
                   />
                   <span className="bg-slate-100 border border-l-0 border-slate-300 rounded-r-xl px-3 py-2.5 text-slate-500 text-xs font-mono">
-                    .scanpayeat.com
+                    .hotelkada.com
                   </span>
                 </div>
               </div>
@@ -3009,7 +3009,7 @@ export default function AdminDashboard() {
                     className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-l-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs font-mono"
                   />
                   <span className="bg-slate-100 border border-l-0 border-slate-300 rounded-r-xl px-3 py-2.5 text-slate-500 text-xs font-mono">
-                    .scanpayeat.com
+                    .hotelkada.com
                   </span>
                 </div>
               </div>
@@ -3388,7 +3388,7 @@ export default function AdminDashboard() {
             </div>
 
             {(() => {
-              const liveOrigin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://scanpayeat-frontend.vercel.app';
+              const liveOrigin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://hotelkada.com';
               const shopUrl = `${liveOrigin}/shop/${selectedQrShop.slug}`;
               return (
                 <>

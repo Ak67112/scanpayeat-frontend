@@ -22,7 +22,7 @@ function AdminLoginContent() {
   const searchParams = useSearchParams();
   const isExpired = searchParams.get('expired') === '24h';
 
-  const [email, setEmail] = useState('admin@scanpayeat.com');
+  const [email, setEmail] = useState('admin@hotelkada.com');
   const [password, setPassword] = useState('Admin@123');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -57,7 +57,7 @@ function AdminLoginContent() {
           <div className="bg-white/95 px-3 py-1.5 rounded-2xl inline-block shadow-md border border-slate-700/50 mb-4">
             <img
               src="/logo.png"
-              alt="Scanner Pay Eat"
+              alt="Hotelkada"
               className="h-8 w-auto object-contain"
             />
           </div>
@@ -106,7 +106,7 @@ function AdminLoginContent() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@scanpayeat.com"
+                  placeholder="admin@hotelkada.com"
                   className="w-full text-xs pl-10 pr-3.5 py-2.5 border border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 bg-slate-950 text-white placeholder:text-slate-600"
                 />
               </div>
@@ -136,7 +136,7 @@ function AdminLoginContent() {
                 Admin Default Account
               </span>
               <span className="font-mono text-[10px] bg-purple-900/60 text-purple-300 px-2 py-0.5 rounded border border-purple-700/50">
-                admin@scanpayeat.com
+                admin@hotelkada.com
               </span>
             </div>
 

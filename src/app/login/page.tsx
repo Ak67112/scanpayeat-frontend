@@ -83,7 +83,7 @@ function LoginContent() {
         <a href="/" className="inline-block mb-4">
           <img
             src="/logo.png"
-            alt="Scanner Pay Eat"
+            alt="Hotelkada"
             className="h-10 mx-auto object-contain"
           />
         </a>
