@@ -9,6 +9,7 @@ interface GoogleAuthButtonProps {
   redirectParam?: string;
   onError?: (errorMsg: string) => void;
   label?: string;
+  role?: 'CUSTOMER' | 'SHOPKEEPER' | 'ADMIN';
 }
 
 const DEFAULT_CLIENT_ID = [
@@ -38,6 +39,7 @@ export default function GoogleAuthButton({
   redirectParam = '/my-orders',
   onError,
   label = 'Continue with Google',
+  role,
 }: GoogleAuthButtonProps) {
   const { loginWithGoogle } = useAuth();
   const router = useRouter();
@@ -59,8 +61,9 @@ export default function GoogleAuthButton({
             if (response?.credential) {
               setIsProcessing(true);
               try {
-                await loginWithGoogle({ credential: response.credential });
-                const target = redirectParam || '/my-orders';
+                const loggedInUser = await loginWithGoogle({ credential: response.credential, role });
+                const fallbackTarget = loggedInUser.role === 'SHOPKEEPER' ? '/shopkeeper' : '/my-orders';
+                const target = redirectParam || fallbackTarget;
                 router.push(target);
               } catch (err: any) {
                 console.error('Google Sign-In Error:', err);
@@ -138,14 +141,16 @@ export default function GoogleAuthButton({
   const startOAuthRedirect = () => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://scanpayeat-frontend.vercel.app';
     const callbackUrl = `${origin}/auth/callback`;
-    const target = redirectParam || '/my-orders';
+    const defaultTarget = role === 'SHOPKEEPER' ? '/shopkeeper' : '/my-orders';
+    const target = redirectParam || defaultTarget;
+    const stateValue = role ? `${target}__ROLE__${role}` : target;
 
     const oauthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     oauthUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID);
     oauthUrl.searchParams.set('redirect_uri', callbackUrl);
     oauthUrl.searchParams.set('response_type', 'code');
     oauthUrl.searchParams.set('scope', 'openid email profile');
-    oauthUrl.searchParams.set('state', target);
+    oauthUrl.searchParams.set('state', stateValue);
     oauthUrl.searchParams.set('prompt', 'select_account');
 
     window.location.href = oauthUrl.toString();

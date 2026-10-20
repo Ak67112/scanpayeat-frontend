@@ -87,7 +87,7 @@ export const authApi = {
     });
   },
 
-  async googleLogin(data: { credential?: string; code?: string; redirectUri?: string }) {
+  async googleLogin(data: { credential?: string; code?: string; redirectUri?: string; role?: string }) {
     return apiFetch<{ user: User; accessToken: string }>('/api/auth/google', {
       method: 'POST',
       body: JSON.stringify(data),

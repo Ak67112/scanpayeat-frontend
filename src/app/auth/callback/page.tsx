@@ -36,10 +36,24 @@ function CallbackContent() {
       try {
         const origin = window.location.origin;
         const redirectUri = `${origin}/auth/callback`;
-        await loginWithGoogle({ code, redirectUri });
 
-        // Navigate to the target redirect URL (e.g., /shop/jkans or /my-orders)
-        const target = state ? decodeURIComponent(state) : '/my-orders';
+        // Parse optional role and target from state
+        const rawState = state ? decodeURIComponent(state) : '';
+        let target = rawState;
+        let roleToPass: 'CUSTOMER' | 'SHOPKEEPER' | 'ADMIN' | undefined = undefined;
+
+        if (rawState.includes('__ROLE__')) {
+          const parts = rawState.split('__ROLE__');
+          target = parts[0] || '';
+          roleToPass = parts[1] as any;
+        }
+
+        const loggedInUser = await loginWithGoogle({ code, redirectUri, role: roleToPass });
+
+        if (!target) {
+          target = loggedInUser?.role === 'SHOPKEEPER' ? '/shopkeeper' : '/my-orders';
+        }
+
         router.push(target);
       } catch (err: any) {
         console.error('Callback token exchange error:', err);

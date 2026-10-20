@@ -56,10 +56,82 @@ import {
   ShieldCheck,
   Zap,
   Key,
+  Check,
 } from 'lucide-react';
 import { ShopkeeperWallet, WalletTransaction, ShopGatewaySettings, ShopTaxSettings } from '../../types';
 
 type TabView = 'ORDERS' | 'PRODUCTS' | 'CATEGORIES' | 'STATS' | 'DISCOUNTS' | 'PROFILE' | 'WALLET' | 'TAX_SETTINGS';
+
+type DashboardFilterKey = 'ALL' | 'NEW' | 'COOKING' | 'READY' | 'COMPLETED';
+
+const DASHBOARD_FILTERS: { key: DashboardFilterKey; label: string }[] = [
+  { key: 'ALL', label: 'All Orders' },
+  { key: 'NEW', label: 'New Orders' },
+  { key: 'COOKING', label: 'Cooking' },
+  { key: 'READY', label: 'Ready for Counter' },
+  { key: 'COMPLETED', label: 'Order Completed' },
+];
+
+const STATUS_CONFIG: Record<
+  OrderStatus,
+  {
+    label: string;
+    dotColor: string;
+    badgeBg: string;
+    badgeText: string;
+    badgeBorder: string;
+    description: string;
+  }
+> = {
+  PENDING: {
+    label: 'New / Pending',
+    dotColor: 'bg-amber-500',
+    badgeBg: 'bg-amber-50',
+    badgeText: 'text-amber-800',
+    badgeBorder: 'border-amber-200',
+    description: 'Awaiting kitchen review',
+  },
+  CONFIRMED: {
+    label: 'Confirmed',
+    dotColor: 'bg-blue-500',
+    badgeBg: 'bg-blue-50',
+    badgeText: 'text-blue-800',
+    badgeBorder: 'border-blue-200',
+    description: 'Order confirmed & queued',
+  },
+  PREPARING: {
+    label: 'Cooking',
+    dotColor: 'bg-orange-500',
+    badgeBg: 'bg-orange-50',
+    badgeText: 'text-orange-800',
+    badgeBorder: 'border-orange-200',
+    description: 'Active cooking in kitchen',
+  },
+  READY: {
+    label: 'Ready for Counter',
+    dotColor: 'bg-emerald-500',
+    badgeBg: 'bg-emerald-50',
+    badgeText: 'text-emerald-800',
+    badgeBorder: 'border-emerald-200',
+    description: 'Ready for diner pickup',
+  },
+  COMPLETED: {
+    label: 'Order Completed',
+    dotColor: 'bg-slate-500',
+    badgeBg: 'bg-slate-100',
+    badgeText: 'text-slate-800',
+    badgeBorder: 'border-slate-300',
+    description: 'Fulfilled & handed over',
+  },
+  CANCELLED: {
+    label: 'Cancelled',
+    dotColor: 'bg-rose-500',
+    badgeBg: 'bg-rose-50',
+    badgeText: 'text-rose-800',
+    badgeBorder: 'border-rose-200',
+    description: 'Excluded from revenue',
+  },
+};
 
 export default function ShopkeeperDashboard() {
   const { user, logout, isLoading: authLoading } = useAuth();
@@ -152,7 +224,12 @@ export default function ShopkeeperDashboard() {
   const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
   const [couponFormError, setCouponFormError] = useState('');
 
-  const [orderFilter, setOrderFilter] = useState<string>('ACTIVE');
+  const [orderFilter, setOrderFilter] = useState<DashboardFilterKey>('ALL');
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [openStatusOrderId, setOpenStatusOrderId] = useState<number | null>(null);
+  const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false);
+
   type DatePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
   const [orderDatePreset, setOrderDatePreset] = useState<DatePreset>('ALL');
   const [orderStartDate, setOrderStartDate] = useState<string>('');
@@ -567,7 +644,7 @@ export default function ShopkeeperDashboard() {
         notif.onclick = () => {
           window.focus();
           setActiveTab('ORDERS');
-          setOrderFilter('ACTIVE');
+          setOrderFilter('NEW');
           setHighlightedOrderId(order.id);
         };
       } catch (e) {
@@ -1077,7 +1154,7 @@ export default function ShopkeeperDashboard() {
   const todayPaidOrders = useMemo(() => {
     const cutoff = getBusinessDayCutoff();
     return orders.filter((o) => {
-      if (o.paymentStatus !== 'PAID') return false;
+      if (o.paymentStatus !== 'PAID' || o.orderStatus === 'CANCELLED') return false;
       const d = new Date(o.createdAt);
       return d >= cutoff;
     });
@@ -1086,7 +1163,7 @@ export default function ShopkeeperDashboard() {
   const weekPaidOrders = useMemo(() => {
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return orders.filter((o) => {
-      if (o.paymentStatus !== 'PAID') return false;
+      if (o.paymentStatus !== 'PAID' || o.orderStatus === 'CANCELLED') return false;
       const d = new Date(o.createdAt).getTime();
       return d >= sevenDaysAgo;
     });
@@ -1095,7 +1172,7 @@ export default function ShopkeeperDashboard() {
   const monthPaidOrders = useMemo(() => {
     const now = new Date();
     return orders.filter((o) => {
-      if (o.paymentStatus !== 'PAID') return false;
+      if (o.paymentStatus !== 'PAID' || o.orderStatus === 'CANCELLED') return false;
       const d = new Date(o.createdAt);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
@@ -1140,7 +1217,9 @@ export default function ShopkeeperDashboard() {
   const lifetimeSalesVal = Number(
     stats?.totalSales ??
     stats?.totalRevenue ??
-    orders.reduce((sum, o) => sum + Number(o.totalAmount ?? o.total ?? 0), 0)
+    orders
+      .filter((o) => o.paymentStatus === 'PAID' && o.orderStatus !== 'CANCELLED')
+      .reduce((sum, o) => sum + Number(o.totalAmount ?? o.total ?? 0), 0)
   );
 
   const todayDiscountsVal =
@@ -1214,21 +1293,33 @@ export default function ShopkeeperDashboard() {
     return true;
   };
 
+  // Exactly 5 filter category counts
+  const filterCounts = useMemo(() => {
+    return {
+      ALL: orders.length,
+      NEW: orders.filter((o) => o.orderStatus === 'PENDING').length,
+      COOKING: orders.filter((o) => o.orderStatus === 'CONFIRMED' || o.orderStatus === 'PREPARING').length,
+      READY: orders.filter((o) => o.orderStatus === 'READY').length,
+      COMPLETED: orders.filter((o) => o.orderStatus === 'COMPLETED').length,
+    };
+  }, [orders]);
+
   // Filtered orders with search, status & date range
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
-      // Status filter
+      // Status filter - exactly 5 categories
       let matchesStatus = true;
-      if (orderFilter === 'ACTIVE') {
-        matchesStatus =
-          o.orderStatus === 'PENDING' ||
-          o.orderStatus === 'CONFIRMED' ||
-          o.orderStatus === 'PREPARING' ||
-          o.orderStatus === 'READY';
-      } else if (orderFilter === 'CONFIRMED') {
-        matchesStatus = o.orderStatus === 'CONFIRMED' || o.orderStatus === 'PENDING';
-      } else if (orderFilter !== 'ALL') {
-        matchesStatus = o.orderStatus === orderFilter;
+      if (orderFilter === 'NEW') {
+        matchesStatus = o.orderStatus === 'PENDING';
+      } else if (orderFilter === 'COOKING') {
+        matchesStatus = o.orderStatus === 'CONFIRMED' || o.orderStatus === 'PREPARING';
+      } else if (orderFilter === 'READY') {
+        matchesStatus = o.orderStatus === 'READY';
+      } else if (orderFilter === 'COMPLETED') {
+        matchesStatus = o.orderStatus === 'COMPLETED';
+      } else {
+        // 'ALL' -> includes every order, including CANCELLED
+        matchesStatus = true;
       }
 
       // Date range filter
@@ -1249,18 +1340,23 @@ export default function ShopkeeperDashboard() {
     });
   }, [orders, orderFilter, searchQuery, orderDatePreset, orderStartDate, orderEndDate]);
 
+  // Cancelled orders are strictly excluded from all recognized revenue and sales totals
   const filteredOrdersTotalAmount = useMemo(() => {
-    return filteredOrders.reduce((sum, o) => sum + Number(o.totalAmount ?? o.total ?? 0), 0);
+    return filteredOrders
+      .filter((o) => o.orderStatus !== 'CANCELLED')
+      .reduce((sum, o) => sum + Number(o.totalAmount ?? o.total ?? 0), 0);
   }, [filteredOrders]);
 
   const filteredOrdersTotalDiscounts = useMemo(() => {
-    return filteredOrders.reduce((sum, o) => sum + Number(o.discountAmount ?? 0), 0);
+    return filteredOrders
+      .filter((o) => o.orderStatus !== 'CANCELLED')
+      .reduce((sum, o) => sum + Number(o.discountAmount ?? 0), 0);
   }, [filteredOrders]);
 
-  // Filtered stats orders for STATS tab
+  // Filtered stats orders for STATS tab - strictly excluding cancelled orders
   const filteredStatsOrders = useMemo(() => {
     return orders.filter((o) => {
-      if (o.paymentStatus !== 'PAID') return false;
+      if (o.paymentStatus !== 'PAID' || o.orderStatus === 'CANCELLED') return false;
       return matchesDateRange(o.createdAt, statsDatePreset, statsStartDate, statsEndDate);
     });
   }, [orders, statsDatePreset, statsStartDate, statsEndDate]);
@@ -1272,6 +1368,156 @@ export default function ShopkeeperDashboard() {
   const filteredStatsDiscounts = useMemo(() => {
     return filteredStatsOrders.reduce((sum, o) => sum + Number(o.discountAmount ?? 0), 0);
   }, [filteredStatsOrders]);
+
+  // Kitchen status dropdown popover renderer with unclipped high z-index and cancel confirmation
+  const renderStatusDropdown = (order: Order) => {
+    const isCurrentOpen = openStatusOrderId === order.id;
+    const cfg = STATUS_CONFIG[order.orderStatus] || STATUS_CONFIG.PENDING;
+
+    return (
+      <div className="relative inline-block text-left">
+        <button
+          type="button"
+          disabled={updatingOrderId === order.id}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpenStatusOrderId(isCurrentOpen ? null : order.id);
+          }}
+          className={`px-2.5 py-1 rounded-xl text-[11px] font-black border transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs hover:shadow-xs disabled:opacity-60 disabled:cursor-not-allowed ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
+          title="Click to update status"
+        >
+          <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dotColor}`} />
+          <span className="truncate">{cfg.label}</span>
+          <ChevronDown className={`w-3 h-3 transition-transform ${isCurrentOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isCurrentOpen && (
+          <div
+            className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 text-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+              Change Status
+            </div>
+            {(['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'] as OrderStatus[]).map((st) => {
+              const isSelected = order.orderStatus === st;
+              const itemCfg = STATUS_CONFIG[st];
+              return (
+                <button
+                  key={st}
+                  type="button"
+                  disabled={updatingOrderId === order.id}
+                  onClick={() => {
+                    setOpenStatusOrderId(null);
+                    if (st === 'CANCELLED') {
+                      setOrderToCancel(order);
+                    } else if (!isSelected) {
+                      handleStatusChange(order.id, st);
+                    }
+                  }}
+                  className={`w-full text-left px-2.5 py-2 rounded-xl text-xs transition flex items-center justify-between cursor-pointer ${
+                    isSelected
+                      ? 'bg-slate-100 font-black text-slate-900'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${itemCfg.dotColor}`} />
+                    <div>
+                      <p className="leading-tight font-bold">{itemCfg.label}</p>
+                      <p className="text-[10px] text-slate-400 font-normal leading-tight mt-0.5">
+                        {itemCfg.description}
+                      </p>
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <span className="text-emerald-600 font-black text-sm ml-2">✓</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Quick Action button renderer: PENDING/CONFIRMED -> Start Cooking, PREPARING -> Mark Ready, READY -> Complete Order
+  const renderQuickActionBtn = (order: Order, isFullWidth = false) => {
+    const isUpdating = updatingOrderId === order.id;
+
+    if (order.orderStatus === 'PENDING' || order.orderStatus === 'CONFIRMED') {
+      return (
+        <button
+          type="button"
+          onClick={() => handleStatusChange(order.id, 'PREPARING')}
+          disabled={isUpdating}
+          className={`${isFullWidth ? 'flex-1 py-2' : 'px-3 py-1.5'} bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-[11px] rounded-xl shadow-xs transition inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
+        >
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ChefHat className="w-3.5 h-3.5" />}
+          <span>Start Cooking</span>
+        </button>
+      );
+    }
+
+    if (order.orderStatus === 'PREPARING') {
+      return (
+        <button
+          type="button"
+          onClick={() => handleStatusChange(order.id, 'READY')}
+          disabled={isUpdating}
+          className={`${isFullWidth ? 'flex-1 py-2' : 'px-3 py-1.5'} bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] rounded-xl shadow-xs transition inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
+        >
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5" />}
+          <span>Mark Ready</span>
+        </button>
+      );
+    }
+
+    if (order.orderStatus === 'READY') {
+      return (
+        <button
+          type="button"
+          onClick={() => handleStatusChange(order.id, 'COMPLETED')}
+          disabled={isUpdating}
+          className={`${isFullWidth ? 'flex-1 py-2' : 'px-3 py-1.5'} bg-slate-900 hover:bg-black text-white font-extrabold text-[11px] rounded-xl shadow-xs transition inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
+        >
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+          <span>Complete Order</span>
+        </button>
+      );
+    }
+
+    if (order.orderStatus === 'COMPLETED') {
+      return (
+        <button
+          type="button"
+          onClick={() => handleStatusChange(order.id, 'READY')}
+          disabled={isUpdating}
+          className={`${isFullWidth ? 'flex-1 py-2' : 'px-3 py-1.5'} bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-xl transition inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
+        >
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          <span>Reopen</span>
+        </button>
+      );
+    }
+
+    if (order.orderStatus === 'CANCELLED') {
+      return (
+        <button
+          type="button"
+          onClick={() => handleStatusChange(order.id, 'CONFIRMED')}
+          disabled={isUpdating}
+          className={`${isFullWidth ? 'flex-1 py-2' : 'px-3 py-1.5'} bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-[11px] rounded-xl transition inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
+        >
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          <span>Restore</span>
+        </button>
+      );
+    }
+
+    return null;
+  };
 
   // Paginated orders
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage) || 1;
@@ -1738,6 +1984,124 @@ export default function ShopkeeperDashboard() {
             >
               <RefreshCw className="w-4 h-4" />
             </button>
+
+            {/* Profile Dropdown Menu in Dashboard Header */}
+            <div className="relative">
+              {(() => {
+                const userAvatar = user?.avatar || user?.avatarUrl;
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                      className="flex items-center gap-2 p-1 pl-1.5 pr-2 rounded-full border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 transition cursor-pointer shadow-2xs"
+                    >
+                      {userAvatar ? (
+                        <img
+                          src={userAvatar}
+                          alt={user?.name || 'Staff'}
+                          className="w-7 h-7 rounded-full object-cover border border-amber-300 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+                          {(user?.name || 'S').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="text-left hidden md:block">
+                        <span className="text-xs font-bold text-slate-800 block leading-tight truncate max-w-[110px]">
+                          {user?.name || 'Restaurant Staff'}
+                        </span>
+                        <span className="text-[10px] text-amber-600 font-semibold block leading-none">
+                          Partner Portal
+                        </span>
+                      </div>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+
+                    {isProfileMenuOpen && (
+                      <div
+                        className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-left"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="p-3 bg-gradient-to-br from-slate-50 to-amber-50/50 rounded-xl border border-slate-100 flex items-center gap-3">
+                          {userAvatar ? (
+                            <img
+                              src={userAvatar}
+                              alt={user?.name || 'User'}
+                              className="w-10 h-10 rounded-full object-cover border border-amber-400 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-black text-sm flex items-center justify-center shrink-0">
+                              {(user?.name || 'S').charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="overflow-hidden">
+                            <p className="font-bold text-xs text-slate-900 truncate">
+                              {user?.name || 'Restaurant Staff'}
+                            </p>
+                            <p className="text-[11px] text-slate-500 truncate">{user?.email || 'No email'}</p>
+                            <span className="inline-block mt-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800">
+                              {user?.role || 'SHOPKEEPER'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-1.5 space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab('PROFILE');
+                              setIsProfileMenuOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
+                          >
+                            <Store className="w-4 h-4 text-slate-400" />
+                            <span>Restaurant Settings</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab('WALLET');
+                              setIsProfileMenuOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
+                          >
+                            <Wallet className="w-4 h-4 text-slate-400" />
+                            <span>Prepaid Wallet</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab('TAX_SETTINGS');
+                              setIsProfileMenuOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
+                          >
+                            <Receipt className="w-4 h-4 text-slate-400" />
+                            <span>GST / Tax Settings</span>
+                          </button>
+
+                          <div className="border-t border-slate-100 my-1" />
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsProfileMenuOpen(false);
+                              logout();
+                              router.push('/shopkeeper/login');
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition cursor-pointer"
+                          >
+                            <LogOut className="w-4 h-4 text-rose-500" />
+                            <span>Sign Out</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
           </div>
         </header>
 
@@ -1791,30 +2155,36 @@ export default function ShopkeeperDashboard() {
               <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
                 {/* Row 1: Status Pills & View Switcher */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                  <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
-                    {[
-                      { key: 'ACTIVE', label: `Active (${activeOrdersCount})` },
-                      { key: 'CONFIRMED', label: 'New / Confirmed' },
-                      { key: 'PREPARING', label: 'Cooking' },
-                      { key: 'READY', label: 'Ready for Counter' },
-                      { key: 'COMPLETED', label: 'Fulfilled' },
-                      { key: 'ALL', label: 'All Orders' },
-                    ].map((f) => (
-                      <button
-                        key={f.key}
-                        onClick={() => {
-                          setOrderFilter(f.key);
-                          setOrdersPage(1);
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                          orderFilter === f.key
-                            ? 'bg-amber-500 text-white shadow-xs'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {f.label}
-                      </button>
-                    ))}
+                  <div className="flex items-center space-x-2 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
+                    {DASHBOARD_FILTERS.map((f) => {
+                      const count = filterCounts[f.key] ?? 0;
+                      const isActive = orderFilter === f.key;
+                      return (
+                        <button
+                          key={f.key}
+                          onClick={() => {
+                            setOrderFilter(f.key);
+                            setOrdersPage(1);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                            isActive
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          <span>{f.label}</span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                              isActive
+                                ? 'bg-white text-amber-800'
+                                : 'bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <div className="flex items-center space-x-3 self-end lg:self-auto">
@@ -1997,7 +2367,7 @@ export default function ShopkeeperDashboard() {
                           <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <span className="font-mono text-base font-black bg-amber-500 text-white px-3 py-1 rounded-xl shadow-xs">
-                                {order.tokenNumber || `T-${order.id}`}
+                                {order.tokenNumber || String(order.id).padStart(2, '0')}
                               </span>
                               <span className="text-xs text-slate-500 font-bold">
                                 #{order.id}
@@ -2011,35 +2381,7 @@ export default function ShopkeeperDashboard() {
                             </div>
 
                             <div className="flex items-center gap-1.5">
-                              <div className="relative inline-flex items-center">
-                                <select
-                                  value={order.orderStatus}
-                                  disabled={updatingOrderId === order.id}
-                                  onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
-                                  className={`text-[10px] font-black uppercase pl-2.5 pr-6 py-1 rounded-full border cursor-pointer appearance-none transition shadow-2xs focus:outline-none focus:ring-2 focus:ring-amber-500 ${
-                                    order.orderStatus === 'CONFIRMED'
-                                      ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
-                                      : order.orderStatus === 'PREPARING'
-                                      ? 'bg-blue-100 text-blue-900 border-blue-300 hover:bg-blue-200'
-                                      : order.orderStatus === 'READY'
-                                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200 animate-pulse'
-                                      : order.orderStatus === 'COMPLETED'
-                                      ? 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
-                                      : order.orderStatus === 'CANCELLED'
-                                      ? 'bg-rose-100 text-rose-900 border-rose-300 hover:bg-rose-200'
-                                      : 'bg-orange-100 text-orange-900 border-orange-300 hover:bg-orange-200'
-                                  }`}
-                                  title="Click to switch status"
-                                >
-                                  <option value="PENDING">🕒 PENDING</option>
-                                  <option value="CONFIRMED">📋 CONFIRMED</option>
-                                  <option value="PREPARING">👨‍🍳 PREPARING</option>
-                                  <option value="READY">🔔 READY</option>
-                                  <option value="COMPLETED">✅ COMPLETED</option>
-                                  <option value="CANCELLED">❌ CANCELLED</option>
-                                </select>
-                                <ChevronDown className="w-3 h-3 absolute right-1.5 pointer-events-none opacity-60" />
-                              </div>
+                              {renderStatusDropdown(order)}
                             </div>
                           </div>
 
@@ -2114,110 +2456,11 @@ export default function ShopkeeperDashboard() {
                             )}
                           </div>
 
-                          {/* Ticket Action Button & Flexible Status Switcher */}
+                          {/* Ticket Action Button */}
                           <div className="p-3.5 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
-                            {order.orderStatus === 'PENDING' && (
-                              <button
-                                onClick={() => handleStatusChange(order.id, 'PREPARING')}
-                                disabled={updatingOrderId === order.id}
-                                className="flex-1 py-2 px-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                              >
-                                {updatingOrderId === order.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <ChefHat className="w-3.5 h-3.5" />
-                                )}
-                                <span>Accept &amp; Cook</span>
-                              </button>
-                            )}
-
-                            {order.orderStatus === 'CONFIRMED' && (
-                              <button
-                                onClick={() => handleStatusChange(order.id, 'PREPARING')}
-                                disabled={updatingOrderId === order.id}
-                                className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                              >
-                                {updatingOrderId === order.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <ChefHat className="w-3.5 h-3.5" />
-                                )}
-                                <span>Start Cooking</span>
-                              </button>
-                            )}
-
-                            {order.orderStatus === 'PREPARING' && (
-                              <button
-                                onClick={() => handleStatusChange(order.id, 'READY')}
-                                disabled={updatingOrderId === order.id}
-                                className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                              >
-                                {updatingOrderId === order.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <Bell className="w-3.5 h-3.5" />
-                                )}
-                                <span>Mark Ready</span>
-                              </button>
-                            )}
-
-                            {order.orderStatus === 'READY' && (
-                              <button
-                                onClick={() => handleStatusChange(order.id, 'COMPLETED')}
-                                disabled={updatingOrderId === order.id}
-                                className="flex-1 py-2 px-3 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                              >
-                                {updatingOrderId === order.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                )}
-                                <span>Complete Order</span>
-                              </button>
-                            )}
-
-                            {order.orderStatus === 'COMPLETED' && (
-                              <button
-                                onClick={() => handleStatusChange(order.id, 'READY')}
-                                disabled={updatingOrderId === order.id}
-                                className="flex-1 py-2 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                              >
-                                <RefreshCw className="w-3.5 h-3.5" />
-                                <span>Reopen</span>
-                              </button>
-                            )}
-
-                            {order.orderStatus === 'CANCELLED' && (
-                              <button
-                                onClick={() => handleStatusChange(order.id, 'CONFIRMED')}
-                                disabled={updatingOrderId === order.id}
-                                className="flex-1 py-2 px-3 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                              >
-                                <RefreshCw className="w-3.5 h-3.5" />
-                                <span>Restore</span>
-                              </button>
-                            )}
-
-                            {/* Flexible Status Switcher Dropdown */}
-                            <div className="relative">
-                              <select
-                                value={order.orderStatus}
-                                disabled={updatingOrderId === order.id}
-                                onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
-                                className="h-8.5 px-2.5 pr-6 text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:border-slate-400 rounded-xl cursor-pointer appearance-none shadow-2xs focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                title="Switch status to any state"
-                              >
-                                <option value="PENDING">🕒 Pending</option>
-                                <option value="CONFIRMED">📋 Confirmed</option>
-                                <option value="PREPARING">👨‍🍳 Cooking</option>
-                                <option value="READY">🔔 Ready</option>
-                                <option value="COMPLETED">✅ Completed</option>
-                                <option value="CANCELLED">❌ Cancelled</option>
-                              </select>
-                              <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-2.5 pointer-events-none text-slate-400" />
-                            </div>
-
+                            {renderQuickActionBtn(order, true)}
                             <button
+                              type="button"
                               onClick={() => setSelectedReceiptOrder(order)}
                               className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-xl transition cursor-pointer"
                               title="View Ticket Receipt"
@@ -2230,228 +2473,231 @@ export default function ShopkeeperDashboard() {
                     </div>
                   )}
 
-                  {/* View 2: Detailed Data Table View */}
+                  {/* View 2: Detailed Data Table View & Mobile Responsive Cards */}
                   {orderViewMode === 'TABLE' && (
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead>
-                            <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
-                              <th className="p-4">Daily Token / ID</th>
-                              <th className="p-4">Date &amp; Time</th>
-                              <th className="p-4">Customer Details</th>
-                              <th className="p-4">Dishes &amp; Items</th>
-                              <th className="p-4">Kitchen Status</th>
-                              <th className="p-4">Payment</th>
-                              <th className="p-4 text-right">Net Bill</th>
-                              <th className="p-4 text-right">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {paginatedOrders.map((order) => {
-                              const itemsCount = (order.items || []).reduce(
-                                (acc: number, it: any) => acc + (it.quantity || 1),
-                                0
-                              );
-                              return (
-                                <tr
-                                  key={order.id}
-                                  className={`hover:bg-slate-50/80 transition ${
-                                    highlightedOrderId === order.id ? 'bg-amber-50/80' : ''
-                                  }`}
-                                >
-                                  <td className="p-4">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono font-black text-xs bg-amber-500 text-white px-2.5 py-1 rounded-lg shadow-2xs">
-                                        {order.tokenNumber || `T-${order.id}`}
-                                      </span>
-                                      <span className="text-[10px] font-bold text-slate-400">
-                                        #{order.id}
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td className="p-4 text-slate-500 font-medium whitespace-nowrap">
-                                    <span className="text-slate-800 font-bold block">
-                                      {new Date(order.createdAt).toLocaleDateString()}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400">
-                                      {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                  </td>
-                                  <td className="p-4">
-                                    {order.customerName ? (
-                                      <div>
-                                        <span className="font-bold text-slate-900 block">
-                                          {order.customerName}
+                    <>
+                      {/* Desktop Table View (>=md) */}
+                      <div className="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
+                                <th className="p-4">Daily Token / ID</th>
+                                <th className="p-4">Date &amp; Time</th>
+                                <th className="p-4">Customer Details</th>
+                                <th className="p-4">Dishes &amp; Items</th>
+                                <th className="p-4">Kitchen Status</th>
+                                <th className="p-4">Payment</th>
+                                <th className="p-4 text-right">Net Bill</th>
+                                <th className="p-4 text-right">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {paginatedOrders.map((order) => {
+                                const itemsCount = (order.items || []).reduce(
+                                  (acc: number, it: any) => acc + (it.quantity || 1),
+                                  0
+                                );
+                                return (
+                                  <tr
+                                    key={order.id}
+                                    className={`hover:bg-slate-50/80 transition ${
+                                      highlightedOrderId === order.id ? 'bg-amber-50/80' : ''
+                                    }`}
+                                  >
+                                    <td className="p-4">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono font-black text-xs bg-amber-500 text-white px-2.5 py-1 rounded-lg shadow-2xs">
+                                          {order.tokenNumber || String(order.id).padStart(2, '0')}
                                         </span>
-                                        {order.customerPhone && (
-                                          <span className="text-[10px] text-slate-400">
-                                            {order.customerPhone}
-                                          </span>
-                                        )}
+                                        <span className="text-[10px] font-bold text-slate-400">
+                                          #{order.id}
+                                        </span>
                                       </div>
-                                    ) : (
-                                      <span className="text-slate-400 italic">Dine-in Guest</span>
-                                    )}
-                                  </td>
-                                  <td className="p-4">
-                                    <div className="max-w-xs">
-                                      <p className="font-medium text-slate-800 truncate text-xs">
-                                        {(order.items || [])
-                                          .map((it: any) => `${it.quantity}× ${it.productName || it.product?.name || 'Item'}`)
-                                          .join(', ')}
-                                      </p>
-                                      <span className="text-[10px] text-slate-400 font-semibold">
-                                        {itemsCount} {itemsCount === 1 ? 'item' : 'items'} total
+                                    </td>
+                                    <td className="p-4 text-slate-500 font-medium whitespace-nowrap">
+                                      <span className="text-slate-800 font-bold block">
+                                        {new Date(order.createdAt).toLocaleDateString()}
                                       </span>
-                                    </div>
-                                  </td>
-                                  <td className="p-4">
-                                    <div className="relative inline-flex items-center">
-                                      <select
-                                        value={order.orderStatus}
-                                        disabled={updatingOrderId === order.id}
-                                        onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
-                                        className={`px-2.5 py-1 pr-6 rounded-lg font-black text-[10px] uppercase tracking-wider border cursor-pointer appearance-none transition focus:outline-none focus:ring-2 focus:ring-amber-500 ${
-                                          order.orderStatus === 'COMPLETED'
-                                            ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
-                                            : order.orderStatus === 'READY'
-                                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200 animate-pulse'
-                                            : order.orderStatus === 'PREPARING'
-                                            ? 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200'
-                                            : order.orderStatus === 'CANCELLED'
-                                            ? 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200'
-                                            : order.orderStatus === 'PENDING'
-                                            ? 'bg-orange-100 text-orange-900 border-orange-300 hover:bg-orange-200'
-                                            : 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                                      <span className="text-[10px] text-slate-400">
+                                        {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    </td>
+                                    <td className="p-4">
+                                      {order.customerName ? (
+                                        <div>
+                                          <span className="font-bold text-slate-900 block">
+                                            {order.customerName}
+                                          </span>
+                                          {order.customerPhone && (
+                                            <span className="text-[10px] text-slate-400 font-mono">
+                                              {order.customerPhone}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-slate-400 italic">Dine-in Guest</span>
+                                      )}
+                                    </td>
+                                    <td className="p-4">
+                                      <div className="max-w-xs">
+                                        <p className="font-medium text-slate-800 truncate text-xs">
+                                          {(order.items || [])
+                                            .map((it: any) => `${it.quantity}× ${it.productName || it.product?.name || 'Item'}`)
+                                            .join(', ')}
+                                        </p>
+                                        <span className="text-[10px] text-slate-400 font-semibold">
+                                          {itemsCount} {itemsCount === 1 ? 'item' : 'items'} total
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className="p-4">
+                                      {renderStatusDropdown(order)}
+                                    </td>
+                                    <td className="p-4">
+                                      <span
+                                        className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                                          order.paymentStatus === 'PAID'
+                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                            : 'bg-amber-50 text-amber-700 border border-amber-200'
                                         }`}
-                                        title="Click to switch status"
                                       >
-                                        <option value="PENDING">🕒 PENDING</option>
-                                        <option value="CONFIRMED">📋 CONFIRMED</option>
-                                        <option value="PREPARING">👨‍🍳 PREPARING</option>
-                                        <option value="READY">🔔 READY</option>
-                                        <option value="COMPLETED">✅ COMPLETED</option>
-                                        <option value="CANCELLED">❌ CANCELLED</option>
-                                      </select>
-                                      <ChevronDown className="w-3 h-3 absolute right-1.5 pointer-events-none opacity-60" />
-                                    </div>
-                                  </td>
-                                  <td className="p-4">
-                                    <span
-                                      className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                                        order.paymentStatus === 'PAID'
-                                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                          : 'bg-amber-50 text-amber-700 border border-amber-200'
-                                      }`}
-                                    >
-                                      {order.paymentStatus}
-                                    </span>
-                                  </td>
-                                  <td className="p-4 text-right">
-                                    <span className="font-black text-slate-900 text-sm block">
-                                      ₹{Number(order.totalAmount ?? order.total ?? 0)}
-                                    </span>
-                                    {order.discountAmount && Number(order.discountAmount) > 0 && (
-                                      <span className="text-[10px] font-bold text-emerald-600 block">
-                                        -₹{Number(order.discountAmount)} disc
+                                        {order.paymentStatus}
                                       </span>
-                                    )}
-                                  </td>
-                                  <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
-                                    {order.orderStatus === 'PENDING' && (
+                                    </td>
+                                    <td className="p-4 text-right">
+                                      <span className={`font-black text-sm block ${order.orderStatus === 'CANCELLED' ? 'text-rose-600 line-through' : 'text-slate-900'}`}>
+                                        ₹{Number(order.totalAmount ?? order.total ?? 0)}
+                                      </span>
+                                      {order.discountAmount && Number(order.discountAmount) > 0 && (
+                                        <span className="text-[10px] font-bold text-emerald-600 block">
+                                          -₹{Number(order.discountAmount)} disc
+                                        </span>
+                                      )}
+                                      {order.orderStatus === 'CANCELLED' && (
+                                        <span className="text-[9px] font-extrabold text-rose-500 uppercase block">
+                                          0 Revenue
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                                      {renderQuickActionBtn(order)}
                                       <button
-                                        onClick={() => handleStatusChange(order.id, 'PREPARING')}
-                                        disabled={updatingOrderId === order.id}
-                                        className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-[11px] rounded-lg shadow-2xs transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                        type="button"
+                                        onClick={() => setSelectedReceiptOrder(order)}
+                                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-lg border border-slate-200 transition inline-flex items-center gap-1 cursor-pointer"
+                                        title="View Receipt"
                                       >
-                                        {updatingOrderId === order.id ? (
-                                          <Loader2 className="w-3 h-3 animate-spin" />
-                                        ) : (
-                                          <ChefHat className="w-3 h-3" />
-                                        )}
-                                        <span>Cook</span>
+                                        <Receipt className="w-3 h-3 text-amber-600" />
+                                        <span>Ticket</span>
                                       </button>
-                                    )}
-                                    {order.orderStatus === 'CONFIRMED' && (
-                                      <button
-                                        onClick={() => handleStatusChange(order.id, 'PREPARING')}
-                                        disabled={updatingOrderId === order.id}
-                                        className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                      >
-                                        {updatingOrderId === order.id ? (
-                                          <Loader2 className="w-3 h-3 animate-spin" />
-                                        ) : (
-                                          <ChefHat className="w-3 h-3" />
-                                        )}
-                                        <span>Cook</span>
-                                      </button>
-                                    )}
-                                    {order.orderStatus === 'PREPARING' && (
-                                      <button
-                                        onClick={() => handleStatusChange(order.id, 'READY')}
-                                        disabled={updatingOrderId === order.id}
-                                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                      >
-                                        {updatingOrderId === order.id ? (
-                                          <Loader2 className="w-3 h-3 animate-spin" />
-                                        ) : (
-                                          <Bell className="w-3 h-3" />
-                                        )}
-                                        <span>Ready</span>
-                                      </button>
-                                    )}
-                                    {order.orderStatus === 'READY' && (
-                                      <button
-                                        onClick={() => handleStatusChange(order.id, 'COMPLETED')}
-                                        disabled={updatingOrderId === order.id}
-                                        className="px-2.5 py-1.5 bg-slate-900 hover:bg-black text-white font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                      >
-                                        {updatingOrderId === order.id ? (
-                                          <Loader2 className="w-3 h-3 animate-spin" />
-                                        ) : (
-                                          <CheckCircle2 className="w-3 h-3" />
-                                        )}
-                                        <span>Fulfill</span>
-                                      </button>
-                                    )}
-                                    {order.orderStatus === 'COMPLETED' && (
-                                      <button
-                                        onClick={() => handleStatusChange(order.id, 'READY')}
-                                        disabled={updatingOrderId === order.id}
-                                        className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                      >
-                                        <RefreshCw className="w-3 h-3" />
-                                        <span>Reopen</span>
-                                      </button>
-                                    )}
-                                    {order.orderStatus === 'CANCELLED' && (
-                                      <button
-                                        onClick={() => handleStatusChange(order.id, 'CONFIRMED')}
-                                        disabled={updatingOrderId === order.id}
-                                        className="px-2.5 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-[11px] rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                      >
-                                        <RefreshCw className="w-3 h-3" />
-                                        <span>Restore</span>
-                                      </button>
-                                    )}
-
-                                    <button
-                                      onClick={() => setSelectedReceiptOrder(order)}
-                                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-lg border border-slate-200 transition inline-flex items-center gap-1 cursor-pointer"
-                                      title="View Receipt"
-                                    >
-                                      <Receipt className="w-3 h-3 text-amber-600" />
-                                      <span>Ticket</span>
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
-                    </div>
+
+                      {/* Mobile Stacked Responsive Cards (<md) */}
+                      <div className="block md:hidden space-y-3">
+                        {paginatedOrders.map((order) => {
+                          const itemsCount = (order.items || []).reduce(
+                            (acc: number, it: any) => acc + (it.quantity || 1),
+                            0
+                          );
+                          return (
+                            <div
+                              key={order.id}
+                              className={`bg-white rounded-2xl border p-4 shadow-xs space-y-3 transition ${
+                                order.orderStatus === 'CANCELLED'
+                                  ? 'border-rose-200 bg-rose-50/20'
+                                  : order.orderStatus === 'READY'
+                                  ? 'border-emerald-300 ring-2 ring-emerald-100'
+                                  : 'border-slate-200'
+                              }`}
+                            >
+                              {/* Top row: Token, Permanent ID & Time */}
+                              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-black text-sm bg-amber-500 text-white px-2.5 py-0.5 rounded-lg shadow-2xs">
+                                    {order.tokenNumber || String(order.id).padStart(2, '0')}
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-400">
+                                    #{order.id}
+                                  </span>
+                                </div>
+                                <span className="text-[11px] text-slate-400 font-medium">
+                                  {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+
+                              {/* Customer (if available) */}
+                              {order.customerName && (
+                                <div className="text-xs">
+                                  <span className="font-bold text-slate-900">{order.customerName}</span>
+                                  {order.customerPhone && (
+                                    <span className="text-slate-400 text-[11px] ml-1.5 font-mono">
+                                      ({order.customerPhone})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Dishes */}
+                              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                                <p className="font-semibold text-slate-800 line-clamp-2">
+                                  {(order.items || [])
+                                    .map((it: any) => `${it.quantity}× ${it.productName || it.product?.name || 'Item'}`)
+                                    .join(', ')}
+                                </p>
+                                <span className="text-[10px] text-slate-400 font-medium mt-1 block">
+                                  {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
+                                </span>
+                              </div>
+
+                              {/* Status & Net Bill */}
+                              <div className="flex items-center justify-between gap-2 pt-1">
+                                <div>{renderStatusDropdown(order)}</div>
+                                <div className="text-right">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-md font-bold text-[10px] inline-block ${
+                                      order.paymentStatus === 'PAID'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    }`}
+                                  >
+                                    {order.paymentStatus}
+                                  </span>
+                                  <p className={`font-black text-sm mt-0.5 ${order.orderStatus === 'CANCELLED' ? 'text-rose-600 line-through' : 'text-slate-900'}`}>
+                                    ₹{Number(order.totalAmount ?? order.total ?? 0)}
+                                  </p>
+                                  {order.orderStatus === 'CANCELLED' && (
+                                    <span className="text-[9px] font-extrabold text-rose-500 uppercase block">
+                                      0 Revenue
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Quick Action Button & View Details */}
+                              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                                <div className="flex-1">{renderQuickActionBtn(order, true)}</div>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedReceiptOrder(order)}
+                                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1 shrink-0"
+                                >
+                                  <Receipt className="w-3.5 h-3.5" />
+                                  <span>Details</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
 
                   {/* Pagination Controls */}
@@ -5106,6 +5352,77 @@ export default function ShopkeeperDashboard() {
         </div>
       )}
 
+      {/* ================= ORDER CANCELLATION CONFIRMATION MODAL ================= */}
+      {orderToCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden p-6 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-black text-slate-900">
+                Cancel Order #{orderToCancel.id}?
+              </h3>
+              <p className="text-xs text-slate-500">
+                Daily Token:{' '}
+                <span className="font-mono font-bold text-slate-800">
+                  {orderToCancel.tokenNumber || String(orderToCancel.id).padStart(2, '0')}
+                </span>
+              </p>
+              <div className="text-xs text-rose-700 bg-rose-50 p-3 rounded-2xl border border-rose-200 mt-2 text-left space-y-1">
+                <p className="font-bold">⚠️ Revenue Safeguard:</p>
+                <p className="text-[11px] text-rose-600">
+                  Cancelled orders are strictly excluded from recognized sales, daily metrics, and restaurant revenue totals.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setOrderToCancel(null)}
+                disabled={isCancellingOrder}
+                className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!orderToCancel) return;
+                  setIsCancellingOrder(true);
+                  try {
+                    await handleStatusChange(orderToCancel.id, 'CANCELLED');
+                    setOrderToCancel(null);
+                  } finally {
+                    setIsCancellingOrder(false);
+                  }
+                }}
+                disabled={isCancellingOrder}
+                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-600/20 transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isCancellingOrder ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <span>Confirm Cancel</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Backdrop for closing dropdown menus when clicking outside */}
+      {(openStatusOrderId !== null || isProfileMenuOpen) && (
+        <div
+          className="fixed inset-0 z-40 bg-transparent"
+          onClick={() => {
+            setOpenStatusOrderId(null);
+            setIsProfileMenuOpen(false);
+          }}
+        />
+      )}
+
       {/* ================= RECEIPT & TICKET MODAL ================= */}
       {selectedReceiptOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -5117,10 +5434,15 @@ export default function ShopkeeperDashboard() {
                   <Receipt className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-black text-base">Order Ticket & Receipt</h3>
-                  <span className="text-xs font-mono bg-white/25 px-2 py-0.5 rounded-md font-bold">
-                    Token #{selectedReceiptOrder.tokenNumber || selectedReceiptOrder.id}
-                  </span>
+                  <h3 className="font-black text-base">Order Ticket &amp; Receipt</h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs font-mono bg-white/25 px-2 py-0.5 rounded-md font-bold">
+                      Token #{selectedReceiptOrder.tokenNumber || String(selectedReceiptOrder.id).padStart(2, '0')}
+                    </span>
+                    <span className="text-[11px] text-white/80 font-bold">
+                      Order ID: #{selectedReceiptOrder.id}
+                    </span>
+                  </div>
                 </div>
               </div>
               <button
@@ -5283,85 +5605,8 @@ export default function ShopkeeperDashboard() {
               </button>
 
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Direct Status Selector Dropdown */}
-                <div className="relative">
-                  <select
-                    value={selectedReceiptOrder.orderStatus}
-                    disabled={updatingOrderId === selectedReceiptOrder.id}
-                    onChange={(e) => handleStatusChange(selectedReceiptOrder.id, e.target.value as OrderStatus)}
-                    className="h-8.5 px-2.5 pr-6 text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:border-slate-400 rounded-xl cursor-pointer appearance-none shadow-2xs focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    title="Change status directly"
-                  >
-                    <option value="PENDING">🕒 Pending</option>
-                    <option value="CONFIRMED">📋 Confirmed</option>
-                    <option value="PREPARING">👨‍🍳 Cooking</option>
-                    <option value="READY">🔔 Ready</option>
-                    <option value="COMPLETED">✅ Completed</option>
-                    <option value="CANCELLED">❌ Cancelled</option>
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-2.5 pointer-events-none text-slate-400" />
-                </div>
-
-                {selectedReceiptOrder.orderStatus === 'PENDING' && (
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'PREPARING')}
-                    disabled={updatingOrderId === selectedReceiptOrder.id}
-                    className="px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
-                  >
-                    Accept &amp; Cook
-                  </button>
-                )}
-                {selectedReceiptOrder.orderStatus === 'CONFIRMED' && (
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'PREPARING')}
-                    disabled={updatingOrderId === selectedReceiptOrder.id}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
-                  >
-                    Start Cooking
-                  </button>
-                )}
-                {selectedReceiptOrder.orderStatus === 'PREPARING' && (
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'READY')}
-                    disabled={updatingOrderId === selectedReceiptOrder.id}
-                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
-                  >
-                    Mark Ready
-                  </button>
-                )}
-                {selectedReceiptOrder.orderStatus === 'READY' && (
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'COMPLETED')}
-                    disabled={updatingOrderId === selectedReceiptOrder.id}
-                    className="px-3 py-2 bg-slate-900 hover:bg-black text-white font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
-                  >
-                    Complete
-                  </button>
-                )}
-                {selectedReceiptOrder.orderStatus === 'COMPLETED' && (
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'READY')}
-                    disabled={updatingOrderId === selectedReceiptOrder.id}
-                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
-                  >
-                    Reopen Order
-                  </button>
-                )}
-                {selectedReceiptOrder.orderStatus === 'CANCELLED' && (
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange(selectedReceiptOrder.id, 'CONFIRMED')}
-                    disabled={updatingOrderId === selectedReceiptOrder.id}
-                    className="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
-                  >
-                    Restore Order
-                  </button>
-                )}
+                {renderStatusDropdown(selectedReceiptOrder)}
+                {renderQuickActionBtn(selectedReceiptOrder)}
                 <button
                   type="button"
                   onClick={() => setSelectedReceiptOrder(null)}
@@ -5458,7 +5703,7 @@ export default function ShopkeeperDashboard() {
                   onClick={() => {
                     handleStatusChange(order.id, 'PREPARING');
                     setActiveTab('ORDERS');
-                    setOrderFilter('ACTIVE');
+                    setOrderFilter('NEW');
                     setHighlightedOrderId(order.id);
                     setLiveOrderToasts((prev) => prev.filter((t) => t.id !== toast.id));
                   }}
@@ -5471,7 +5716,7 @@ export default function ShopkeeperDashboard() {
                 <button
                   onClick={() => {
                     setActiveTab('ORDERS');
-                    setOrderFilter('ACTIVE');
+                    setOrderFilter('NEW');
                     setHighlightedOrderId(order.id);
                     setLiveOrderToasts((prev) => prev.filter((t) => t.id !== toast.id));
                   }}

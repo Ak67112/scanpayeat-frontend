@@ -5,13 +5,16 @@ export interface User {
   name: string;
   email: string;
   mobile?: string | null;
+  phone?: string | null;
   avatarUrl?: string | null;
+  avatar?: string | null;
   role: UserRole;
   shopId?: number | null;
   shopName?: string | null;
   shopSlug?: string | null;
   isActive?: boolean;
   wallet?: ShopkeeperWallet | null;
+  isGoogleUser?: boolean;
 }
 
 export interface Shop {

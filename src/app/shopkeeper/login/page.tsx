@@ -3,6 +3,7 @@
 import React, { useState, Suspense } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
+import GoogleAuthButton from '../../../components/GoogleAuthButton';
 import {
   ChefHat,
   Loader2,
@@ -87,6 +88,25 @@ function ShopkeeperLoginContent() {
             <span>{errorMessage}</span>
           </div>
         )}
+
+        {/* Google Authentication */}
+        <div className="mb-5">
+          <GoogleAuthButton
+            role="SHOPKEEPER"
+            redirectParam="/shopkeeper"
+            onError={(msg) => setErrorMessage(msg)}
+            label="Continue with Google"
+          />
+        </div>
+
+        <div className="relative mb-5">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-200" />
+          </div>
+          <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
+            <span className="bg-white px-2.5 text-slate-400 font-bold">Or with staff credentials</span>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
