@@ -157,6 +157,13 @@ export default function ShopkeeperDashboard() {
   const [isRecharging, setIsRecharging] = useState(false);
   const [rechargeError, setRechargeError] = useState<string | null>(null);
   const [rechargeSuccess, setRechargeSuccess] = useState<string | null>(null);
+  const [walletAnimPopup, setWalletAnimPopup] = useState<{
+    isOpen: boolean;
+    status: 'SUCCESS' | 'FAILURE';
+    amount?: number;
+    newBalance?: number;
+    message?: string;
+  } | null>(null);
 
   // Shop Tax (GST) Settings State
   const [taxSettings, setTaxSettings] = useState<ShopTaxSettings | null>(null);
@@ -527,9 +534,21 @@ export default function ShopkeeperDashboard() {
                 `🎉 Success! ₹${Number(credited).toFixed(2)} added to your wallet. New balance: ₹${Number(newBal).toFixed(2)}.`
               );
               setShowRechargeModal(false);
+              setWalletAnimPopup({
+                isOpen: true,
+                status: 'SUCCESS',
+                amount: Number(credited),
+                newBalance: Number(newBal),
+              });
               await loadWallet();
             } catch (err: any) {
-              setRechargeError(err.message || 'Payment verification failed.');
+              const errMsg = err.message || 'Payment verification failed.';
+              setRechargeError(errMsg);
+              setWalletAnimPopup({
+                isOpen: true,
+                status: 'FAILURE',
+                message: errMsg,
+              });
             } finally {
               setIsRecharging(false);
             }
@@ -543,7 +562,13 @@ export default function ShopkeeperDashboard() {
 
         const rzp = new win.Razorpay(options);
         rzp.on('payment.failed', function (resp: any) {
-          setRechargeError(resp.error?.description || 'Payment failed. Please retry.');
+          const failMsg = resp.error?.description || 'Payment failed or was cancelled. Please retry.';
+          setRechargeError(failMsg);
+          setWalletAnimPopup({
+            isOpen: true,
+            status: 'FAILURE',
+            message: failMsg,
+          });
           setIsRecharging(false);
         });
         rzp.open();
@@ -564,11 +589,23 @@ export default function ShopkeeperDashboard() {
           `🎉 ₹${Number(credited).toFixed(2)} recharged successfully! New balance: ₹${Number(newBal).toFixed(2)}.`
         );
         setShowRechargeModal(false);
+        setWalletAnimPopup({
+          isOpen: true,
+          status: 'SUCCESS',
+          amount: Number(credited),
+          newBalance: Number(newBal),
+        });
         await loadWallet();
         setIsRecharging(false);
       }
     } catch (err: any) {
-      setRechargeError(err.message || 'Failed to initiate wallet recharge.');
+      const errMsg = err.message || 'Failed to initiate wallet recharge.';
+      setRechargeError(errMsg);
+      setWalletAnimPopup({
+        isOpen: true,
+        status: 'FAILURE',
+        message: errMsg,
+      });
       setIsRecharging(false);
     }
   };
@@ -5513,6 +5550,124 @@ export default function ShopkeeperDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: WALLET RECHARGE CELEBRATION / FAILURE ANIMATION POPUP ================= */}
+      {walletAnimPopup?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className={`bg-white rounded-3xl p-6 sm:p-8 w-full max-w-sm shadow-2xl border text-center space-y-4 relative overflow-hidden animate-in zoom-in-95 duration-200 ${
+              walletAnimPopup.status === 'SUCCESS' ? 'border-amber-300' : 'border-rose-300'
+            }`}
+          >
+            {walletAnimPopup.status === 'SUCCESS' ? (
+              <>
+                {/* Glowing ambient accents */}
+                <div className="absolute -top-10 -left-10 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
+                <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
+
+                {/* Animated Gold Rupee Coin & Sparkle Celebration */}
+                <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-full bg-amber-400/20 animate-ping" />
+                  <div className="absolute inset-2 rounded-full bg-emerald-400/25 animate-pulse" />
+
+                  {/* Golden Coin with Rupee Symbol */}
+                  <div className="relative w-18 h-18 rounded-full bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-300 border-4 border-yellow-200 shadow-xl shadow-amber-500/40 flex items-center justify-center text-white">
+                    <span className="text-3xl font-black font-mono drop-shadow-md">₹</span>
+                  </div>
+
+                  {/* Sparkle Badges */}
+                  <div className="absolute -top-1 -right-1 p-1 bg-white rounded-full shadow-md text-amber-500 animate-bounce">
+                    <Sparkles className="w-4 h-4 fill-amber-400" />
+                  </div>
+                  <div className="absolute -bottom-1 -left-1 p-1 bg-white rounded-full shadow-md text-emerald-600 animate-pulse">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div>
+                  <span className="inline-block px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-black uppercase tracking-wider mb-2">
+                    Payment Verified
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                    Money Added Successfully!
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Your prepaid wallet has been credited and QR payments remain active.
+                  </p>
+                </div>
+
+                {/* Amount Credited Box */}
+                <div className="p-4 rounded-2xl bg-gradient-to-b from-amber-500/10 to-emerald-500/10 border border-amber-300/60 space-y-1.5 shadow-inner">
+                  <p className="text-[10px] uppercase tracking-wider font-extrabold text-amber-800">
+                    Amount Credited
+                  </p>
+                  <p className="text-3xl font-black font-mono text-emerald-600">
+                    +₹{Number(walletAnimPopup.amount || 0).toFixed(2)}
+                  </p>
+                  <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>New Balance:</span>
+                    <span className="font-mono text-slate-900 text-sm">
+                      ₹{Number(walletAnimPopup.newBalance || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setWalletAnimPopup(null)}
+                    className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/30 transition cursor-pointer"
+                  >
+                    Done &amp; Continue
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Failure State */}
+                <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-full bg-rose-400/20 animate-pulse" />
+                  <div className="relative w-16 h-16 rounded-full bg-rose-100 text-rose-600 border-2 border-rose-200 flex items-center justify-center">
+                    <AlertTriangle className="w-8 h-8" />
+                  </div>
+                </div>
+
+                <div>
+                  <span className="inline-block px-3 py-1 rounded-full bg-rose-100 text-rose-800 text-[11px] font-black uppercase tracking-wider mb-2">
+                    Payment Incomplete
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                    Recharge Failed
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    {walletAnimPopup.message || 'Payment could not be completed. Your account has not been charged.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setWalletAnimPopup(null)}
+                    className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWalletAnimPopup(null);
+                      setShowRechargeModal(true);
+                    }}
+                    className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs rounded-xl shadow-md transition cursor-pointer"
+                  >
+                    Retry Recharge
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

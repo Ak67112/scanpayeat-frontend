@@ -1,5 +1,23 @@
 export type UserRole = 'ADMIN' | 'SHOPKEEPER' | 'CUSTOMER';
 
+export interface PartnerEnquiry {
+  id: number;
+  referenceId: string;
+  restaurantName: string;
+  contactName: string;
+  mobile: string;
+  email?: string | null;
+  city?: string | null;
+  state?: string | null;
+  outletType?: string | null;
+  estimatedTables?: string | null;
+  message?: string | null;
+  status: 'PENDING' | 'CONTACTED' | 'ONBOARDED' | 'REJECTED' | string;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   id: number;
   name: string;

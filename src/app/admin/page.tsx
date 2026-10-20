@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { adminApi } from '../../lib/api';
-import { Shop, User, Order, AdminStats, ShopSalesMetric } from '../../types';
+import { Shop, User, Order, AdminStats, ShopSalesMetric, PartnerEnquiry } from '../../types';
+import { ALL_INDIAN_STATES, getDistrictsForState } from '../../lib/locationData';
 import { useRouter } from 'next/navigation';
 import {
   ShieldAlert,
@@ -49,6 +50,10 @@ import {
   MapPin,
   Globe,
   Check,
+  Phone,
+  MessageSquare,
+  PhoneCall,
+  Mail,
 } from 'lucide-react';
 import WalletsManagementTab from '../../components/admin/WalletsManagementTab';
 import PaymentGatewaySettingsTab from '../../components/admin/PaymentGatewaySettingsTab';
@@ -57,7 +62,7 @@ import WalletLimitModal from '../../components/admin/WalletLimitModal';
 import WalletTransactionsModal from '../../components/admin/WalletTransactionsModal';
 import { ShopkeeperGatewayModal } from '../../components/admin/ShopkeeperGatewayModal';
 
-type AdminTab = 'OVERVIEW' | 'OUTLETS_SALES' | 'SHOPS' | 'SHOPKEEPERS' | 'ORDERS' | 'COUPONS' | 'WALLETS' | 'GATEWAY_SETTINGS' | 'LEDGER';
+type AdminTab = 'OVERVIEW' | 'OUTLETS_SALES' | 'SHOPS' | 'SHOPKEEPERS' | 'ORDERS' | 'COUPONS' | 'ENQUIRIES' | 'WALLETS' | 'GATEWAY_SETTINGS' | 'LEDGER';
 type DatePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 
 export default function AdminDashboard() {
@@ -71,8 +76,18 @@ export default function AdminDashboard() {
   const [shopkeepers, setShopkeepers] = useState<(User & { shop: Shop })[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [coupons, setCoupons] = useState<any[]>([]);
+  const [enquiries, setEnquiries] = useState<PartnerEnquiry[]>([]);
+  const [enquiryStatusFilter, setEnquiryStatusFilter] = useState<string>('ALL');
+  const [enquirySearchQuery, setEnquirySearchQuery] = useState<string>('');
+  const [enquiriesPage, setEnquiriesPage] = useState(1);
+  const enquiriesPerPage = 8;
+  const [updatingEnquiryId, setUpdatingEnquiryId] = useState<number | null>(null);
+  const [deleteEnquiryTarget, setDeleteEnquiryTarget] = useState<PartnerEnquiry | null>(null);
+  const [isDeletingEnquiry, setIsDeletingEnquiry] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Filters
@@ -132,8 +147,8 @@ export default function AdminDashboard() {
   const [shopSlug, setShopSlug] = useState('');
   const [shopSubdomain, setShopSubdomain] = useState('');
   const [shopAddress, setShopAddress] = useState('');
-  const [shopState, setShopState] = useState('');
-  const [shopDistrict, setShopDistrict] = useState('');
+  const [shopState, setShopState] = useState('Tamil Nadu');
+  const [shopDistrict, setShopDistrict] = useState('Madurai');
   const [shopPhone, setShopPhone] = useState('');
   const [isSubmittingShop, setIsSubmittingShop] = useState(false);
 
@@ -192,15 +207,20 @@ export default function AdminDashboard() {
     }
   }, [user, authLoading, router]);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = async (silent: boolean = false) => {
+    if (!silent && isInitialLoading) {
+      setIsInitialLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     try {
-      const [dashRes, shopsRes, keepersRes, ordersRes, couponsRes] = await Promise.all([
+      const [dashRes, shopsRes, keepersRes, ordersRes, couponsRes, enquiriesRes] = await Promise.all([
         adminApi.getDashboard().catch(() => ({ stats: null })),
         adminApi.getShops().catch(() => ({ shops: [] })),
         adminApi.getShopkeepers().catch(() => ({ shopkeepers: [] })),
         adminApi.getOrders().catch(() => ({ orders: [] })),
         adminApi.getCoupons().catch(() => ({ coupons: [] })),
+        adminApi.getPartnerEnquiries().catch(() => ({ enquiries: [] })),
       ]);
 
       if (dashRes?.stats) setStats(dashRes.stats);
@@ -210,45 +230,55 @@ export default function AdminDashboard() {
       const incomingKeepers = Array.isArray(keepersRes) ? keepersRes : (keepersRes?.shopkeepers || []);
       const incomingOrders = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.orders || []);
       const incomingCoupons = Array.isArray(couponsRes) ? couponsRes : (couponsRes?.coupons || []);
+      const incomingEnquiries = (enquiriesRes as any)?.enquiries || [];
 
       setShops(Array.isArray(incomingShops) ? incomingShops : []);
       setShopkeepers(Array.isArray(incomingKeepers) ? incomingKeepers as any : []);
       setOrders(Array.isArray(incomingOrders) ? incomingOrders : []);
       setCoupons(Array.isArray(incomingCoupons) ? incomingCoupons : []);
+      setEnquiries(Array.isArray(incomingEnquiries) ? incomingEnquiries : []);
     } catch (err: any) {
       console.error('Failed to load admin data:', err);
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  // Dynamic states & districts derived from shops
-  const availableStates = useMemo(() => {
-    const set = new Set<string>();
-    ['Tamil Nadu', 'Karnataka', 'Kerala', 'Maharashtra', 'Delhi', 'Telangana', 'Andhra Pradesh'].forEach((s) => set.add(s));
-    shops.forEach((s) => {
-      if (s.state && s.state.trim()) set.add(s.state.trim());
-    });
-    return Array.from(set).sort();
-  }, [shops]);
+  const handleUpdateEnquiryStatus = async (id: number, newStatus: string) => {
+    setUpdatingEnquiryId(id);
+    try {
+      const res = await adminApi.updatePartnerEnquiryStatus(id, newStatus);
+      if (res?.enquiry) {
+        setEnquiries((prev) => prev.map((e) => (e.id === id ? res.enquiry : e)));
+      }
+    } catch (err: any) {
+      console.error('Failed to update enquiry status:', err);
+    } finally {
+      setUpdatingEnquiryId(null);
+    }
+  };
+
+  const handleDeleteEnquiry = async () => {
+    if (!deleteEnquiryTarget) return;
+    setIsDeletingEnquiry(true);
+    try {
+      await adminApi.deletePartnerEnquiry(deleteEnquiryTarget.id);
+      setEnquiries((prev) => prev.filter((e) => e.id !== deleteEnquiryTarget.id));
+      setDeleteEnquiryTarget(null);
+    } catch (err: any) {
+      console.error('Failed to delete enquiry:', err);
+    } finally {
+      setIsDeletingEnquiry(false);
+    }
+  };
+
+  // Comprehensive Indian States & Districts
+  const availableStates = ALL_INDIAN_STATES;
 
   const availableDistricts = useMemo(() => {
-    const set = new Set<string>();
-    if (!couponTargetState || couponTargetState.toLowerCase().includes('tamil')) {
-      ['Madurai', 'Chennai', 'Coimbatore', 'Salem', 'Tiruchirappalli', 'Tirunelveli', 'Erode', 'Dindigul', 'Thanjavur', 'Vellore'].forEach((d) => set.add(d));
-    }
-    if (couponTargetState && couponTargetState.toLowerCase().includes('karnat')) {
-      ['Bengaluru Urban', 'Mysuru', 'Mangaluru', 'Hubballi', 'Belagavi'].forEach((d) => set.add(d));
-    }
-    shops.forEach((s) => {
-      if (s.district && s.district.trim()) {
-        if (!couponTargetState || (s.state && s.state.toLowerCase() === couponTargetState.toLowerCase())) {
-          set.add(s.district.trim());
-        }
-      }
-    });
-    return Array.from(set).sort();
-  }, [shops, couponTargetState]);
+    return getDistrictsForState(couponTargetState || 'Tamil Nadu');
+  }, [couponTargetState]);
 
   // Filtered shops based on selected state, district and search in coupon modal
   const filteredShopsForCoupon = useMemo(() => {
@@ -473,7 +503,7 @@ export default function AdminDashboard() {
           : item
       )
     );
-    loadData();
+    loadData(true);
   };
 
   // Create Shop
@@ -497,10 +527,10 @@ export default function AdminDashboard() {
       setShopSlug('');
       setShopSubdomain('');
       setShopAddress('');
-      setShopState('');
-      setShopDistrict('');
+      setShopState('Tamil Nadu');
+      setShopDistrict('Madurai');
       setShopPhone('');
-      loadData();
+      loadData(true);
     } catch (err: any) {
       alert(err.message || 'Failed to create shop');
     } finally {
@@ -515,8 +545,8 @@ export default function AdminDashboard() {
     setEditShopSlug(shop.slug);
     setEditShopSubdomain(shop.subdomain);
     setEditShopAddress(shop.address || '');
-    setEditShopState(shop.state || '');
-    setEditShopDistrict(shop.district || '');
+    setEditShopState(shop.state || 'Tamil Nadu');
+    setEditShopDistrict(shop.district || 'Madurai');
     setEditShopPhone(shop.phone || '');
     setShowEditShopModal(true);
   };
@@ -540,7 +570,7 @@ export default function AdminDashboard() {
         prev.map((s) => (s.id === editShopId ? { ...s, ...res.shop } : s))
       );
       setShowEditShopModal(false);
-      loadData();
+      loadData(true);
     } catch (err: any) {
       alert(err.message || 'Failed to update shop');
     } finally {
@@ -556,7 +586,7 @@ export default function AdminDashboard() {
       await adminApi.deleteShop(deleteShopTarget.id);
       setShops((prev) => prev.filter((s) => s.id !== deleteShopTarget.id));
       setDeleteShopTarget(null);
-      loadData();
+      loadData(true);
     } catch (err: any) {
       alert(err.message || 'Failed to delete shop');
     } finally {
@@ -588,7 +618,7 @@ export default function AdminDashboard() {
       setKeeperMobile('');
       setKeeperShopId('');
       setKeeperPassword('');
-      loadData();
+      loadData(true);
     } catch (err: any) {
       alert(err.message || 'Failed to provision shopkeeper');
     } finally {
@@ -629,7 +659,7 @@ export default function AdminDashboard() {
         )
       );
       setShowEditKeeperModal(false);
-      loadData();
+      loadData(true);
     } catch (err: any) {
       alert(err.message || 'Failed to update shopkeeper');
     } finally {
@@ -645,7 +675,7 @@ export default function AdminDashboard() {
       await adminApi.deleteShopkeeper(deleteKeeperTarget.id);
       setShopkeepers((prev) => prev.filter((k) => k.id !== deleteKeeperTarget.id));
       setDeleteKeeperTarget(null);
-      loadData();
+      loadData(true);
     } catch (err: any) {
       alert(err.message || 'Failed to delete shopkeeper');
     } finally {
@@ -1003,7 +1033,31 @@ export default function AdminDashboard() {
     return filteredCoupons.slice(start, start + couponsPerPage);
   }, [filteredCoupons, couponsPage, couponsPerPage]);
 
-  if (authLoading || isLoading) {
+  // Filtered & Paginated Enquiries
+  const filteredEnquiries = useMemo(() => {
+    return enquiries.filter((e) => {
+      const matchesStatus = enquiryStatusFilter === 'ALL' || e.status === enquiryStatusFilter;
+      const q = enquirySearchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        e.restaurantName.toLowerCase().includes(q) ||
+        e.contactName.toLowerCase().includes(q) ||
+        e.mobile.includes(q) ||
+        (e.email && e.email.toLowerCase().includes(q)) ||
+        (e.city && e.city.toLowerCase().includes(q)) ||
+        (e.state && e.state.toLowerCase().includes(q)) ||
+        (e.referenceId && e.referenceId.toLowerCase().includes(q));
+      return matchesStatus && matchesSearch;
+    });
+  }, [enquiries, enquiryStatusFilter, enquirySearchQuery]);
+
+  const totalEnquiryPages = Math.ceil(filteredEnquiries.length / enquiriesPerPage) || 1;
+  const paginatedEnquiries = useMemo(() => {
+    const start = (enquiriesPage - 1) * enquiriesPerPage;
+    return filteredEnquiries.slice(start, start + enquiriesPerPage);
+  }, [filteredEnquiries, enquiriesPage, enquiriesPerPage]);
+
+  if (authLoading || isInitialLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center space-y-3 text-white">
         <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
@@ -1154,6 +1208,32 @@ export default function AdminDashboard() {
           <span className="text-[11px] text-slate-400 font-mono">
             {coupons.length}
           </span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('ENQUIRIES');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'ENQUIRIES'
+              ? 'bg-purple-600 text-white shadow-md shadow-purple-900/20'
+              : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            <MessageSquare className="w-4 h-4 text-amber-400" />
+            <span>Partner Enquiries</span>
+          </div>
+          {enquiries.filter((e) => e.status === 'PENDING').length > 0 ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500 text-black font-extrabold font-mono shadow-xs animate-pulse">
+              {enquiries.filter((e) => e.status === 'PENDING').length} NEW
+            </span>
+          ) : (
+            <span className="text-[11px] text-slate-400 font-mono">
+              {enquiries.length}
+            </span>
+          )}
         </button>
 
         <div className="pt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -1309,6 +1389,7 @@ export default function AdminDashboard() {
                   {activeTab === 'SHOPKEEPERS' && 'Assigned Kitchen Managers'}
                   {activeTab === 'ORDERS' && 'Global Transaction Audit'}
                   {activeTab === 'COUPONS' && 'Platform Coupons & Offers'}
+                  {activeTab === 'ENQUIRIES' && 'Restaurant Partner Onboarding Enquiries'}
                   {activeTab === 'WALLETS' && 'Prepaid Wallets & Minimum Balance Limits'}
                   {activeTab === 'GATEWAY_SETTINGS' && 'Razorpay Centralized Credentials & Settings'}
                   {activeTab === 'LEDGER' && 'Global Inflow/Outflow Audit & Transaction History'}
@@ -1321,6 +1402,7 @@ export default function AdminDashboard() {
                 {activeTab === 'SHOPKEEPERS' && 'Shopkeeper Accounts'}
                 {activeTab === 'ORDERS' && 'Platform Orders Audit'}
                 {activeTab === 'COUPONS' && 'Platform Coupons & Offers'}
+                {activeTab === 'ENQUIRIES' && 'Partner Onboarding Leads'}
                 {activeTab === 'WALLETS' && 'Shopkeeper Wallets & Limits'}
                 {activeTab === 'GATEWAY_SETTINGS' && 'Payment Gateway Settings'}
                 {activeTab === 'LEDGER' && 'Wallet Transactions Ledger'}
@@ -1368,11 +1450,16 @@ export default function AdminDashboard() {
             )}
 
             <button
-              onClick={loadData}
+              onClick={() => loadData(true)}
               title="Refresh Data"
-              className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+              className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer flex items-center gap-1.5"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-purple-600' : ''}`} />
+              {isRefreshing && (
+                <span className="text-[11px] font-bold text-purple-600 hidden sm:inline">
+                  Syncing...
+                </span>
+              )}
             </button>
           </div>
         </header>
@@ -2780,6 +2867,314 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ================= TAB: PARTNER ENQUIRIES ================= */}
+          {activeTab === 'ENQUIRIES' && (
+            <div className="space-y-6">
+              {/* Quick Metrics Header */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Enquiries</p>
+                  <p className="text-2xl font-black text-slate-900 mt-1">{enquiries.length}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">All restaurant partner leads</p>
+                </div>
+                <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 shadow-xs">
+                  <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Pending Action</p>
+                  <p className="text-2xl font-black text-amber-900 mt-1">
+                    {enquiries.filter((e) => e.status === 'PENDING').length}
+                  </p>
+                  <p className="text-[10px] text-amber-700 mt-0.5">Awaiting first call / WhatsApp</p>
+                </div>
+                <div className="bg-sky-50/70 p-4 rounded-2xl border border-sky-200 shadow-xs">
+                  <p className="text-[11px] font-bold text-sky-800 uppercase tracking-wider">Contacted</p>
+                  <p className="text-2xl font-black text-sky-900 mt-1">
+                    {enquiries.filter((e) => e.status === 'CONTACTED').length}
+                  </p>
+                  <p className="text-[10px] text-sky-700 mt-0.5">Discussion in progress</p>
+                </div>
+                <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200 shadow-xs">
+                  <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Onboarded Outlets</p>
+                  <p className="text-2xl font-black text-emerald-900 mt-1">
+                    {enquiries.filter((e) => e.status === 'ONBOARDED').length}
+                  </p>
+                  <p className="text-[10px] text-emerald-700 mt-0.5">Live restaurant merchants</p>
+                </div>
+              </div>
+
+              {/* Filter Tabs & Search Bar */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+                {/* Status Tabs */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {(['ALL', 'PENDING', 'CONTACTED', 'ONBOARDED', 'REJECTED'] as const).map((status) => {
+                    const count =
+                      status === 'ALL'
+                        ? enquiries.length
+                        : enquiries.filter((e) => e.status === status).length;
+                    const isActive = enquiryStatusFilter === status;
+                    return (
+                      <button
+                        key={status}
+                        onClick={() => {
+                          setEnquiryStatusFilter(status);
+                          setEnquiriesPage(1);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                          isActive
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <span>
+                          {status === 'ALL'
+                            ? 'All Leads'
+                            : status === 'PENDING'
+                            ? 'Pending'
+                            : status === 'CONTACTED'
+                            ? 'Contacted'
+                            : status === 'ONBOARDED'
+                            ? 'Onboarded'
+                            : 'Rejected'}
+                        </span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
+                            isActive
+                              ? 'bg-purple-800/60 text-white'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Enquiries Search */}
+                <div className="relative w-full md:w-72">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={enquirySearchQuery}
+                    onChange={(e) => {
+                      setEnquirySearchQuery(e.target.value);
+                      setEnquiriesPage(1);
+                    }}
+                    placeholder="Search restaurant, phone, city..."
+                    className="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Enquiries Table */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/75 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3 px-4">Restaurant &amp; Type</th>
+                        <th className="py-3 px-4">Contact Person</th>
+                        <th className="py-3 px-4">Location</th>
+                        <th className="py-3 px-4">Tables / Scale</th>
+                        <th className="py-3 px-4">Received On</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {paginatedEnquiries.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-12 text-center text-slate-400">
+                            <MessageSquare className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                            <p className="font-bold text-slate-600">No partner enquiries found</p>
+                            <p className="text-xs text-slate-400 mt-1">
+                              When restaurant owners fill the enquiry form on /partner, their details appear here instantly.
+                            </p>
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedEnquiries.map((enq) => {
+                          const cleanPhone = enq.mobile.replace(/\D/g, '');
+                          const waMessage = encodeURIComponent(
+                            `Hello ${enq.contactName}, thank you for contacting Hotelkada for ${enq.restaurantName}! We would love to discuss setting up QR table ordering and digital kitchen management for your restaurant. When is a good time to speak?`
+                          );
+                          const waUrl = `https://wa.me/91${cleanPhone}?text=${waMessage}`;
+
+                          return (
+                            <tr key={enq.id} className="hover:bg-slate-50/70 transition">
+                              <td className="py-3.5 px-4">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-black text-slate-900 text-sm">
+                                      {enq.restaurantName}
+                                    </span>
+                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold border border-slate-200">
+                                      #{enq.referenceId}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100/80 text-amber-900 font-bold">
+                                      {enq.outletType || 'Restaurant'}
+                                    </span>
+                                  </div>
+                                  {enq.message && (
+                                    <p className="text-[11px] text-slate-500 italic max-w-xs truncate" title={enq.message}>
+                                      &quot;{enq.message}&quot;
+                                    </p>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="py-3.5 px-4">
+                                <div className="space-y-0.5">
+                                  <p className="font-bold text-slate-900">{enq.contactName}</p>
+                                  <p className="font-mono text-slate-600 text-[11px]">{enq.mobile}</p>
+                                  {enq.email && (
+                                    <p className="text-slate-400 text-[11px] truncate max-w-[160px]">{enq.email}</p>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="py-3.5 px-4">
+                                <div className="space-y-0.5">
+                                  <p className="font-bold text-slate-800">{enq.city || 'District N/A'}</p>
+                                  <p className="text-[11px] text-slate-500">{enq.state || 'Tamil Nadu'}</p>
+                                </div>
+                              </td>
+
+                              <td className="py-3.5 px-4">
+                                <span className="font-semibold text-slate-700">
+                                  {enq.estimatedTables || 'Not specified'}
+                                </span>
+                              </td>
+
+                              <td className="py-3.5 px-4">
+                                <div className="space-y-0.5 text-slate-600">
+                                  <p className="font-semibold">
+                                    {new Date(enq.createdAt).toLocaleDateString('en-IN', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400">
+                                    {new Date(enq.createdAt).toLocaleTimeString('en-IN', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </p>
+                                </div>
+                              </td>
+
+                              <td className="py-3.5 px-4">
+                                <select
+                                  value={enq.status}
+                                  disabled={updatingEnquiryId === enq.id}
+                                  onChange={(e) => handleUpdateEnquiryStatus(enq.id, e.target.value)}
+                                  className={`text-xs font-bold rounded-lg px-2.5 py-1.5 border cursor-pointer focus:outline-hidden transition ${
+                                    enq.status === 'PENDING'
+                                      ? 'bg-amber-50 border-amber-300 text-amber-900'
+                                      : enq.status === 'CONTACTED'
+                                      ? 'bg-sky-50 border-sky-300 text-sky-900'
+                                      : enq.status === 'ONBOARDED'
+                                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                                      : 'bg-rose-50 border-rose-300 text-rose-900'
+                                  }`}
+                                >
+                                  <option value="PENDING">⏳ Pending</option>
+                                  <option value="CONTACTED">📞 Contacted</option>
+                                  <option value="ONBOARDED">🎉 Onboarded</option>
+                                  <option value="REJECTED">❌ Rejected</option>
+                                </select>
+                              </td>
+
+                              <td className="py-3.5 px-4 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {/* WhatsApp Direct Action */}
+                                  <a
+                                    href={waUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title="Chat with partner on WhatsApp"
+                                    className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition shadow-xs inline-flex items-center gap-1 font-bold text-[11px]"
+                                  >
+                                    <MessageSquare className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline">WhatsApp</span>
+                                  </a>
+
+                                  {/* Direct Call */}
+                                  <a
+                                    href={`tel:${enq.mobile}`}
+                                    title="Call partner"
+                                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition inline-flex items-center gap-1 font-bold text-[11px]"
+                                  >
+                                    <Phone className="w-3.5 h-3.5 text-blue-600" />
+                                    <span className="hidden sm:inline">Call</span>
+                                  </a>
+
+                                  {/* Direct Email */}
+                                  {enq.email && (
+                                    <a
+                                      href={`mailto:${enq.email}?subject=Hotelkada%20Partnership%20-%20${encodeURIComponent(enq.restaurantName)}`}
+                                      title="Email partner"
+                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition inline-flex items-center gap-1 font-bold text-[11px]"
+                                    >
+                                      <Mail className="w-3.5 h-3.5 text-amber-600" />
+                                    </a>
+                                  )}
+
+                                  {/* Delete Lead */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteEnquiryTarget(enq)}
+                                    title="Delete Lead"
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Controls */}
+                {totalEnquiryPages > 1 && (
+                  <div className="flex items-center justify-between p-4 border-t border-slate-200 bg-slate-50/50 text-xs">
+                    <span className="text-slate-500 font-medium">
+                      Showing {(enquiriesPage - 1) * enquiriesPerPage + 1} -{' '}
+                      {Math.min(enquiriesPage * enquiriesPerPage, filteredEnquiries.length)} of{' '}
+                      {filteredEnquiries.length} enquiries
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        disabled={enquiriesPage <= 1}
+                        onClick={() => setEnquiriesPage((p) => Math.max(1, p - 1))}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 font-bold hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span>Prev</span>
+                      </button>
+                      <span className="font-bold text-slate-800">
+                        {enquiriesPage} / {totalEnquiryPages}
+                      </span>
+                      <button
+                        disabled={enquiriesPage >= totalEnquiryPages}
+                        onClick={() => setEnquiriesPage((p) => Math.min(totalEnquiryPages, p + 1))}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 font-bold hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                      >
+                        <span>Next</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ================= TAB: WALLETS & LIMITS ================= */}
           {activeTab === 'WALLETS' && (
             <WalletsManagementTab />
@@ -2895,25 +3290,38 @@ export default function AdminDashboard() {
                   <label className="block text-slate-800 font-bold mb-1.5 text-xs">
                     State
                   </label>
-                  <input
-                    type="text"
-                    value={shopState}
-                    onChange={(e) => setShopState(e.target.value)}
-                    placeholder="e.g. Tamil Nadu"
-                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs"
-                  />
+                  <select
+                    value={shopState || 'Tamil Nadu'}
+                    onChange={(e) => {
+                      const newState = e.target.value;
+                      setShopState(newState);
+                      const dists = getDistrictsForState(newState);
+                      setShopDistrict(dists[0] || '');
+                    }}
+                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs font-medium"
+                  >
+                    {ALL_INDIAN_STATES.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-slate-800 font-bold mb-1.5 text-xs">
                     District / City
                   </label>
-                  <input
-                    type="text"
-                    value={shopDistrict}
+                  <select
+                    value={shopDistrict || ''}
                     onChange={(e) => setShopDistrict(e.target.value)}
-                    placeholder="e.g. Madurai"
-                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs"
-                  />
+                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs font-medium"
+                  >
+                    {getDistrictsForState(shopState || 'Tamil Nadu').map((dist) => (
+                      <option key={dist} value={dist}>
+                        {dist}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -3031,25 +3439,40 @@ export default function AdminDashboard() {
                   <label className="block text-slate-800 font-bold mb-1.5 text-xs">
                     State
                   </label>
-                  <input
-                    type="text"
-                    value={editShopState}
-                    onChange={(e) => setEditShopState(e.target.value)}
-                    placeholder="e.g. Tamil Nadu"
-                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs"
-                  />
+                  <select
+                    value={editShopState || 'Tamil Nadu'}
+                    onChange={(e) => {
+                      const newState = e.target.value;
+                      setEditShopState(newState);
+                      const dists = getDistrictsForState(newState);
+                      if (!dists.includes(editShopDistrict)) {
+                        setEditShopDistrict(dists[0] || '');
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs font-medium"
+                  >
+                    {ALL_INDIAN_STATES.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-slate-800 font-bold mb-1.5 text-xs">
                     District / City
                   </label>
-                  <input
-                    type="text"
-                    value={editShopDistrict}
+                  <select
+                    value={editShopDistrict || ''}
                     onChange={(e) => setEditShopDistrict(e.target.value)}
-                    placeholder="e.g. Madurai"
-                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs"
-                  />
+                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs font-medium"
+                  >
+                    {getDistrictsForState(editShopState || 'Tamil Nadu').map((dist) => (
+                      <option key={dist} value={dist}>
+                        {dist}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -3371,6 +3794,43 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* ================= MODAL: DELETE PARTNER ENQUIRY CONFIRMATION ================= */}
+      {deleteEnquiryTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-200 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-slate-900">
+                Delete Partner Enquiry?
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to delete lead <strong className="text-slate-800">{deleteEnquiryTarget.restaurantName}</strong> ({deleteEnquiryTarget.contactName})?
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteEnquiryTarget(null)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingEnquiry}
+                onClick={handleDeleteEnquiry}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingEnquiry ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Delete Lead</span>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ================= MODAL: SHOP QR CODE ================= */}
       {selectedQrShop && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
@@ -3643,7 +4103,12 @@ export default function AdminDashboard() {
                         </label>
                         <select
                           value={couponTargetState}
-                          onChange={(e) => setCouponTargetState(e.target.value)}
+                          onChange={(e) => {
+                            const newState = e.target.value;
+                            setCouponTargetState(newState);
+                            const dists = getDistrictsForState(newState);
+                            setCouponTargetDistrict(dists[0] || '');
+                          }}
                           className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                         >
                           {availableStates.map((st) => (

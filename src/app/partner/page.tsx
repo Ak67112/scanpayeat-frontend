@@ -29,6 +29,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { publicApi } from '../../lib/api';
+import { ALL_INDIAN_STATES, getDistrictsForState } from '../../lib/locationData';
 
 export default function RestaurantPartnerPage() {
   // Enquiry form state
@@ -36,11 +37,18 @@ export default function RestaurantPartnerPage() {
   const [contactName, setContactName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
-  const [city, setCity] = useState('');
   const [state, setState] = useState('Tamil Nadu');
+  const [city, setCity] = useState('Madurai');
   const [outletType, setOutletType] = useState('Dine-in Restaurant');
   const [estimatedTables, setEstimatedTables] = useState('10 - 25 Tables');
   const [message, setMessage] = useState('');
+
+  // Handle cascading state selection
+  const handleStateChange = (newState: string) => {
+    setState(newState);
+    const districts = getDistrictsForState(newState);
+    setCity(districts[0] || '');
+  };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -85,9 +93,9 @@ export default function RestaurantPartnerPage() {
 
   // Pre-filled WhatsApp and Mailto links
   const whatsappText = encodeURIComponent(
-    `Hello Hotelkada Team, I would like to onboard my restaurant.\n\nRestaurant Name: ${restaurantName || '[Name]'}\nContact Person: ${contactName || '[Name]'}\nPhone: ${mobile || '[Mobile]'}\nCity: ${city || '[City]'}`
+    `Hello Hotelkada Team, I would like to onboard my restaurant.\n\nRestaurant Name: ${restaurantName || '[Name]'}\nContact Person: ${contactName || '[Name]'}\nPhone: ${mobile || '[Mobile]'}\nCity: ${city || '[City]'}\nState: ${state || 'Tamil Nadu'}`
   );
-  const whatsappUrl = `https://wa.me/919876543210?text=${whatsappText}`;
+  const whatsappUrl = `https://wa.me/917200446380?text=${whatsappText}`;
 
   return (
     <div className="bg-[#FAF7F2] min-h-screen text-[#18181B] selection:bg-amber-600 selection:text-white font-sans">
@@ -112,6 +120,16 @@ export default function RestaurantPartnerPage() {
 
             {/* Right Side Actions for Shopkeepers */}
             <div className="flex items-center space-x-3 sm:space-x-4">
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                <span>WhatsApp: 7200446380</span>
+              </a>
+
               <a
                 href="#enquiry-form"
                 className="hidden md:inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-900 transition"
@@ -550,21 +568,6 @@ export default function RestaurantPartnerPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* City / District */}
-                  <div>
-                    <label className="block text-slate-800 font-bold mb-1.5 text-xs">
-                      City / District *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder="e.g. Madurai, Chennai, Coimbatore"
-                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-medium"
-                    />
-                  </div>
-
                   {/* State */}
                   <div>
                     <label className="block text-slate-800 font-bold mb-1.5 text-xs">
@@ -572,16 +575,32 @@ export default function RestaurantPartnerPage() {
                     </label>
                     <select
                       value={state}
-                      onChange={(e) => setState(e.target.value)}
+                      onChange={(e) => handleStateChange(e.target.value)}
                       className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-medium"
                     >
-                      <option value="Tamil Nadu">Tamil Nadu</option>
-                      <option value="Karnataka">Karnataka</option>
-                      <option value="Kerala">Kerala</option>
-                      <option value="Andhra Pradesh">Andhra Pradesh</option>
-                      <option value="Telangana">Telangana</option>
-                      <option value="Maharashtra">Maharashtra</option>
-                      <option value="Other">Other State</option>
+                      {ALL_INDIAN_STATES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* City / District - Cascading from Selected State */}
+                  <div>
+                    <label className="block text-slate-800 font-bold mb-1.5 text-xs">
+                      District / City *
+                    </label>
+                    <select
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-medium"
+                    >
+                      {getDistrictsForState(state).map((dist) => (
+                        <option key={dist} value={dist}>
+                          {dist}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -741,6 +760,15 @@ export default function RestaurantPartnerPage() {
               <p className="text-[11px] text-slate-400">
                 Direct merchant onboarding support:
               </p>
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 text-xs"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>WhatsApp: +91 72004 46380</span>
+              </a>
               <a
                 href="mailto:contact@hotelkada.com"
                 className="font-bold text-amber-400 hover:text-amber-300 block text-xs"

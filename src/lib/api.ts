@@ -903,4 +903,21 @@ export const adminApi = {
       }
     );
   },
+
+  async getPartnerEnquiries() {
+    return apiFetch<{ enquiries: any[] }>('/api/admin/enquiries');
+  },
+
+  async updatePartnerEnquiryStatus(id: number, status: string, notes?: string) {
+    return apiFetch<{ enquiry: any }>(`/api/admin/enquiries/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, notes }),
+    });
+  },
+
+  async deletePartnerEnquiry(id: number) {
+    return apiFetch<void>(`/api/admin/enquiries/${id}`, {
+      method: 'DELETE',
+    });
+  },
 };
