@@ -1481,6 +1481,19 @@ export default function ShopkeeperDashboard() {
     );
   };
 
+  // Status Badge for Cards (Clean, non-dropdown static badge that prevents layout overflow/collapse)
+  const renderStatusBadge = (order: Order) => {
+    const cfg = STATUS_CONFIG[order.orderStatus] || STATUS_CONFIG.PENDING;
+    return (
+      <span
+        className={`px-2.5 py-1 rounded-xl text-[11px] font-black border inline-flex items-center gap-1.5 shadow-2xs ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
+      >
+        <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dotColor}`} />
+        <span className="truncate">{cfg.label}</span>
+      </span>
+    );
+  };
+
   // Quick Action button renderer: PENDING/CONFIRMED -> Start Cooking, PREPARING -> Mark Ready, READY -> Complete Order
   const renderQuickActionBtn = (order: Order, isFullWidth = false) => {
     const isUpdating = updatingOrderId === order.id;
@@ -2410,7 +2423,11 @@ export default function ShopkeeperDashboard() {
                         >
                           {/* Ticket Header */}
                           <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
+                            <div
+                              onClick={() => setSelectedReceiptOrder(order)}
+                              className="flex items-center space-x-2 cursor-pointer hover:opacity-85 transition"
+                              title="Click to view order details & receipt"
+                            >
                               <span className="font-mono text-base font-black bg-amber-500 text-white px-3 py-1 rounded-xl shadow-xs">
                                 {getDisplayToken(order.tokenNumber, order.id)}
                               </span>
@@ -2426,7 +2443,7 @@ export default function ShopkeeperDashboard() {
                             </div>
 
                             <div className="flex items-center gap-1.5">
-                              {renderStatusDropdown(order)}
+                              {renderStatusBadge(order)}
                             </div>
                           </div>
 
@@ -2503,12 +2520,33 @@ export default function ShopkeeperDashboard() {
 
                           {/* Ticket Action Button */}
                           <div className="p-3.5 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
-                            {renderQuickActionBtn(order, true)}
+                            <div className="flex-1">{renderQuickActionBtn(order, true)}</div>
+                            {order.orderStatus !== 'CANCELLED' && order.orderStatus !== 'COMPLETED' ? (
+                              <button
+                                type="button"
+                                onClick={() => setOrderToCancel(order)}
+                                className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 font-bold text-xs rounded-xl border border-rose-200 transition cursor-pointer flex items-center gap-1 shrink-0"
+                                title="Cancel this order"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>Cancel</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedReceiptOrder(order)}
+                                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1 shrink-0"
+                                title="View Details"
+                              >
+                                <Receipt className="w-3.5 h-3.5" />
+                                <span>Details</span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => setSelectedReceiptOrder(order)}
-                              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-xl transition cursor-pointer"
-                              title="View Ticket Receipt"
+                              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                              title="Print Ticket / Receipt"
                             >
                               <Receipt className="w-4 h-4" />
                             </button>
@@ -2664,7 +2702,11 @@ export default function ShopkeeperDashboard() {
                               }`}
                             >
                               {/* Top row: Token, Permanent ID & Time */}
-                              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                              <div
+                                onClick={() => setSelectedReceiptOrder(order)}
+                                className="flex items-center justify-between pb-2 border-b border-slate-100 cursor-pointer hover:opacity-85 transition"
+                                title="Click to view order details & receipt"
+                              >
                                 <div className="flex items-center gap-2">
                                   <span className="font-mono font-black text-sm bg-amber-500 text-white px-2.5 py-0.5 rounded-lg shadow-2xs">
                                     {getDisplayToken(order.tokenNumber, order.id)}
@@ -2680,7 +2722,11 @@ export default function ShopkeeperDashboard() {
 
                               {/* Customer (if available) */}
                               {order.customerName && (
-                                <div className="text-xs">
+                                <div
+                                  onClick={() => setSelectedReceiptOrder(order)}
+                                  className="text-xs cursor-pointer hover:text-amber-600 transition"
+                                  title="Click to view order details & receipt"
+                                >
                                   <span className="font-bold text-slate-900">{order.customerName}</span>
                                   {order.customerPhone && (
                                     <span className="text-slate-400 text-[11px] ml-1.5 font-mono">
@@ -2691,7 +2737,11 @@ export default function ShopkeeperDashboard() {
                               )}
 
                               {/* Dishes */}
-                              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                              <div
+                                onClick={() => setSelectedReceiptOrder(order)}
+                                className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs cursor-pointer hover:bg-slate-100 transition"
+                                title="Click to view order details & receipt"
+                              >
                                 <p className="font-semibold text-slate-800 line-clamp-2">
                                   {(order.items || [])
                                     .map((it: any) => `${it.quantity}× ${it.productName || it.product?.name || 'Item'}`)
@@ -2704,7 +2754,7 @@ export default function ShopkeeperDashboard() {
 
                               {/* Status & Net Bill */}
                               <div className="flex items-center justify-between gap-2 pt-1">
-                                <div>{renderStatusDropdown(order)}</div>
+                                <div>{renderStatusBadge(order)}</div>
                                 <div className="text-right">
                                   <span
                                     className={`px-2 py-0.5 rounded-md font-bold text-[10px] inline-block ${
@@ -2726,17 +2776,30 @@ export default function ShopkeeperDashboard() {
                                 </div>
                               </div>
 
-                              {/* Quick Action Button & View Details */}
+                              {/* Quick Action Button & Cancel Order */}
                               <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                                 <div className="flex-1">{renderQuickActionBtn(order, true)}</div>
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedReceiptOrder(order)}
-                                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1 shrink-0"
-                                >
-                                  <Receipt className="w-3.5 h-3.5" />
-                                  <span>Details</span>
-                                </button>
+                                {order.orderStatus !== 'CANCELLED' && order.orderStatus !== 'COMPLETED' ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setOrderToCancel(order)}
+                                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 font-bold text-xs rounded-xl border border-rose-200 transition cursor-pointer flex items-center gap-1 shrink-0"
+                                    title="Cancel this order"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                    <span>Cancel</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedReceiptOrder(order)}
+                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1 shrink-0"
+                                    title="View Details"
+                                  >
+                                    <Receipt className="w-3.5 h-3.5" />
+                                    <span>Details</span>
+                                  </button>
+                                )}
                               </div>
                             </div>
                           );
