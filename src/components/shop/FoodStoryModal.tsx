@@ -17,7 +17,6 @@ import {
   RefreshCw,
   Edit3,
   Heart,
-  Palette,
   Eye,
   Sliders,
 } from 'lucide-react';
@@ -42,8 +41,6 @@ const CAPTION_PRESETS = [
   "Freshly cooked & unbeatable! ✨",
   "Best food in town! 😋",
 ];
-
-type StoryStyle = 'STICKER' | 'POLAROID' | 'MINIMAL';
 
 const InstagramIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
   <svg
@@ -74,7 +71,6 @@ export default function FoodStoryModal({
   const [isEditingCaption, setIsEditingCaption] = useState(false);
   const [selectedStickers, setSelectedStickers] = useState<string[]>(['🔥', '✨']);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
-  const [activeStyle, setActiveStyle] = useState<StoryStyle>('STICKER');
   const [imageError, setImageError] = useState(false);
 
   // Sharing states
@@ -99,8 +95,13 @@ export default function FoodStoryModal({
   const restaurantName = storyData?.restaurant?.name || 'ScanPayEat Diner';
   const restaurantLocation = storyData?.restaurant?.location || 'Gourmet Dine-In';
   const restaurantLogo = storyData?.restaurant?.logo;
-  const tokenNumber = storyData?.order?.tokenNumber || 'ORD-01';
-  const orderNumber = storyData?.order?.orderNumber || '101';
+  const rawToken = storyData?.order?.tokenNumber || storyData?.order?.orderNumber || '01';
+  const cleanToken = String(rawToken)
+    .replace(/^T-/, '')
+    .replace(/^ORD-/, '')
+    .trim()
+    .padStart(2, '0');
+  const orderNumber = storyData?.order?.orderNumber || storyData?.order?.id || '101';
 
   const items = storyData?.order?.items && storyData.order.items.length > 0
     ? storyData.order.items
@@ -172,7 +173,7 @@ export default function FoodStoryModal({
     }
 
     const link = document.createElement('a');
-    link.download = `ScanPayEat-Story-${tokenNumber}.png`;
+    link.download = `ScanPayEat-Story-${cleanToken}.png`;
     link.href = dataUrl;
     document.body.appendChild(link);
     link.click();
@@ -192,7 +193,7 @@ export default function FoodStoryModal({
 
     try {
       const blob = dataUrlToBlob(dataUrl);
-      const file = new File([blob], `ScanPayEat-Story-${tokenNumber}.png`, {
+      const file = new File([blob], `ScanPayEat-Story-${cleanToken}.png`, {
         type: 'image/png',
       });
 
@@ -200,7 +201,7 @@ export default function FoodStoryModal({
         await navigator.share({
           files: [file],
           title: `${restaurantName} - Food Story`,
-          text: `Dining at ${restaurantName}! Token #${tokenNumber} • Scanned. Ordered. Loved. 🧡 #ScanPayEat`,
+          text: `Dining at ${restaurantName}! Token #${cleanToken} • Scanned. Ordered. Loved. 🧡 #ScanPayEat`,
         });
         setShareSuccessMessage('Image shared to Story!');
       } else {
@@ -230,11 +231,11 @@ export default function FoodStoryModal({
 
     try {
       const blob = dataUrlToBlob(dataUrl);
-      const file = new File([blob], `ScanPayEat-Story-${tokenNumber}.png`, {
+      const file = new File([blob], `ScanPayEat-Story-${cleanToken}.png`, {
         type: 'image/png',
       });
 
-      const messageText = `Just ordered delicious food at *${restaurantName}*! 🍔✨\nOrder #${orderNumber} • Token #${tokenNumber}\n\nScanned. Ordered. Loved. 🧡\n#ScanPayEat`;
+      const messageText = `Just ordered delicious food at *${restaurantName}*! 🍔✨\nOrder #${orderNumber} • Token #${cleanToken}\n\nScanned. Ordered. Loved. 🧡\n#ScanPayEat`;
 
       // On Mobile iOS/Android: share the actual IMAGE file directly via Web Share API
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -249,7 +250,7 @@ export default function FoodStoryModal({
 
       // On Desktop: Download image, copy image to clipboard, and open WhatsApp Web
       const link = document.createElement('a');
-      link.download = `ScanPayEat-Story-${tokenNumber}.png`;
+      link.download = `ScanPayEat-Story-${cleanToken}.png`;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
@@ -337,301 +338,160 @@ export default function FoodStoryModal({
             </div>
           ) : (
             <>
-              {/* 9:16 Canvas (Instagram Story aspect ratio) */}
+              {/* 9:16 Canvas (Instagram Story aspect ratio - Editorial Edition) */}
               <div
                 ref={storyRef}
-                className="relative aspect-[9/16] h-[52vh] sm:h-[60vh] md:h-[68vh] max-h-[640px] w-auto max-w-[360px] rounded-2xl overflow-hidden shadow-2xl flex flex-col justify-between select-none bg-slate-950 text-white shrink-0"
+                className="relative aspect-[9/16] h-[52vh] sm:h-[60vh] md:h-[68vh] max-h-[640px] w-auto max-w-[360px] rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between select-none bg-stone-950 text-white shrink-0 border border-white/10 p-4 sm:p-5"
                 style={{
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                 }}
               >
-              {/* STYLE 1: NATIVE IG STICKER STYLE (Focus on Food & Location) */}
-              {activeStyle === 'STICKER' && (
-                <>
-                  {/* Food Hero Background */}
-                  <div className="absolute inset-0 z-0 overflow-hidden">
+                {/* Background Ambient Glows */}
+                <div className="absolute -top-20 -right-20 w-52 h-52 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-rose-500/15 rounded-full blur-3xl pointer-events-none" />
+
+                {/* Top Section: Header & Location & Token */}
+                <div className="relative z-10 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Location Badge */}
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-lg max-w-[210px]">
+                      <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-500 flex items-center justify-center text-white shrink-0 shadow-xs">
+                        <MapPin className="w-3 h-3 text-white" />
+                      </div>
+                      <div className="text-left leading-tight min-w-0">
+                        <span className="font-black text-xs text-white tracking-tight truncate block">
+                          {restaurantName}
+                        </span>
+                        {restaurantLocation && (
+                          <span className="text-[9px] text-amber-200/80 font-medium truncate block">
+                            {restaurantLocation}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Counter Token Badge */}
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-400/40 backdrop-blur-md shadow-lg shrink-0">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-amber-400">
+                        TOKEN
+                      </span>
+                      <span className="font-mono text-xs font-black text-amber-200">
+                        {cleanToken}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Headline */}
+                  <div className="pt-1 text-left space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-widest font-extrabold text-amber-400">
+                        ✨ Food Story
+                      </span>
+                      {activeItem?.quantity && activeItem.quantity > 1 && (
+                        <span className="text-[9px] font-black uppercase bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-400/30">
+                          Qty: {activeItem.quantity}
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight drop-shadow-md truncate">
+                      {activeItem?.name}
+                    </h2>
+                  </div>
+                </div>
+
+                {/* Center Section: Hero Food Photo Frame with Overlay Caption */}
+                <div className="relative z-10 flex-1 my-2.5 rounded-2xl overflow-hidden shadow-2xl border border-white/15 flex flex-col justify-end">
+                  {/* Photo / Graphic */}
+                  <div className="absolute inset-0 z-0">
                     {activeItem?.image && !imageError ? (
                       <img
                         src={activeItem.image}
                         alt={activeItem.name}
                         crossOrigin="anonymous"
                         onError={() => setImageError(true)}
-                        className="w-full h-full object-cover object-center filter brightness-95 transform scale-105"
+                        className="w-full h-full object-cover object-center filter brightness-95"
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-amber-600 via-orange-600 to-rose-700 flex flex-col items-center justify-center p-6 text-center">
-                        <UtensilsCrossed className="w-24 h-24 text-white/30 mb-2" />
-                        <h4 className="font-black text-xl text-white/90">{activeItem.name}</h4>
+                        <UtensilsCrossed className="w-20 h-20 text-white/40 mb-3" />
+                        <h4 className="font-black text-lg text-white/90 drop-shadow-md">{activeItem?.name}</h4>
                       </div>
                     )}
-                    {/* Atmospheric Vignette Gradients */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/50" />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80" />
+                    {/* Gradient overlays for readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/30 pointer-events-none" />
                   </div>
 
-                  {/* Top Area: Clean breathing room with Instagram-Style Location & Token Stickers */}
-                  <div className="relative z-10 pt-8 px-4 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      {/* Native Instagram Location Sticker */}
-                      <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/95 text-slate-900 shadow-2xl backdrop-blur-md border border-white/60 transform -rotate-1 hover:rotate-0 transition max-w-[230px]">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-500 flex items-center justify-center text-white shrink-0 shadow-xs">
-                          <MapPin className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="text-left leading-tight min-w-0">
-                          <div className="font-black text-xs text-slate-900 tracking-tight truncate">
-                            {restaurantName}
-                          </div>
-                          {restaurantLocation && (
-                            <div className="text-[10px] text-slate-500 font-semibold truncate">
-                              {restaurantLocation}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Daily Counter Token Sticker */}
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-2xl border border-white/20 transform rotate-2 shrink-0">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-amber-100">
-                          TOKEN
-                        </span>
-                        <span className="text-xs font-mono font-black text-white">
-                          {tokenNumber}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Center: Floating Stickers & Caption Callout */}
-                  <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 space-y-3 pointer-events-none">
-                    {/* User Emojis */}
-                    <div className="flex flex-wrap gap-3 justify-center items-center">
-                      {selectedStickers.map((sticker, idx) => (
+                  {/* Floating mood stickers */}
+                  {selectedStickers.length > 0 && (
+                    <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 pointer-events-none">
+                      {selectedStickers.map((s, idx) => (
                         <span
                           key={idx}
-                          className="text-4xl sm:text-5xl drop-shadow-2xl filter transform hover:scale-125 transition"
-                          style={{
-                            transform: `rotate(${idx % 2 === 0 ? '-10deg' : '10deg'})`,
-                          }}
+                          className="text-2xl sm:text-3xl drop-shadow-xl filter transform hover:scale-110 transition"
                         >
-                          {sticker}
+                          {s}
                         </span>
                       ))}
                     </div>
+                  )}
 
-                    {/* Interactive Text Sticker */}
-                    <div className="inline-block px-4 py-2 bg-black/75 backdrop-blur-md rounded-2xl border border-white/25 shadow-2xl text-center transform -rotate-1">
-                      <span className="font-black text-sm text-amber-300 tracking-wide drop-shadow-sm">
-                        {caption}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Bottom: Dish Info + Customer Profile Below + ScanPayEat Branding */}
-                  <div className="relative z-10 p-4 space-y-2.5 bg-gradient-to-t from-black via-black/85 to-transparent">
-                    {/* Dish Title Banner */}
-                    <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-3 flex items-center justify-between shadow-xl">
-                      <div className="min-w-0">
-                        <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-300 block">
-                          Today&apos;s Pick
-                        </span>
-                        <h3 className="font-black text-sm sm:text-base text-white truncate">
-                          {activeItem?.name}
-                        </h3>
-                      </div>
-                      <span className="text-[10px] font-extrabold bg-amber-500 text-white px-2.5 py-1 rounded-xl shadow-xs shrink-0 ml-2">
-                        ×{activeItem?.quantity || 1}
-                      </span>
-                    </div>
-
-                    {/* Customer Profile & Restaurant Brand Footer (Added Below) */}
-                    <div className="flex items-center justify-between pt-1 border-t border-white/10">
-                      {/* Customer Profile Avatar + Name */}
-                      <div className="flex items-center gap-2">
-                        <div className="p-0.5 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 shadow-md shrink-0">
-                          <div className="w-7 h-7 rounded-full bg-slate-800 p-0.5 flex items-center justify-center overflow-hidden">
-                            {customerAvatar ? (
-                              <img
-                                src={customerAvatar}
-                                alt={customerName}
-                                crossOrigin="anonymous"
-                                className="w-full h-full object-cover rounded-full"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-tr from-amber-500 to-orange-500 text-white font-black text-[11px] flex items-center justify-center rounded-full">
-                                {customerName.charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="leading-tight">
-                          <span className="text-[11px] font-bold text-white block truncate max-w-[130px]">
-                            {customerName}
-                          </span>
-                          <span className="text-[9px] text-amber-300/90 font-medium">
-                            Feasting on good food
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* ScanPayEat Official Brand Stamp */}
-                      <div className="text-right">
-                        <div className="flex items-center justify-end gap-1 font-black text-[10px] text-white/95">
-                          <span className="w-3.5 h-3.5 rounded-sm bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white text-[8px] font-black">
-                            ⚡
-                          </span>
-                          <span>ScanPayEat</span>
-                        </div>
-                        <span className="text-[8px] font-extrabold text-amber-300/80 tracking-wide block">
-                          Scanned. Ordered. Loved. 🧡
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* STYLE 2: POLAROID FOOD CARD (Instagram Aesthetic Photo Frame) */}
-              {activeStyle === 'POLAROID' && (
-                <div className="relative w-full h-full bg-gradient-to-b from-slate-900 via-neutral-900 to-black p-4 flex flex-col justify-between">
-                  {/* Top: Location & Token Header */}
-                  <div className="pt-6 space-y-2">
-                    <div className="flex items-center justify-between">
-                      {/* Clean Location Tag */}
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-slate-900 shadow-lg font-bold text-xs">
-                        <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                        <span className="truncate max-w-[180px]">{restaurantName}</span>
-                      </div>
-
-                      {/* Token Stamp */}
-                      <div className="px-2.5 py-1 bg-amber-500 text-white font-mono font-black text-xs rounded-xl shadow-md">
-                        #{tokenNumber}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Center: Aesthetic Polaroid Photo Frame */}
-                  <div className="bg-white p-3 pb-5 rounded-2xl shadow-2xl transform rotate-1 space-y-2.5 text-slate-900">
-                    <div className="aspect-[4/3] w-full bg-slate-100 rounded-xl overflow-hidden relative shadow-inner">
-                      {activeItem?.image && !imageError ? (
-                        <img
-                          src={activeItem.image}
-                          alt={activeItem.name}
-                          crossOrigin="anonymous"
-                          onError={() => setImageError(true)}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center">
-                          <UtensilsCrossed className="w-16 h-16 text-white/40" />
-                        </div>
-                      )}
-
-                      {/* Emojis floating on Polaroid */}
-                      <div className="absolute top-2 right-2 flex gap-1">
-                        {selectedStickers.map((s, idx) => (
-                          <span key={idx} className="text-2xl drop-shadow-md">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="px-1 text-center">
-                      <h3 className="font-black text-sm text-slate-900 truncate">
-                        {activeItem?.name}
-                      </h3>
-                      <p className="text-xs font-semibold text-amber-600 mt-0.5">
-                        {caption}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Bottom: Customer Profile & Branding */}
-                  <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-rose-500 p-0.5 shadow-sm">
-                        <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-white text-xs font-black overflow-hidden">
-                          {customerAvatar ? (
-                            <img src={customerAvatar} alt={customerName} crossOrigin="anonymous" className="w-full h-full object-cover" />
-                          ) : (
-                            customerName.charAt(0).toUpperCase()
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-xs font-bold text-white">{customerName}</span>
-                    </div>
-
-                    <span className="text-[10px] font-extrabold text-amber-300">
-                      Scanned. Ordered. Loved. 🧡
-                    </span>
+                  {/* Frosted Glass Caption Banner */}
+                  <div className="relative z-10 m-3 p-3 bg-black/65 backdrop-blur-xl rounded-2xl border border-white/20 text-center shadow-2xl">
+                    <p className="text-xs sm:text-sm font-black text-amber-300 tracking-wide drop-shadow-sm">
+                      &ldquo;{caption}&rdquo;
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {/* STYLE 3: MINIMAL EDITORIAL (Food & Location Focused) */}
-              {activeStyle === 'MINIMAL' && (
-                <div className="relative w-full h-full bg-slate-950 p-5 flex flex-col justify-between">
-                  {/* Top Food Headline */}
-                  <div className="pt-6 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] uppercase tracking-widest font-black text-amber-400">
-                        FOOD STORY
-                      </span>
-                      <span className="text-xs font-mono font-black text-white/80 bg-white/10 px-2.5 py-0.5 rounded-full">
-                        TOKEN {tokenNumber}
-                      </span>
-                    </div>
-                    <h2 className="text-2xl font-black text-white leading-tight">
-                      {activeItem?.name}
-                    </h2>
-                    <div className="inline-flex items-center gap-1.5 text-xs text-rose-300 font-semibold pt-1">
-                      <MapPin className="w-3.5 h-3.5 text-rose-400" />
-                      <span>{restaurantName} • {restaurantLocation}</span>
-                    </div>
-                  </div>
-
-                  {/* Center Hero Image */}
-                  <div className="aspect-square w-full rounded-3xl overflow-hidden shadow-2xl relative border border-white/10">
-                    {activeItem?.image && !imageError ? (
-                      <img
-                        src={activeItem.image}
-                        alt={activeItem.name}
-                        crossOrigin="anonymous"
-                        onError={() => setImageError(true)}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-amber-600 to-rose-700 flex items-center justify-center">
-                        <UtensilsCrossed className="w-20 h-20 text-white/30" />
-                      </div>
-                    )}
-                    <div className="absolute bottom-3 left-3 right-3 p-3 bg-black/70 backdrop-blur-md rounded-2xl border border-white/20 text-center">
-                      <span className="text-xs font-extrabold text-white">
-                        {caption}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Bottom: Profile & Brand */}
-                  <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-slate-800 border border-amber-400/50 flex items-center justify-center text-xs font-black overflow-hidden">
+                {/* Bottom Section: Customer Profile & ScanPayEat Brand Signature */}
+                <div className="relative z-10 pt-2 border-t border-white/10 flex items-center justify-between">
+                  {/* Customer Profile */}
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-purple-600 p-0.5 shadow-md shrink-0">
+                      <div className="w-full h-full rounded-full bg-stone-900 flex items-center justify-center overflow-hidden">
                         {customerAvatar ? (
-                          <img src={customerAvatar} alt={customerName} crossOrigin="anonymous" className="w-full h-full object-cover" />
+                          <img
+                            src={customerAvatar}
+                            alt={customerName}
+                            crossOrigin="anonymous"
+                            className="w-full h-full object-cover"
+                          />
                         ) : (
-                          customerName.charAt(0).toUpperCase()
+                          <span className="text-xs font-black text-amber-300">
+                            {customerName.charAt(0).toUpperCase()}
+                          </span>
                         )}
                       </div>
-                      <span className="text-xs font-bold text-white">{customerName}</span>
                     </div>
+                    <div className="text-left leading-tight min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-black text-white truncate max-w-[120px]">
+                          {customerName}
+                        </span>
+                        <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-stone-950 text-[9px] font-black inline-flex items-center justify-center shrink-0">
+                          ✓
+                        </span>
+                      </div>
+                      <span className="text-[9px] text-amber-300/80 font-semibold block">
+                        Verified Foodie
+                      </span>
+                    </div>
+                  </div>
 
-                    <span className="text-[10px] font-black text-amber-300">
-                      ScanPayEat 🧡
+                  {/* ScanPayEat Brand Signature */}
+                  <div className="text-right">
+                    <div className="flex items-center justify-end gap-1 text-xs font-black text-white">
+                      <span className="w-3.5 h-3.5 rounded-md bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white text-[8px] font-black">
+                        ⚡
+                      </span>
+                      <span className="tracking-tight">ScanPayEat</span>
+                    </div>
+                    <span className="text-[8px] font-extrabold text-amber-400/90 tracking-wide block">
+                      Scanned · Ordered · Loved 🧡
                     </span>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
 
             {/* Mobile Quick Action Strip (under story preview) */}
             <div className="md:hidden mt-3 w-full max-w-xs flex gap-2 shrink-0">
@@ -677,48 +537,6 @@ export default function FoodStoryModal({
             </p>
           </div>
 
-          {/* Design Style Selector */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-black uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
-              <Palette className="w-3.5 h-3.5 text-amber-400" />
-              <span>Story Design Style:</span>
-            </label>
-            <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
-              <button
-                type="button"
-                onClick={() => setActiveStyle('STICKER')}
-                className={`py-1.5 px-2 rounded-lg text-xs font-black transition cursor-pointer text-center ${
-                  activeStyle === 'STICKER'
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
-                    : 'text-slate-300 hover:text-white bg-slate-900/60'
-                }`}
-              >
-                📍 IG Sticker
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveStyle('POLAROID')}
-                className={`py-1.5 px-2 rounded-lg text-xs font-black transition cursor-pointer text-center ${
-                  activeStyle === 'POLAROID'
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
-                    : 'text-slate-300 hover:text-white bg-slate-900/60'
-                }`}
-              >
-                📸 Polaroid
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveStyle('MINIMAL')}
-                className={`py-1.5 px-2 rounded-lg text-xs font-black transition cursor-pointer text-center ${
-                  activeStyle === 'MINIMAL'
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
-                    : 'text-slate-300 hover:text-white bg-slate-900/60'
-                }`}
-              >
-                ✨ Editorial
-              </button>
-            </div>
-          </div>
 
           {/* Multiple Items Selector (if order has >1 dish) */}
           {items.length > 1 && (

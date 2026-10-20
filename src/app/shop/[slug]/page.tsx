@@ -152,7 +152,7 @@ export default function ShopMenuPage() {
 
   return (
     <div className="bg-[#FAF7F2] min-h-screen pb-32 overflow-x-hidden w-full max-w-full text-[#18181B]">
-      <CartDrawer />
+      <CartDrawer shop={shop} />
 
       {/* Shop Header Banner */}
       <div className="bg-white border-b border-[#E8DFC8]">

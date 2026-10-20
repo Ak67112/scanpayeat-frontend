@@ -5,7 +5,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { publicApi } from '../../lib/api';
 import { useRouter } from 'next/navigation';
-import { Order } from '../../types';
+import { Order, Shop } from '../../types';
 import OrderSuccessModal from './OrderSuccessModal';
 import {
   X,
@@ -23,7 +23,11 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-export default function CartDrawer() {
+interface CartDrawerProps {
+  shop?: Shop | null;
+}
+
+export default function CartDrawer({ shop }: CartDrawerProps = {}) {
   const {
     items,
     shopId,
@@ -54,7 +58,7 @@ export default function CartDrawer() {
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
 
-  // Shop Tax & GST state
+  // Shop Tax & GST state - Synchronously initialized from shop prop if provided to prevent "FREE" flash
   const [shopTaxInfo, setShopTaxInfo] = useState<{
     gstEnabled: boolean;
     cgstRate: number;
@@ -62,7 +66,32 @@ export default function CartDrawer() {
     gstNumber?: string | null;
     isQrActive?: boolean;
     qrClosedReason?: string | null;
-  } | null>(null);
+  } | null>(() => {
+    if (shop) {
+      return {
+        gstEnabled: !!shop.gstEnabled,
+        cgstRate: Number(shop.cgstRate ?? 2.5),
+        sgstRate: Number(shop.sgstRate ?? 2.5),
+        gstNumber: shop.gstNumber,
+        isQrActive: shop.isQrActive !== false,
+        qrClosedReason: shop.qrClosedReason || null,
+      };
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (shop) {
+      setShopTaxInfo({
+        gstEnabled: !!shop.gstEnabled,
+        cgstRate: Number(shop.cgstRate ?? 2.5),
+        sgstRate: Number(shop.sgstRate ?? 2.5),
+        gstNumber: shop.gstNumber,
+        isQrActive: shop.isQrActive !== false,
+        qrClosedReason: shop.qrClosedReason || null,
+      });
+    }
+  }, [shop]);
 
   useEffect(() => {
     if (shopSlug && isCartOpen) {
@@ -73,23 +102,25 @@ export default function CartDrawer() {
         })
         .catch(() => {});
 
-      publicApi
-        .getShopMenu(shopSlug)
-        .then((res: any) => {
-          if (res?.shop) {
-            setShopTaxInfo({
-              gstEnabled: !!res.shop.gstEnabled,
-              cgstRate: Number(res.shop.cgstRate ?? 2.5),
-              sgstRate: Number(res.shop.sgstRate ?? 2.5),
-              gstNumber: res.shop.gstNumber,
-              isQrActive: res.shop.isQrActive !== false,
-              qrClosedReason: res.shop.qrClosedReason || null,
-            });
-          }
-        })
-        .catch(() => {});
+      if (!shop) {
+        publicApi
+          .getShopMenu(shopSlug)
+          .then((res: any) => {
+            if (res?.shop) {
+              setShopTaxInfo({
+                gstEnabled: !!res.shop.gstEnabled,
+                cgstRate: Number(res.shop.cgstRate ?? 2.5),
+                sgstRate: Number(res.shop.sgstRate ?? 2.5),
+                gstNumber: res.shop.gstNumber,
+                isQrActive: res.shop.isQrActive !== false,
+                qrClosedReason: res.shop.qrClosedReason || null,
+              });
+            }
+          })
+          .catch(() => {});
+      }
     }
-  }, [shopSlug, isCartOpen]);
+  }, [shopSlug, isCartOpen, shop]);
 
   const checkDiscounts = async (codeToTest?: string) => {
     if ((!shopId && !shopSlug) || items.length === 0) return;
@@ -545,7 +576,12 @@ export default function CartDrawer() {
                     <span>-₹{discountAmount.toFixed(2)}</span>
                   </div>
                 )}
-                {isGstActive ? (
+                {shopTaxInfo === null ? (
+                  <div className="flex justify-between text-stone-600">
+                    <span>Taxes &amp; Packaging</span>
+                    <span className="text-stone-400 font-medium text-[11px]">Calculating...</span>
+                  </div>
+                ) : isGstActive ? (
                   <>
                     <div className="flex justify-between text-stone-600">
                       <span>CGST ({cgstRate}%)</span>

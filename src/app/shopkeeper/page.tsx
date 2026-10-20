@@ -261,6 +261,14 @@ export default function ShopkeeperDashboard() {
   const [hasAudioUnlocked, setHasAudioUnlocked] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<string>('default');
 
+  const getDisplayToken = (token?: string | null, id?: number | string) => {
+    if (token) {
+      const clean = String(token).replace(/^T-/, '').replace(/^ORD-/, '').trim();
+      if (clean) return clean;
+    }
+    return String(id || '01').padStart(2, '0');
+  };
+
   // Pagination states
   const [ordersPage, setOrdersPage] = useState(1);
   const ordersPerPage = 9;
@@ -636,8 +644,12 @@ export default function ShopkeeperDashboard() {
         .map((it: any) => `${it.quantity}× ${it.productName || it.product?.name || 'Item'}`)
         .join(', ');
       const total = Number(order.totalAmount ?? order.total ?? 0);
+      const cleanToken = String(order.tokenNumber || order.id)
+        .replace(/^T-/, '')
+        .replace(/^ORD-/, '')
+        .padStart(2, '0');
       try {
-        const notif = new Notification(`🍽️ New Order Received! Token #${order.tokenNumber || order.id}`, {
+        const notif = new Notification(`🍽️ New Order Received! Token #${cleanToken}`, {
           body: `Total ₹${total}${itemsList ? ` • ${itemsList}` : ''}`,
           icon: '/favicon.ico',
         });
@@ -678,12 +690,25 @@ export default function ShopkeeperDashboard() {
     const socket = getSocket();
 
     const handleNewOrder = (orderData: any) => {
+      // REQUIREMENT: Notification only comes for kitchen AFTER payment is PAID!
+      const paymentStatus = orderData.paymentStatus || 'PAID';
+      if (paymentStatus !== 'PAID') {
+        return; // Strictly ignore unpaid orders for kitchen notifications
+      }
+
+      // Format token cleanly: ONLY the sequential token number, NO 'T-' prefix
+      let rawToken = orderData.tokenNumber;
+      if (typeof rawToken === 'string' && rawToken.startsWith('T-')) {
+        rawToken = rawToken.replace(/^T-/, '');
+      }
+      const cleanToken = rawToken || String(orderData.id || orderData.orderId || '01').padStart(2, '0');
+
       const normalizedOrder: Order = {
         ...orderData,
         id: Number(orderData.id || orderData.orderId),
         orderStatus: orderData.orderStatus || 'CONFIRMED',
-        paymentStatus: orderData.paymentStatus || 'PAID',
-        tokenNumber: orderData.tokenNumber || `T-${orderData.orderId || orderData.id}`,
+        paymentStatus: 'PAID',
+        tokenNumber: cleanToken,
         totalAmount: Number(orderData.totalAmount ?? orderData.total ?? 0),
         subtotal: Number(orderData.subtotal ?? orderData.totalAmount ?? orderData.total ?? 0),
         items: (orderData.items || []).map((it: any) => ({
@@ -703,7 +728,7 @@ export default function ShopkeeperDashboard() {
       triggerDesktopNotification(normalizedOrder);
 
       // Top banner alert
-      setNewOrderAlert(`New Order incoming! Token: ${normalizedOrder.tokenNumber || normalizedOrder.id}`);
+      setNewOrderAlert(`New Order incoming! Token: ${cleanToken}`);
       setTimeout(() => setNewOrderAlert(null), 8000);
 
       // Add to floating interactive toasts
@@ -767,15 +792,23 @@ export default function ShopkeeperDashboard() {
 
         if (Array.isArray(incomingOrders) && incomingOrders.length > 0) {
           setOrders((currentOrders) => {
-            const currentIds = new Set(currentOrders.map((o) => o.id));
-            const brandNewOrders = incomingOrders.filter((o: any) => !currentIds.has(o.id));
+            // Only trigger kitchen alerts for orders that are PAID and were not previously notified as paid!
+            const freshlyPaidOrders = incomingOrders.filter((o: any) => {
+              if (o.paymentStatus !== 'PAID') return false;
+              const existing = currentOrders.find((c) => c.id === o.id);
+              return !existing || existing.paymentStatus !== 'PAID';
+            });
 
-            if (brandNewOrders.length > 0) {
-              const latestNew = brandNewOrders[0];
+            if (freshlyPaidOrders.length > 0) {
+              const latestNew = freshlyPaidOrders[0];
+              const cleanToken = String(latestNew.tokenNumber || latestNew.id)
+                .replace(/^T-/, '')
+                .replace(/^ORD-/, '')
+                .padStart(2, '0');
               playKitchenChime();
               triggerDesktopNotification(latestNew);
 
-              setNewOrderAlert(`New Order incoming! Token: ${latestNew.tokenNumber || latestNew.id}`);
+              setNewOrderAlert(`New Order incoming! Token: ${cleanToken}`);
               setTimeout(() => setNewOrderAlert(null), 8000);
 
               const toastId = `toast-${latestNew.id}-${Date.now()}`;
@@ -1392,10 +1425,15 @@ export default function ShopkeeperDashboard() {
         </button>
 
         {isCurrentOpen && (
-          <div
-            className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 text-left"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-transparent"
+              onClick={() => setOpenStatusOrderId(null)}
+            />
+            <div
+              className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 text-left"
+              onClick={(e) => e.stopPropagation()}
+            >
             <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
               Change Status
             </div>
@@ -1437,6 +1475,7 @@ export default function ShopkeeperDashboard() {
               );
             })}
           </div>
+          </>
         )}
       </div>
     );
@@ -1849,7 +1888,7 @@ export default function ShopkeeperDashboard() {
       {/* ================= MAIN CONTENT AREA ================= */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Top Header Bar */}
-        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-30 shadow-xs">
+        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-40 shadow-xs">
           <div className="flex items-center space-x-3">
             {/* Hamburger for mobile */}
             <button
@@ -2019,84 +2058,90 @@ export default function ShopkeeperDashboard() {
                     </button>
 
                     {isProfileMenuOpen && (
-                      <div
-                        className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-left"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="p-3 bg-gradient-to-br from-slate-50 to-amber-50/50 rounded-xl border border-slate-100 flex items-center gap-3">
-                          {userAvatar ? (
-                            <img
-                              src={userAvatar}
-                              alt={user?.name || 'User'}
-                              className="w-10 h-10 rounded-full object-cover border border-amber-400 shrink-0"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-black text-sm flex items-center justify-center shrink-0">
-                              {(user?.name || 'S').charAt(0).toUpperCase()}
+                      <>
+                        <div
+                          className="fixed inset-0 z-40 bg-transparent"
+                          onClick={() => setIsProfileMenuOpen(false)}
+                        />
+                        <div
+                          className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-left"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="p-3 bg-gradient-to-br from-slate-50 to-amber-50/50 rounded-xl border border-slate-100 flex items-center gap-3">
+                            {userAvatar ? (
+                              <img
+                                src={userAvatar}
+                                alt={user?.name || 'User'}
+                                className="w-10 h-10 rounded-full object-cover border border-amber-400 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-black text-sm flex items-center justify-center shrink-0">
+                                {(user?.name || 'S').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="overflow-hidden">
+                              <p className="font-bold text-xs text-slate-900 truncate">
+                                {user?.name || 'Restaurant Staff'}
+                              </p>
+                              <p className="text-[11px] text-slate-500 truncate">{user?.email || 'No email'}</p>
+                              <span className="inline-block mt-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800">
+                                {user?.role || 'SHOPKEEPER'}
+                              </span>
                             </div>
-                          )}
-                          <div className="overflow-hidden">
-                            <p className="font-bold text-xs text-slate-900 truncate">
-                              {user?.name || 'Restaurant Staff'}
-                            </p>
-                            <p className="text-[11px] text-slate-500 truncate">{user?.email || 'No email'}</p>
-                            <span className="inline-block mt-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800">
-                              {user?.role || 'SHOPKEEPER'}
-                            </span>
+                          </div>
+
+                          <div className="mt-1.5 space-y-0.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab('PROFILE');
+                                setIsProfileMenuOpen(false);
+                              }}
+                              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
+                            >
+                              <Store className="w-4 h-4 text-slate-400" />
+                              <span>Restaurant Settings</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab('WALLET');
+                                setIsProfileMenuOpen(false);
+                              }}
+                              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
+                            >
+                              <Wallet className="w-4 h-4 text-slate-400" />
+                              <span>Prepaid Wallet</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab('TAX_SETTINGS');
+                                setIsProfileMenuOpen(false);
+                              }}
+                              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
+                            >
+                              <Receipt className="w-4 h-4 text-slate-400" />
+                              <span>GST / Tax Settings</span>
+                            </button>
+
+                            <div className="border-t border-slate-100 my-1" />
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsProfileMenuOpen(false);
+                                logout();
+                                router.push('/shopkeeper/login');
+                              }}
+                              className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition cursor-pointer"
+                            >
+                              <LogOut className="w-4 h-4 text-rose-500" />
+                              <span>Sign Out</span>
+                            </button>
                           </div>
                         </div>
-
-                        <div className="mt-1.5 space-y-0.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveTab('PROFILE');
-                              setIsProfileMenuOpen(false);
-                            }}
-                            className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
-                          >
-                            <Store className="w-4 h-4 text-slate-400" />
-                            <span>Restaurant Settings</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveTab('WALLET');
-                              setIsProfileMenuOpen(false);
-                            }}
-                            className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
-                          >
-                            <Wallet className="w-4 h-4 text-slate-400" />
-                            <span>Prepaid Wallet</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveTab('TAX_SETTINGS');
-                              setIsProfileMenuOpen(false);
-                            }}
-                            className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
-                          >
-                            <Receipt className="w-4 h-4 text-slate-400" />
-                            <span>GST / Tax Settings</span>
-                          </button>
-
-                          <div className="border-t border-slate-100 my-1" />
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsProfileMenuOpen(false);
-                              logout();
-                              router.push('/shopkeeper/login');
-                            }}
-                            className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition cursor-pointer"
-                          >
-                            <LogOut className="w-4 h-4 text-rose-500" />
-                            <span>Sign Out</span>
-                          </button>
-                        </div>
-                      </div>
+                      </>
                     )}
                   </>
                 );
@@ -2367,7 +2412,7 @@ export default function ShopkeeperDashboard() {
                           <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <span className="font-mono text-base font-black bg-amber-500 text-white px-3 py-1 rounded-xl shadow-xs">
-                                {order.tokenNumber || String(order.id).padStart(2, '0')}
+                                {getDisplayToken(order.tokenNumber, order.id)}
                               </span>
                               <span className="text-xs text-slate-500 font-bold">
                                 #{order.id}
@@ -2508,7 +2553,7 @@ export default function ShopkeeperDashboard() {
                                     <td className="p-4">
                                       <div className="flex items-center gap-2">
                                         <span className="font-mono font-black text-xs bg-amber-500 text-white px-2.5 py-1 rounded-lg shadow-2xs">
-                                          {order.tokenNumber || String(order.id).padStart(2, '0')}
+                                          {getDisplayToken(order.tokenNumber, order.id)}
                                         </span>
                                         <span className="text-[10px] font-bold text-slate-400">
                                           #{order.id}
@@ -2622,7 +2667,7 @@ export default function ShopkeeperDashboard() {
                               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                                 <div className="flex items-center gap-2">
                                   <span className="font-mono font-black text-sm bg-amber-500 text-white px-2.5 py-0.5 rounded-lg shadow-2xs">
-                                    {order.tokenNumber || String(order.id).padStart(2, '0')}
+                                    {getDisplayToken(order.tokenNumber, order.id)}
                                   </span>
                                   <span className="text-xs font-bold text-slate-400">
                                     #{order.id}
@@ -3360,7 +3405,7 @@ export default function ShopkeeperDashboard() {
                             <tr key={order.id} className="hover:bg-slate-50/80 transition">
                               <td className="p-4 font-mono font-black text-slate-900">
                                 <span className="bg-amber-100/80 text-amber-900 px-2 py-0.5 rounded border border-amber-300">
-                                  #{order.tokenNumber || order.id}
+                                  #{getDisplayToken(order.tokenNumber, order.id)}
                                 </span>
                               </td>
                               <td className="p-4 whitespace-nowrap text-slate-600">
@@ -5366,7 +5411,7 @@ export default function ShopkeeperDashboard() {
               <p className="text-xs text-slate-500">
                 Daily Token:{' '}
                 <span className="font-mono font-bold text-slate-800">
-                  {orderToCancel.tokenNumber || String(orderToCancel.id).padStart(2, '0')}
+                  {getDisplayToken(orderToCancel.tokenNumber, orderToCancel.id)}
                 </span>
               </p>
               <div className="text-xs text-rose-700 bg-rose-50 p-3 rounded-2xl border border-rose-200 mt-2 text-left space-y-1">
@@ -5412,16 +5457,6 @@ export default function ShopkeeperDashboard() {
         </div>
       )}
 
-      {/* Backdrop for closing dropdown menus when clicking outside */}
-      {(openStatusOrderId !== null || isProfileMenuOpen) && (
-        <div
-          className="fixed inset-0 z-40 bg-transparent"
-          onClick={() => {
-            setOpenStatusOrderId(null);
-            setIsProfileMenuOpen(false);
-          }}
-        />
-      )}
 
       {/* ================= RECEIPT & TICKET MODAL ================= */}
       {selectedReceiptOrder && (
@@ -5437,7 +5472,7 @@ export default function ShopkeeperDashboard() {
                   <h3 className="font-black text-base">Order Ticket &amp; Receipt</h3>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs font-mono bg-white/25 px-2 py-0.5 rounded-md font-bold">
-                      Token #{selectedReceiptOrder.tokenNumber || String(selectedReceiptOrder.id).padStart(2, '0')}
+                      Token #{getDisplayToken(selectedReceiptOrder.tokenNumber, selectedReceiptOrder.id)}
                     </span>
                     <span className="text-[11px] text-white/80 font-bold">
                       Order ID: #{selectedReceiptOrder.id}
@@ -5621,10 +5656,13 @@ export default function ShopkeeperDashboard() {
       )}
 
       {/* ================= FLOATING REAL-TIME INCOMING ORDER TOASTS ================= */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col space-y-3 max-w-sm sm:max-w-md w-full px-4 sm:px-0 pointer-events-none">
+      <div className="fixed top-5 right-5 z-[70] flex flex-col space-y-3 max-w-sm sm:max-w-md w-full px-4 sm:px-0 pointer-events-none">
         {liveOrderToasts.map((toast) => {
           const { order } = toast;
-          const token = order.tokenNumber || `T-${order.id}`;
+          const cleanToken = String(order.tokenNumber || order.id || '01')
+            .replace(/^T-/, '')
+            .replace(/^ORD-/, '')
+            .padStart(2, '0');
           const total = Number(order.totalAmount ?? order.total ?? 0);
           const itemsPreview = (order.items || [])
             .slice(0, 3)
@@ -5635,7 +5673,7 @@ export default function ShopkeeperDashboard() {
           return (
             <div
               key={toast.id}
-              className="pointer-events-auto bg-slate-900 text-white rounded-3xl p-5 shadow-2xl border-2 border-amber-500/80 ring-4 ring-amber-500/20 animate-in slide-in-from-bottom-5 duration-300 relative overflow-hidden space-y-3"
+              className="pointer-events-auto bg-slate-900/95 backdrop-blur-md text-white rounded-3xl p-5 shadow-2xl border-2 border-amber-500 ring-4 ring-amber-500/20 animate-in slide-in-from-top-5 duration-300 relative overflow-hidden space-y-3"
             >
               {/* Progress bar timer */}
               <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500/20">
@@ -5645,61 +5683,70 @@ export default function ShopkeeperDashboard() {
                 />
               </div>
 
-              {/* Toast Header */}
+              {/* Toast Header with prominent Close Button */}
               <div className="flex items-center justify-between pt-1">
                 <div className="flex items-center space-x-2">
                   <div
-                    className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30"
+                    className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30 shrink-0"
                     style={{ animation: 'bellWiggle 1s ease-in-out infinite' }}
                   >
                     <Bell className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                      🔔 Incoming Order Alert!
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-500/15 px-2.5 py-1 rounded-full border border-amber-500/30 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping inline-block" />
+                      Paid Kitchen Alert!
                     </span>
                   </div>
                 </div>
 
                 <button
+                  type="button"
                   onClick={() =>
                     setLiveOrderToasts((prev) => prev.filter((t) => t.id !== toast.id))
                   }
-                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
-                  title="Dismiss notification"
+                  className="w-8 h-8 rounded-full bg-slate-800/90 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700/80 hover:border-rose-500/40 flex items-center justify-center transition cursor-pointer shadow-xs group shrink-0"
+                  title="Dismiss alert"
+                  aria-label="Dismiss alert"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-4 h-4 transition-transform group-hover:scale-110" />
                 </button>
               </div>
 
               {/* Hero Token & Price */}
-              <div className="flex items-baseline justify-between bg-slate-800/80 p-3 rounded-2xl border border-slate-700/60">
+              <div className="flex items-baseline justify-between bg-slate-800/90 p-3.5 rounded-2xl border border-slate-700/60 shadow-inner">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
                     Counter Token
                   </span>
-                  <span className="font-mono text-2xl font-black text-amber-400 tracking-tight">
-                    {token}
-                  </span>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="font-mono text-3xl font-black text-amber-400 tracking-tight">
+                      {cleanToken}
+                    </span>
+                    <span className="text-[10px] text-amber-300/70 font-bold uppercase">Today</span>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Amount
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                    Amount Paid
                   </span>
-                  <span className="text-lg font-black text-white">₹{total}</span>
+                  <span className="text-xl font-black text-white font-mono">₹{total}</span>
                 </div>
               </div>
 
               {/* Items Summary */}
-              <div className="text-xs text-slate-300 line-clamp-2">
-                <span className="font-semibold text-slate-100">Items: </span>
+              <div className="text-xs text-slate-300 line-clamp-2 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/60">
+                <span className="font-bold text-amber-300">Items: </span>
                 {itemsPreview || 'Order details'}
-                {moreItemsCount > 0 && ` +${moreItemsCount} more`}
+                {moreItemsCount > 0 && (
+                  <span className="font-bold text-amber-400"> +{moreItemsCount} more</span>
+                )}
               </div>
 
               {/* Interactive Action Buttons */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2 pt-0.5">
                 <button
+                  type="button"
                   onClick={() => {
                     handleStatusChange(order.id, 'PREPARING');
                     setActiveTab('ORDERS');
@@ -5710,14 +5757,15 @@ export default function ShopkeeperDashboard() {
                   className="py-2.5 px-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center space-x-1.5 cursor-pointer"
                 >
                   <ChefHat className="w-3.5 h-3.5" />
-                  <span>Accept & Cook</span>
+                  <span>Accept &amp; Cook</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setActiveTab('ORDERS');
-                    setOrderFilter('NEW');
-                    setHighlightedOrderId(order.id);
+                    setOrderFilter('ALL');
+                    setSelectedReceiptOrder(order);
                     setLiveOrderToasts((prev) => prev.filter((t) => t.id !== toast.id));
                   }}
                   className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center space-x-1.5 cursor-pointer"
