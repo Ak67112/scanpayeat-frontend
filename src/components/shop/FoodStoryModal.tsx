@@ -4,21 +4,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { toPng } from 'html-to-image';
 import {
   X,
-  Share2,
   Download,
-  Sparkles,
-  Camera,
   MapPin,
   UtensilsCrossed,
   Check,
   Smile,
-  MessageCircle,
   Loader2,
-  RefreshCw,
   Edit3,
-  Heart,
-  Eye,
-  Sliders,
 } from 'lucide-react';
 import { FoodStoryData } from '../../types';
 
@@ -28,6 +20,8 @@ interface FoodStoryModalProps {
   storyData: FoodStoryData | null;
   isLoading?: boolean;
 }
+
+type StoryTemplateType = 'LOCATION' | 'CRAVING';
 
 const STICKER_OPTIONS = [
   '🍔', '🔥', '🧡', '🍕', '✨', '🤤',
@@ -58,6 +52,18 @@ const InstagramIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
   </svg>
 );
 
+const WhatsAppIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+  </svg>
+);
+
+const SnapchatIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12.002 0c-4.482 0-7.393 3.32-7.393 6.845 0 .97.31 2.378.85 3.364.21.386.29.61.17.83-.11.2-.41.31-.77.41-1.04.28-2.14.92-2.14 2.35 0 .95.63 1.71 1.49 2.06.45.18.7.27.7.46 0 .14-.15.35-.45.65-.63.63-1.67 1.68-1.67 3.34 0 1.93 1.55 3.1 4.54 3.44.38.04.7.27.88.58.62 1.08 1.96 1.67 3.79 1.67 1.83 0 3.17-.59 3.79-1.67.18-.31.5-.54.88-.58 2.99-.34 4.54-1.51 4.54-3.44 0-1.66-1.04-2.71-1.67-3.34-.3-.3-.45-.51-.45-.65 0-.19.25-.28.7-.46.86-.35 1.49-1.11 1.49-2.06 0-1.43-1.1-2.07-2.14-2.35-.36-.1-.66-.21-.77-.41-.12-.22-.04-.44.17-.83.54-.986.85-2.394.85-3.364C19.395 3.32 16.484 0 12.002 0z" />
+  </svg>
+);
+
 export default function FoodStoryModal({
   isOpen,
   onClose,
@@ -65,6 +71,9 @@ export default function FoodStoryModal({
   isLoading = false,
 }: FoodStoryModalProps) {
   const storyRef = useRef<HTMLDivElement>(null);
+
+  // Template state: Template 1 (Location & Food) vs Template 2 (Today's Craving)
+  const [template, setTemplate] = useState<StoryTemplateType>('CRAVING');
 
   // Customization states
   const [caption, setCaption] = useState("Today's Craving 🍔✨");
@@ -76,36 +85,30 @@ export default function FoodStoryModal({
   // Sharing states
   const [isExporting, setIsExporting] = useState(false);
   const [shareSuccessMessage, setShareSuccessMessage] = useState<string | null>(null);
-  const [mobileTab, setMobileTab] = useState<'PREVIEW' | 'CUSTOMIZE'>('PREVIEW');
 
   useEffect(() => {
     if (isOpen) {
       setShareSuccessMessage(null);
       setIsExporting(false);
       setImageError(false);
-      setMobileTab('PREVIEW');
+      setCaption("Today's Craving 🍔✨");
+      setIsEditingCaption(false);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  // Fallbacks
+  // Data
   const customerName = storyData?.customer?.name || 'Foodie';
   const customerAvatar = storyData?.customer?.profileImage;
-  const restaurantName = storyData?.restaurant?.name || 'ScanPayEat Diner';
-  const restaurantLocation = storyData?.restaurant?.location || 'Gourmet Dine-In';
+  const restaurantName = storyData?.restaurant?.name || 'Restaurant';
+  const restaurantLocation = storyData?.restaurant?.location || '';
   const restaurantLogo = storyData?.restaurant?.logo;
-  const rawToken = storyData?.order?.tokenNumber || storyData?.order?.orderNumber || '01';
-  const cleanToken = String(rawToken)
-    .replace(/^T-/, '')
-    .replace(/^ORD-/, '')
-    .trim()
-    .padStart(2, '0');
-  const orderNumber = storyData?.order?.orderNumber || storyData?.order?.id || '101';
 
-  const items = storyData?.order?.items && storyData.order.items.length > 0
-    ? storyData.order.items
-    : [{ name: 'Delicious Chef Special', image: null, quantity: 1, unitPrice: 0 }];
+  const items =
+    storyData?.order?.items && storyData.order.items.length > 0
+      ? storyData.order.items
+      : [{ name: 'Delicious Special', image: null, quantity: 1, unitPrice: 0 }];
 
   const activeItem = items[selectedItemIndex] || items[0];
 
@@ -119,7 +122,7 @@ export default function FoodStoryModal({
     );
   };
 
-  // Helper to convert base64 DataURL to Blob without fetch
+  // Convert base64 DataURL to Blob
   const dataUrlToBlob = (dataUrl: string): Blob => {
     const parts = dataUrl.split(';base64,');
     const contentType = parts[0].split(':')[1] || 'image/png';
@@ -141,7 +144,7 @@ export default function FoodStoryModal({
         cacheBust: true,
         pixelRatio: 2.5,
         quality: 0.98,
-        skipFonts: true, // Prevents SecurityError: Failed to read 'cssRules' on cross-origin Google Fonts
+        skipFonts: true,
         fontEmbedCSS: '',
       });
       return dataUrl;
@@ -164,93 +167,44 @@ export default function FoodStoryModal({
     }
   };
 
-  // 1. Direct Download
-  const handleDownload = async () => {
-    const dataUrl = await generateStoryPng();
-    if (!dataUrl) {
-      alert('Could not render story image. Please try again.');
-      return;
-    }
-
-    const link = document.createElement('a');
-    link.download = `ScanPayEat-Story-${cleanToken}.png`;
-    link.href = dataUrl;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    setShareSuccessMessage('High-res image downloaded! You can now post it to your Story.');
-    setTimeout(() => setShareSuccessMessage(null), 4000);
-  };
-
-  // 2. Add to Instagram Story (Native Web Share API with File)
-  const handleShareInstagram = async () => {
+  // Unified Social Sharing Handler
+  const handleShareApp = async (app: 'WHATSAPP' | 'INSTAGRAM' | 'SNAPCHAT') => {
     const dataUrl = await generateStoryPng();
     if (!dataUrl) {
       alert('Failed to generate story image. Please try downloading instead.');
       return;
     }
 
-    try {
-      const blob = dataUrlToBlob(dataUrl);
-      const file = new File([blob], `ScanPayEat-Story-${cleanToken}.png`, {
-        type: 'image/png',
-      });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `${restaurantName} - Food Story`,
-          text: `Dining at ${restaurantName}! Token #${cleanToken} • Scanned. Ordered. Loved. 🧡 #ScanPayEat`,
-        });
-        setShareSuccessMessage('Image shared to Story!');
-      } else {
-        // Desktop / fallback
-        handleDownload();
-        try {
-          if (navigator.clipboard && window.ClipboardItem) {
-            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          }
-        } catch (e) {}
-        setShareSuccessMessage('Image downloaded & copied! Open Instagram to post to your Story.');
-      }
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        handleDownload();
-      }
-    }
-  };
-
-  // 3. Share to WhatsApp (Native Web Share API with File + Desktop Clipboard Fallback)
-  const handleShareWhatsApp = async () => {
-    const dataUrl = await generateStoryPng();
-    if (!dataUrl) {
-      alert('Failed to generate story image. Please try downloading instead.');
-      return;
-    }
+    const sanitizedName = activeItem.name.replace(/[^a-zA-Z0-9]/g, '_');
+    const filename = `FoodStory_${sanitizedName}.png`;
 
     try {
       const blob = dataUrlToBlob(dataUrl);
-      const file = new File([blob], `ScanPayEat-Story-${cleanToken}.png`, {
-        type: 'image/png',
-      });
+      const file = new File([blob], filename, { type: 'image/png' });
+      const shareTitle = `${activeItem.name} at ${restaurantName}`;
+      const shareText = caption.trim() || `Enjoying ${activeItem.name} at ${restaurantName}! 🍔✨`;
 
-      const messageText = `Just ordered delicious food at *${restaurantName}*! 🍔✨\nOrder #${orderNumber} • Token #${cleanToken}\n\nScanned. Ordered. Loved. 🧡\n#ScanPayEat`;
-
-      // On Mobile iOS/Android: share the actual IMAGE file directly via Web Share API
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      // 1. Mobile Native Web Share API (Directly opens OS share sheet with WhatsApp Status, Instagram Stories, Snapchat)
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: `${restaurantName} - Food Story`,
-          text: messageText,
+          title: shareTitle,
+          text: shareText,
         });
-        setShareSuccessMessage('Image shared to WhatsApp!');
+        setShareSuccessMessage(
+          app === 'WHATSAPP'
+            ? 'Shared to WhatsApp!'
+            : app === 'INSTAGRAM'
+            ? 'Shared to Instagram Story!'
+            : 'Shared to Snapchat!'
+        );
+        setTimeout(() => setShareSuccessMessage(null), 4000);
         return;
       }
 
-      // On Desktop: Download image, copy image to clipboard, and open WhatsApp Web
+      // 2. Desktop / Browser Fallback: download PNG, copy to clipboard, and open target app
       const link = document.createElement('a');
-      link.download = `ScanPayEat-Story-${cleanToken}.png`;
+      link.download = filename;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
@@ -261,12 +215,21 @@ export default function FoodStoryModal({
           await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
         }
       } catch (clipErr) {
-        // Clipboard API fallback
+        // Clipboard fallback
       }
 
-      const encodedMessage = encodeURIComponent(messageText);
-      window.open(`https://api.whatsapp.com/send?text=${encodedMessage}`, '_blank');
-      setShareSuccessMessage('Image downloaded & copied to clipboard! Paste (Cmd+V / Ctrl+V) in WhatsApp chat or status.');
+      if (app === 'WHATSAPP') {
+        const encoded = encodeURIComponent(`${shareText}\n\n${restaurantName}`);
+        window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+        setShareSuccessMessage('Image downloaded & copied! Paste directly into your WhatsApp Status.');
+      } else if (app === 'INSTAGRAM') {
+        window.open('https://www.instagram.com', '_blank');
+        setShareSuccessMessage('Image downloaded & copied! Open Instagram to post to your Story.');
+      } else if (app === 'SNAPCHAT') {
+        window.open('https://web.snapchat.com', '_blank');
+        setShareSuccessMessage('Image downloaded & copied! Paste or send on Snapchat.');
+      }
+      setTimeout(() => setShareSuccessMessage(null), 5000);
     } catch (error: any) {
       if (error.name !== 'AbortError') {
         handleDownload();
@@ -274,16 +237,36 @@ export default function FoodStoryModal({
     }
   };
 
+  // Direct PNG Download
+  const handleDownload = async () => {
+    const dataUrl = await generateStoryPng();
+    if (!dataUrl) {
+      alert('Could not render story image. Please try again.');
+      return;
+    }
+
+    const sanitizedName = activeItem.name.replace(/[^a-zA-Z0-9]/g, '_');
+    const link = document.createElement('a');
+    link.download = `FoodStory_${sanitizedName}.png`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setShareSuccessMessage('High-res image downloaded! Ready to share.');
+    setTimeout(() => setShareSuccessMessage(null), 4000);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       {/* Dark overlay backdrop */}
       <div
         className="fixed inset-0 bg-slate-950/85 backdrop-blur-md transition-opacity animate-in fade-in"
         onClick={onClose}
       />
 
-      {/* Main Container */}
-      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl z-10 overflow-hidden flex flex-col md:flex-row max-h-[95vh] md:max-h-[90vh]">
+      {/* Main Container - Stacks vertically on mobile (Preview on top, Controls below) & side-by-side on desktop */}
+      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl z-10 overflow-hidden flex flex-col md:flex-row max-h-[96vh]">
         {/* Close Button Top Right */}
         <button
           onClick={onClose}
@@ -293,405 +276,475 @@ export default function FoodStoryModal({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Mobile Tab Switcher (< md) */}
-        <div className="md:hidden flex items-center justify-between p-2.5 bg-slate-950 border-b border-slate-800 pr-14 shrink-0">
-          <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800/80 w-full max-w-xs">
-            <button
-              type="button"
-              onClick={() => setMobileTab('PREVIEW')}
-              className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                mobileTab === 'PREVIEW'
-                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Story Preview</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileTab('CUSTOMIZE')}
-              className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                mobileTab === 'CUSTOMIZE'
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Customize &amp; Share</span>
-            </button>
-          </div>
-        </div>
-
-        {/* ================= LEFT: 9:16 Story Canvas Preview ================= */}
-        <div
-          className={`flex-1 bg-slate-950 p-3 sm:p-5 md:p-6 flex flex-col items-center justify-center overflow-y-auto max-h-[85vh] ${
-            mobileTab === 'CUSTOMIZE' ? 'hidden md:flex' : 'flex'
-          }`}
-        >
+        {/* ================= LEFT / TOP: 9:16 Story Canvas Preview ================= */}
+        <div className="w-full md:flex-1 bg-slate-950 p-3 sm:p-5 flex flex-col items-center justify-center overflow-y-auto shrink-0 border-b md:border-b-0 md:border-r border-slate-800">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center space-y-3 py-20 text-white">
               <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
               <p className="text-sm font-semibold text-slate-300">
-                Generating your personalized Food Story...
+                Loading food photo...
               </p>
             </div>
           ) : (
-            <>
-              {/* 9:16 Canvas (Instagram Story aspect ratio - Editorial Edition) */}
+            <div className="w-full flex flex-col items-center">
+              {/* 9:16 Story Canvas (Constrained width prevents mobile horizontal cut-off) */}
               <div
                 ref={storyRef}
-                className="relative aspect-[9/16] h-[52vh] sm:h-[60vh] md:h-[68vh] max-h-[640px] w-auto max-w-[360px] rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between select-none bg-stone-950 text-white shrink-0 border border-white/10 p-4 sm:p-5"
+                className="relative aspect-[9/16] w-full max-w-[305px] sm:max-w-[335px] rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between select-none bg-stone-950 text-white shrink-0 border border-white/10 p-4 sm:p-4.5"
                 style={{
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                  fontFamily:
+                    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                 }}
               >
                 {/* Background Ambient Glows */}
-                <div className="absolute -top-20 -right-20 w-52 h-52 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-rose-500/15 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -top-16 -right-16 w-44 h-44 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-16 -left-16 w-44 h-44 bg-rose-500/15 rounded-full blur-3xl pointer-events-none" />
 
-                {/* Top Section: Header & Location & Token */}
-                <div className="relative z-10 space-y-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    {/* Location Badge */}
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-lg max-w-[210px]">
-                      <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-500 flex items-center justify-center text-white shrink-0 shadow-xs">
-                        <MapPin className="w-3 h-3 text-white" />
-                      </div>
-                      <div className="text-left leading-tight min-w-0">
-                        <span className="font-black text-xs text-white tracking-tight truncate block">
-                          {restaurantName}
-                        </span>
-                        {restaurantLocation && (
-                          <span className="text-[9px] text-amber-200/80 font-medium truncate block">
-                            {restaurantLocation}
+                {/* ================= TEMPLATE 1: LOCATION & FOOD ================= */}
+                {template === 'LOCATION' && (
+                  <>
+                    {/* Top Header: Location Badge */}
+                    <div className="relative z-10 space-y-1.5">
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-md max-w-full">
+                        <div className="w-4.5 h-4.5 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-white shrink-0 shadow-xs">
+                          <MapPin className="w-3 h-3 text-white" />
+                        </div>
+                        <div className="text-left leading-tight min-w-0">
+                          <span className="font-black text-[11px] text-white tracking-tight truncate block">
+                            {restaurantName}
                           </span>
-                        )}
+                          {restaurantLocation && (
+                            <span className="text-[9px] text-amber-200/80 font-medium truncate block">
+                              {restaurantLocation}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Dish Name */}
+                      <div className="pt-1 text-left">
+                        <h2 className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight drop-shadow-md truncate">
+                          {activeItem?.name}
+                        </h2>
                       </div>
                     </div>
 
-                    {/* Counter Token Badge */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-400/40 backdrop-blur-md shadow-lg shrink-0">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-amber-400">
-                        TOKEN
-                      </span>
-                      <span className="font-mono text-xs font-black text-amber-200">
-                        {cleanToken}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Headline */}
-                  <div className="pt-1 text-left space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] uppercase tracking-widest font-extrabold text-amber-400">
-                        ✨ Food Story
-                      </span>
-                      {activeItem?.quantity && activeItem.quantity > 1 && (
-                        <span className="text-[9px] font-black uppercase bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-400/30">
-                          Qty: {activeItem.quantity}
-                        </span>
-                      )}
-                    </div>
-                    <h2 className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight drop-shadow-md truncate">
-                      {activeItem?.name}
-                    </h2>
-                  </div>
-                </div>
-
-                {/* Center Section: Hero Food Photo Frame with Overlay Caption */}
-                <div className="relative z-10 flex-1 my-2.5 rounded-2xl overflow-hidden shadow-2xl border border-white/15 flex flex-col justify-end">
-                  {/* Photo / Graphic */}
-                  <div className="absolute inset-0 z-0">
-                    {activeItem?.image && !imageError ? (
-                      <img
-                        src={activeItem.image}
-                        alt={activeItem.name}
-                        crossOrigin="anonymous"
-                        onError={() => setImageError(true)}
-                        className="w-full h-full object-cover object-center filter brightness-95"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-amber-600 via-orange-600 to-rose-700 flex flex-col items-center justify-center p-6 text-center">
-                        <UtensilsCrossed className="w-20 h-20 text-white/40 mb-3" />
-                        <h4 className="font-black text-lg text-white/90 drop-shadow-md">{activeItem?.name}</h4>
-                      </div>
-                    )}
-                    {/* Gradient overlays for readability */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/30 pointer-events-none" />
-                  </div>
-
-                  {/* Floating mood stickers */}
-                  {selectedStickers.length > 0 && (
-                    <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 pointer-events-none">
-                      {selectedStickers.map((s, idx) => (
-                        <span
-                          key={idx}
-                          className="text-2xl sm:text-3xl drop-shadow-xl filter transform hover:scale-110 transition"
-                        >
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Frosted Glass Caption Banner */}
-                  <div className="relative z-10 m-3 p-3 bg-black/65 backdrop-blur-xl rounded-2xl border border-white/20 text-center shadow-2xl">
-                    <p className="text-xs sm:text-sm font-black text-amber-300 tracking-wide drop-shadow-sm">
-                      &ldquo;{caption}&rdquo;
-                    </p>
-                  </div>
-                </div>
-
-                {/* Bottom Section: Customer Profile & ScanPayEat Brand Signature */}
-                <div className="relative z-10 pt-2 border-t border-white/10 flex items-center justify-between">
-                  {/* Customer Profile */}
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-purple-600 p-0.5 shadow-md shrink-0">
-                      <div className="w-full h-full rounded-full bg-stone-900 flex items-center justify-center overflow-hidden">
-                        {customerAvatar ? (
+                    {/* Center Section: Hero Food Photo Frame */}
+                    <div className="relative z-10 flex-1 my-2 rounded-2xl overflow-hidden shadow-xl border border-white/15 flex flex-col justify-end">
+                      <div className="absolute inset-0 z-0">
+                        {activeItem?.image && !imageError ? (
                           <img
-                            src={customerAvatar}
-                            alt={customerName}
+                            src={activeItem.image}
+                            alt={activeItem.name}
                             crossOrigin="anonymous"
-                            className="w-full h-full object-cover"
+                            onError={() => setImageError(true)}
+                            className="w-full h-full object-cover object-center filter brightness-95"
                           />
                         ) : (
-                          <span className="text-xs font-black text-amber-300">
-                            {customerName.charAt(0).toUpperCase()}
-                          </span>
+                          <div className="w-full h-full bg-gradient-to-br from-amber-600 via-orange-600 to-rose-700 flex flex-col items-center justify-center p-6 text-center">
+                            <UtensilsCrossed className="w-16 h-16 text-white/40 mb-2" />
+                            <h4 className="font-black text-base text-white/90 drop-shadow-md">
+                              {activeItem?.name}
+                            </h4>
+                          </div>
                         )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25 pointer-events-none" />
+                      </div>
+
+                      {/* Caption Callout (renders only if non-empty) */}
+                      {caption && caption.trim().length > 0 && (
+                        <div className="relative z-10 m-2.5 p-2.5 bg-black/70 backdrop-blur-xl rounded-xl border border-white/20 text-center shadow-lg">
+                          <p className="text-xs font-black text-amber-300 tracking-wide drop-shadow-xs">
+                            &ldquo;{caption.trim()}&rdquo;
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom: Customer Profile & Small Restaurant Logo */}
+                    <div className="relative z-10 pt-2 border-t border-white/10 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-purple-600 p-0.5 shadow-md shrink-0">
+                          <div className="w-full h-full rounded-full bg-stone-900 flex items-center justify-center overflow-hidden">
+                            {customerAvatar ? (
+                              <img
+                                src={customerAvatar}
+                                alt={customerName}
+                                crossOrigin="anonymous"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-[11px] font-black text-amber-300">
+                                {customerName.charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-left leading-tight min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-black text-white truncate max-w-[120px]">
+                              {customerName}
+                            </span>
+                            <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-stone-950 text-[9px] font-black inline-flex items-center justify-center shrink-0">
+                              ✓
+                            </span>
+                          </div>
+                          <span className="text-[9px] text-amber-300/80 font-semibold block">
+                            Verified Foodie
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Small Restaurant Logo */}
+                      <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-full border border-white/15">
+                        {restaurantLogo ? (
+                          <img
+                            src={restaurantLogo}
+                            alt={restaurantName}
+                            crossOrigin="anonymous"
+                            className="w-4 h-4 rounded-full object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-[8px] font-black text-white shrink-0">
+                            {restaurantName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-[10px] font-bold text-white truncate max-w-[90px]">
+                          {restaurantName}
+                        </span>
                       </div>
                     </div>
-                    <div className="text-left leading-tight min-w-0">
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs font-black text-white truncate max-w-[120px]">
+                  </>
+                )}
+
+                {/* ================= TEMPLATE 2: TODAY'S CRAVING ================= */}
+                {template === 'CRAVING' && (
+                  <>
+                    {/* Top: Today's Craving Header & Food Title */}
+                    <div className="relative z-10 space-y-0.5 text-center pt-1">
+                      <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/25 via-rose-500/25 to-orange-500/25 border border-amber-400/40 backdrop-blur-md shadow-md">
+                        <span className="text-[10px] uppercase font-black tracking-widest text-amber-300">
+                          ✨ Today&apos;s Craving ✨
+                        </span>
+                      </div>
+                      <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md truncate pt-1">
+                        {activeItem?.name}
+                      </h2>
+                    </div>
+
+                    {/* Center: Hero Food Frame with Floating Emojis */}
+                    <div className="relative z-10 flex-1 my-2 rounded-2xl overflow-hidden shadow-xl border border-white/15 flex flex-col justify-end">
+                      <div className="absolute inset-0 z-0">
+                        {activeItem?.image && !imageError ? (
+                          <img
+                            src={activeItem.image}
+                            alt={activeItem.name}
+                            crossOrigin="anonymous"
+                            onError={() => setImageError(true)}
+                            className="w-full h-full object-cover object-center filter brightness-95 transform scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-amber-600 via-orange-600 to-rose-700 flex flex-col items-center justify-center p-6 text-center">
+                            <UtensilsCrossed className="w-16 h-16 text-white/40 mb-2" />
+                            <h4 className="font-black text-base text-white/90 drop-shadow-md">
+                              {activeItem?.name}
+                            </h4>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/25 pointer-events-none" />
+                      </div>
+
+                      {/* Floating mood stickers */}
+                      {selectedStickers.length > 0 && (
+                        <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 pointer-events-none">
+                          {selectedStickers.map((s, idx) => (
+                            <span
+                              key={idx}
+                              className="text-2xl sm:text-3xl drop-shadow-2xl filter transform hover:scale-125 transition"
+                              style={{
+                                transform: `rotate(${idx % 2 === 0 ? '-8deg' : '8deg'})`,
+                              }}
+                            >
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Frosted Glass Caption Banner */}
+                      {caption && caption.trim().length > 0 && (
+                        <div className="relative z-10 m-2.5 p-2.5 bg-black/70 backdrop-blur-xl rounded-xl border border-white/20 text-center shadow-lg">
+                          <p className="text-xs sm:text-sm font-black text-amber-300 tracking-wide drop-shadow-xs">
+                            &ldquo;{caption.trim()}&rdquo;
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom: Minimal Foodie Badge & Small Logo */}
+                    <div className="relative z-10 pt-2 border-t border-white/10 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400 to-rose-500 p-0.5 shadow-md shrink-0">
+                          <div className="w-full h-full rounded-full bg-stone-900 flex items-center justify-center overflow-hidden">
+                            {customerAvatar ? (
+                              <img
+                                src={customerAvatar}
+                                alt={customerName}
+                                crossOrigin="anonymous"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-[11px] font-black text-amber-300">
+                                {customerName.charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-xs font-black text-white truncate max-w-[130px]">
                           {customerName}
                         </span>
-                        <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-stone-950 text-[9px] font-black inline-flex items-center justify-center shrink-0">
-                          ✓
+                      </div>
+
+                      {/* Small Restaurant Logo */}
+                      <div className="flex items-center gap-1.5 bg-white/10 px-2 py-0.5 rounded-full border border-white/15">
+                        {restaurantLogo ? (
+                          <img
+                            src={restaurantLogo}
+                            alt={restaurantName}
+                            crossOrigin="anonymous"
+                            className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center text-[7px] font-black text-white shrink-0">
+                            {restaurantName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-[9px] font-bold text-white truncate max-w-[80px]">
+                          {restaurantName}
                         </span>
                       </div>
-                      <span className="text-[9px] text-amber-300/80 font-semibold block">
-                        Verified Foodie
-                      </span>
                     </div>
-                  </div>
-
-                  {/* ScanPayEat Brand Signature */}
-                  <div className="text-right">
-                    <div className="flex items-center justify-end gap-1 text-xs font-black text-white">
-                      <span className="w-3.5 h-3.5 rounded-md bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white text-[8px] font-black">
-                        ⚡
-                      </span>
-                      <span className="tracking-tight">ScanPayEat</span>
-                    </div>
-                    <span className="text-[8px] font-extrabold text-amber-400/90 tracking-wide block">
-                      Scanned · Ordered · Loved 🧡
-                    </span>
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
-
-            {/* Mobile Quick Action Strip (under story preview) */}
-            <div className="md:hidden mt-3 w-full max-w-xs flex gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setMobileTab('CUSTOMIZE')}
-                className="flex-1 py-2 px-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Sliders className="w-3.5 h-3.5" />
-                <span>Customize</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleShareInstagram}
-                disabled={isExporting}
-                className="flex-1 py-2 px-2 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 hover:from-purple-700 hover:to-orange-600 text-white text-xs font-extrabold rounded-xl shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                <InstagramIcon className="w-3.5 h-3.5" />
-                <span>Share Story</span>
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* ================= RIGHT: Controls & Share Flow ================= */}
-      <div
-        className={`w-full md:w-88 bg-slate-900 p-4 sm:p-5 md:p-6 flex flex-col justify-between overflow-y-auto max-h-[85vh] border-t md:border-t-0 md:border-l border-slate-800 ${
-          mobileTab === 'PREVIEW' ? 'hidden md:flex' : 'flex'
-        }`}
-      >
-        <div className="space-y-4">
-          <div>
-            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-pink-500/20 to-amber-500/20 text-pink-300 border border-pink-500/30 text-[10px] font-black uppercase tracking-wider">
-              <Camera className="w-3 h-3" />
-              Instagram Story Ready
-            </div>
-            <h2 className="text-lg font-black text-white mt-1">
-              Customize Food Story
-            </h2>
-            <p className="text-xs text-slate-300">
-              Share your food &amp; location directly to your Story.
-            </p>
-          </div>
-
-
-          {/* Multiple Items Selector (if order has >1 dish) */}
-          {items.length > 1 && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-black uppercase tracking-wider text-slate-100 block">
-                Select Featured Dish:
-              </label>
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                {items.map((item, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedItemIndex(idx)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
-                      selectedItemIndex === idx
-                        ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
-                        : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
-                    }`}
-                  >
-                    {item.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Caption Customizer */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-black uppercase tracking-wider text-slate-100">
-                Story Caption:
-              </label>
-              <button
-                type="button"
-                onClick={() => setIsEditingCaption(!isEditingCaption)}
-                className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                {isEditingCaption ? 'Done' : 'Edit'}
-              </button>
-            </div>
-
-            {isEditingCaption ? (
-              <input
-                type="text"
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                maxLength={60}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-amber-400 focus:ring-1 focus:ring-amber-400 font-medium"
-                placeholder="Enter custom caption..."
-              />
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {CAPTION_PRESETS.map((preset, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCaption(preset)}
-                    className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
-                      caption === preset
-                        ? 'bg-amber-500 text-white shadow-xs'
-                        : 'bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700/60'
-                    }`}
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Sticker Picker */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-black uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
-              <Smile className="w-3.5 h-3.5 text-amber-400" />
-              <span>Add Stickers:</span>
-            </label>
-            <div className="grid grid-cols-6 gap-1 bg-slate-950 p-2 rounded-xl border border-slate-800">
-              {STICKER_OPTIONS.map((stk, idx) => {
-                const isSelected = selectedStickers.includes(stk);
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => toggleSticker(stk)}
-                    className={`h-9 rounded-lg text-lg flex items-center justify-center transition cursor-pointer ${
-                      isSelected
-                        ? 'bg-amber-500/30 border-2 border-amber-400 scale-110 shadow-md'
-                        : 'hover:bg-slate-800 text-slate-200'
-                    }`}
-                  >
-                    {stk}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* On Mobile: Switch to Preview Button */}
-          <div className="md:hidden pt-1">
-            <button
-              type="button"
-              onClick={() => setMobileTab('PREVIEW')}
-              className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>View Full Story Preview</span>
-            </button>
-          </div>
-
-          {/* Feedback notification banner */}
-          {shareSuccessMessage && (
-            <div className="p-2.5 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 font-bold flex items-center gap-2 animate-in fade-in">
-              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>{shareSuccessMessage}</span>
             </div>
           )}
         </div>
 
-          {/* Action Sharing Buttons */}
-          <div className="space-y-2 pt-2 border-t border-slate-800">
-            {/* 1. Add to Instagram Story Button */}
+        {/* ================= RIGHT / BOTTOM: Controls & Direct Social Share Flows ================= */}
+        <div className="w-full md:w-92 bg-slate-900 p-4 sm:p-5 flex flex-col justify-between overflow-y-auto">
+          <div className="space-y-4">
+            <div>
+              <span className="inline-block text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-400/20">
+                Food Story Generator
+              </span>
+              <h2 className="text-lg font-black text-white mt-1">
+                Customize &amp; Share
+              </h2>
+              <p className="text-xs text-slate-400">
+                Pick a template, edit your craving mood, and share directly to your status or story.
+              </p>
+            </div>
+
+            {/* Template Switcher: 2 Templates */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-200 block">
+                Select Template:
+              </label>
+              <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setTemplate('LOCATION')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    template === 'LOCATION'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white bg-transparent'
+                  }`}
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Location &amp; Food</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplate('CRAVING')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    template === 'CRAVING'
+                      ? 'bg-gradient-to-r from-rose-500 via-pink-500 to-amber-500 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white bg-transparent'
+                  }`}
+                >
+                  <span>🤤</span>
+                  <span>Today&apos;s Craving</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Multiple Items Selector (if order has >1 dish) */}
+            {items.length > 1 && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-200 block">
+                  Select Featured Dish:
+                </label>
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {items.map((item, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedItemIndex(idx)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                        selectedItemIndex === idx
+                          ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-400/40'
+                          : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
+                      }`}
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Caption Customizer */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-200">
+                  Caption / Craving Text:
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingCaption(!isEditingCaption)}
+                  className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  {isEditingCaption ? 'Done' : 'Custom'}
+                </button>
+              </div>
+
+              {isEditingCaption ? (
+                <input
+                  type="text"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  maxLength={60}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-amber-400 focus:ring-1 focus:ring-amber-400 font-medium"
+                  placeholder="Type your craving caption..."
+                />
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {CAPTION_PRESETS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCaption(preset)}
+                      className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                        caption === preset
+                          ? 'bg-amber-500 text-white shadow-xs'
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Sticker / Emoji Selector */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                <Smile className="w-3.5 h-3.5 text-amber-400" />
+                <span>Tap Emojis to Add/Remove:</span>
+              </label>
+              <div className="grid grid-cols-6 gap-1 bg-slate-950 p-2 rounded-xl border border-slate-800">
+                {STICKER_OPTIONS.map((stk, idx) => {
+                  const isSelected = selectedStickers.includes(stk);
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => toggleSticker(stk)}
+                      className={`h-9 rounded-lg text-lg flex items-center justify-center transition cursor-pointer ${
+                        isSelected
+                          ? 'bg-amber-500/30 border-2 border-amber-400 scale-105 shadow-md'
+                          : 'hover:bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {stk}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Notification Banner */}
+            {shareSuccessMessage && (
+              <div className="p-2.5 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 font-bold flex items-center gap-2 animate-in fade-in">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{shareSuccessMessage}</span>
+              </div>
+            )}
+          </div>
+
+          {/* ================= Social Share Flow Buttons (WhatsApp, Insta, Snapchat, Download) ================= */}
+          <div className="space-y-2 pt-4 border-t border-slate-800 mt-4">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block text-center">
+              Share to your favorite platform:
+            </span>
+
+            {/* Row of 3 App Share Buttons */}
+            <div className="grid grid-cols-3 gap-2">
+              {/* 1. WhatsApp Status */}
+              <button
+                type="button"
+                onClick={() => handleShareApp('WHATSAPP')}
+                disabled={isExporting || isLoading}
+                className="py-2.5 px-2 bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-950/20 transition flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-50 group"
+                title="Share to WhatsApp Status"
+              >
+                <WhatsAppIcon className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110" />
+                <span className="text-[10px] sm:text-[11px] font-black leading-tight">WhatsApp Status</span>
+              </button>
+
+              {/* 2. Instagram Story */}
+              <button
+                type="button"
+                onClick={() => handleShareApp('INSTAGRAM')}
+                disabled={isExporting || isLoading}
+                className="py-2.5 px-2 bg-gradient-to-tr from-purple-600 via-pink-600 to-orange-500 hover:from-purple-700 hover:to-orange-600 text-white font-extrabold rounded-2xl shadow-lg shadow-pink-950/20 transition flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-50 group"
+                title="Add to Instagram Story"
+              >
+                <InstagramIcon className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110" />
+                <span className="text-[10px] sm:text-[11px] font-black leading-tight">Insta Story</span>
+              </button>
+
+              {/* 3. Snapchat */}
+              <button
+                type="button"
+                onClick={() => handleShareApp('SNAPCHAT')}
+                disabled={isExporting || isLoading}
+                className="py-2.5 px-2 bg-[#FFFC00] hover:bg-[#ffe600] text-black font-extrabold rounded-2xl shadow-lg shadow-amber-950/20 transition flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-50 group"
+                title="Share to Snapchat"
+              >
+                <SnapchatIcon className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110 fill-black text-black" />
+                <span className="text-[10px] sm:text-[11px] font-black leading-tight">Snapchat</span>
+              </button>
+            </div>
+
+            {/* Direct High-Res Download Button */}
             <button
-              onClick={handleShareInstagram}
+              type="button"
+              onClick={handleDownload}
               disabled={isExporting || isLoading}
-              className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 hover:from-purple-700 hover:via-pink-700 hover:to-orange-600 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-pink-600/25 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 border border-slate-700"
             >
               {isExporting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Preparing Story Image...</span>
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                  <span>Generating High-Res Image...</span>
                 </>
               ) : (
                 <>
-                  <InstagramIcon className="w-4 h-4" />
-                  <span>Add to Instagram Story</span>
+                  <Download className="w-4 h-4 text-slate-400" />
+                  <span>Download High-Res Story (1080×1920)</span>
                 </>
               )}
-            </button>
-
-            {/* 2. Share to WhatsApp Button */}
-            <button
-              onClick={handleShareWhatsApp}
-              disabled={isExporting || isLoading}
-              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>Share to WhatsApp Status</span>
-            </button>
-
-            {/* 3. Direct Download PNG Button */}
-            <button
-              onClick={handleDownload}
-              disabled={isExporting || isLoading}
-              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 border border-slate-700"
-            >
-              <Download className="w-4 h-4 text-slate-400" />
-              <span>Download High-Res PNG (1080×1920)</span>
             </button>
           </div>
         </div>
