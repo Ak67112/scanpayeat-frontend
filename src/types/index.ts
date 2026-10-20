@@ -23,6 +23,8 @@ export interface Shop {
   slug: string;
   subdomain: string;
   address?: string | null;
+  state?: string | null;
+  district?: string | null;
   phone?: string | null;
   qrUrl?: string | null;
   logoUrl?: string | null;
@@ -222,6 +224,10 @@ export interface Coupon {
   usageCount?: number;
   isGlobal?: boolean;
   canDelete?: boolean;
+  targetState?: string | null;
+  targetDistrict?: string | null;
+  applicableShopIds?: number[];
+  applicableShops?: Array<{ id: number; name: string; slug: string; state?: string | null; district?: string | null }>;
   shop?: Shop | null;
   createdAt?: string;
 }

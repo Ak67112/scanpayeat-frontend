@@ -46,6 +46,9 @@ import {
   CreditCard,
   PlusCircle,
   History,
+  MapPin,
+  Globe,
+  Check,
 } from 'lucide-react';
 import WalletsManagementTab from '../../components/admin/WalletsManagementTab';
 import PaymentGatewaySettingsTab from '../../components/admin/PaymentGatewaySettingsTab';
@@ -97,7 +100,12 @@ export default function AdminDashboard() {
   const [couponDiscountValue, setCouponDiscountValue] = useState('');
   const [couponMinOrder, setCouponMinOrder] = useState('');
   const [couponMaxDiscount, setCouponMaxDiscount] = useState('');
-  const [couponShopId, setCouponShopId] = useState<string>('GLOBAL');
+  const [couponScopeMode, setCouponScopeMode] = useState<'GLOBAL' | 'STATE' | 'DISTRICT' | 'CUSTOM'>('GLOBAL');
+  const [couponTargetState, setCouponTargetState] = useState('Tamil Nadu');
+  const [couponTargetDistrict, setCouponTargetDistrict] = useState('Madurai');
+  const [couponSelectedShopIds, setCouponSelectedShopIds] = useState<number[]>([]);
+  const [couponApplyToAllFiltered, setCouponApplyToAllFiltered] = useState(true);
+  const [couponShopSearch, setCouponShopSearch] = useState('');
   const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
   const [couponError, setCouponError] = useState('');
 
@@ -124,6 +132,8 @@ export default function AdminDashboard() {
   const [shopSlug, setShopSlug] = useState('');
   const [shopSubdomain, setShopSubdomain] = useState('');
   const [shopAddress, setShopAddress] = useState('');
+  const [shopState, setShopState] = useState('');
+  const [shopDistrict, setShopDistrict] = useState('');
   const [shopPhone, setShopPhone] = useState('');
   const [isSubmittingShop, setIsSubmittingShop] = useState(false);
 
@@ -134,6 +144,8 @@ export default function AdminDashboard() {
   const [editShopSlug, setEditShopSlug] = useState('');
   const [editShopSubdomain, setEditShopSubdomain] = useState('');
   const [editShopAddress, setEditShopAddress] = useState('');
+  const [editShopState, setEditShopState] = useState('');
+  const [editShopDistrict, setEditShopDistrict] = useState('');
   const [editShopPhone, setEditShopPhone] = useState('');
   const [isSubmittingEditShop, setIsSubmittingEditShop] = useState(false);
 
@@ -210,6 +222,71 @@ export default function AdminDashboard() {
     }
   };
 
+  // Dynamic states & districts derived from shops
+  const availableStates = useMemo(() => {
+    const set = new Set<string>();
+    ['Tamil Nadu', 'Karnataka', 'Kerala', 'Maharashtra', 'Delhi', 'Telangana', 'Andhra Pradesh'].forEach((s) => set.add(s));
+    shops.forEach((s) => {
+      if (s.state && s.state.trim()) set.add(s.state.trim());
+    });
+    return Array.from(set).sort();
+  }, [shops]);
+
+  const availableDistricts = useMemo(() => {
+    const set = new Set<string>();
+    if (!couponTargetState || couponTargetState.toLowerCase().includes('tamil')) {
+      ['Madurai', 'Chennai', 'Coimbatore', 'Salem', 'Tiruchirappalli', 'Tirunelveli', 'Erode', 'Dindigul', 'Thanjavur', 'Vellore'].forEach((d) => set.add(d));
+    }
+    if (couponTargetState && couponTargetState.toLowerCase().includes('karnat')) {
+      ['Bengaluru Urban', 'Mysuru', 'Mangaluru', 'Hubballi', 'Belagavi'].forEach((d) => set.add(d));
+    }
+    shops.forEach((s) => {
+      if (s.district && s.district.trim()) {
+        if (!couponTargetState || (s.state && s.state.toLowerCase() === couponTargetState.toLowerCase())) {
+          set.add(s.district.trim());
+        }
+      }
+    });
+    return Array.from(set).sort();
+  }, [shops, couponTargetState]);
+
+  // Filtered shops based on selected state, district and search in coupon modal
+  const filteredShopsForCoupon = useMemo(() => {
+    return shops.filter((s) => {
+      if (couponScopeMode === 'STATE' && couponTargetState) {
+        if (!s.state || s.state.toLowerCase() !== couponTargetState.toLowerCase()) return false;
+      }
+      if (couponScopeMode === 'DISTRICT') {
+        if (couponTargetState && (!s.state || s.state.toLowerCase() !== couponTargetState.toLowerCase())) return false;
+        if (couponTargetDistrict && (!s.district || s.district.toLowerCase() !== couponTargetDistrict.toLowerCase())) return false;
+      }
+      if (couponShopSearch.trim()) {
+        const q = couponShopSearch.toLowerCase();
+        const matchesName = s.name.toLowerCase().includes(q);
+        const matchesSlug = s.slug.toLowerCase().includes(q);
+        const matchesDistrict = (s.district || '').toLowerCase().includes(q);
+        const matchesAddress = (s.address || '').toLowerCase().includes(q);
+        if (!matchesName && !matchesSlug && !matchesDistrict && !matchesAddress) return false;
+      }
+      return true;
+    });
+  }, [shops, couponScopeMode, couponTargetState, couponTargetDistrict, couponShopSearch]);
+
+  const toggleCouponShopSelection = (shopId: number) => {
+    setCouponSelectedShopIds((prev) =>
+      prev.includes(shopId) ? prev.filter((id) => id !== shopId) : [...prev, shopId]
+    );
+  };
+
+  const selectAllFilteredShops = () => {
+    const ids = filteredShopsForCoupon.map((s) => s.id);
+    setCouponSelectedShopIds((prev) => Array.from(new Set([...prev, ...ids])));
+  };
+
+  const clearSelectedShops = () => {
+    setCouponSelectedShopIds([]);
+  };
+
   // Coupon Action Handlers
   const handleCreateCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,13 +294,57 @@ export default function AdminDashboard() {
     setIsSubmittingCoupon(true);
     setCouponError('');
     try {
+      let targetShopId: number | null = null;
+      let targetState: string | null = null;
+      let targetDistrict: string | null = null;
+      let applicableShopIds: number[] = [];
+
+      if (couponScopeMode === 'GLOBAL') {
+        targetShopId = null;
+      } else if (couponScopeMode === 'STATE') {
+        targetState = couponTargetState.trim() || null;
+        if (!targetState) {
+          throw new Error('Please select or specify a State');
+        }
+        if (!couponApplyToAllFiltered) {
+          if (couponSelectedShopIds.length === 0) {
+            throw new Error('Please select at least one restaurant in ' + targetState);
+          }
+          applicableShopIds = couponSelectedShopIds;
+        }
+      } else if (couponScopeMode === 'DISTRICT') {
+        targetState = couponTargetState.trim() || null;
+        targetDistrict = couponTargetDistrict.trim() || null;
+        if (!targetDistrict) {
+          throw new Error('Please select or specify a District');
+        }
+        if (!couponApplyToAllFiltered) {
+          if (couponSelectedShopIds.length === 0) {
+            throw new Error('Please select at least one restaurant in ' + targetDistrict);
+          }
+          applicableShopIds = couponSelectedShopIds;
+        }
+      } else if (couponScopeMode === 'CUSTOM') {
+        if (couponSelectedShopIds.length === 0) {
+          throw new Error('Please select at least one restaurant');
+        }
+        if (couponSelectedShopIds.length === 1) {
+          targetShopId = couponSelectedShopIds[0];
+        } else {
+          applicableShopIds = couponSelectedShopIds;
+        }
+      }
+
       const res = await adminApi.createCoupon({
         code: couponCode.trim().toUpperCase(),
         discountType: couponDiscountType,
         discountValue: parseFloat(couponDiscountValue),
         minOrderAmount: couponMinOrder ? parseFloat(couponMinOrder) : 0,
         maxDiscount: couponMaxDiscount ? parseFloat(couponMaxDiscount) : undefined,
-        shopId: couponShopId === 'GLOBAL' ? null : Number(couponShopId),
+        shopId: targetShopId,
+        targetState,
+        targetDistrict,
+        applicableShopIds,
       });
       setCoupons((prev) => [res.coupon, ...prev]);
       setShowCouponModal(false);
@@ -231,7 +352,11 @@ export default function AdminDashboard() {
       setCouponDiscountValue('');
       setCouponMinOrder('');
       setCouponMaxDiscount('');
-      setCouponShopId('GLOBAL');
+      setCouponScopeMode('GLOBAL');
+      setCouponTargetState('Tamil Nadu');
+      setCouponTargetDistrict('Madurai');
+      setCouponSelectedShopIds([]);
+      setCouponApplyToAllFiltered(true);
     } catch (err: any) {
       setCouponError(err.message || 'Failed to create coupon');
     } finally {
@@ -362,6 +487,8 @@ export default function AdminDashboard() {
         slug: shopSlug.toLowerCase(),
         subdomain: shopSubdomain.toLowerCase(),
         address: shopAddress || undefined,
+        state: shopState || undefined,
+        district: shopDistrict || undefined,
         phone: shopPhone || undefined,
       });
       setShops((prev) => [res.shop, ...prev]);
@@ -370,6 +497,8 @@ export default function AdminDashboard() {
       setShopSlug('');
       setShopSubdomain('');
       setShopAddress('');
+      setShopState('');
+      setShopDistrict('');
       setShopPhone('');
       loadData();
     } catch (err: any) {
@@ -386,6 +515,8 @@ export default function AdminDashboard() {
     setEditShopSlug(shop.slug);
     setEditShopSubdomain(shop.subdomain);
     setEditShopAddress(shop.address || '');
+    setEditShopState(shop.state || '');
+    setEditShopDistrict(shop.district || '');
     setEditShopPhone(shop.phone || '');
     setShowEditShopModal(true);
   };
@@ -401,6 +532,8 @@ export default function AdminDashboard() {
         slug: editShopSlug.toLowerCase(),
         subdomain: editShopSubdomain.toLowerCase(),
         address: editShopAddress || undefined,
+        state: editShopState || undefined,
+        district: editShopDistrict || undefined,
         phone: editShopPhone || undefined,
       });
       setShops((prev) =>
@@ -2472,7 +2605,9 @@ export default function AdminDashboard() {
                     setCouponDiscountValue('');
                     setCouponMinOrder('');
                     setCouponMaxDiscount('');
-                    setCouponShopId('GLOBAL');
+                    setCouponScopeMode('GLOBAL');
+                    setCouponSelectedShopIds([]);
+                    setCouponApplyToAllFiltered(true);
                     setCouponError('');
                     setShowCouponModal(true);
                   }}
@@ -2541,9 +2676,27 @@ export default function AdminDashboard() {
                               </span>
                             </td>
                             <td className="p-4">
-                              {c.isGlobal || c.shopId === null ? (
+                              {c.isGlobal ? (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                  <span>🌐 Global (All Shops)</span>
+                                  <span>🌐 Global (All Restaurants)</span>
+                                </span>
+                              ) : c.applicableShops && c.applicableShops.length > 0 ? (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-purple-50 text-purple-800 border border-purple-200"
+                                  title={c.applicableShops.map((s: any) => s.name).join(', ')}
+                                >
+                                  <span>
+                                    🏪 {c.applicableShops.length} Stores ({c.applicableShops.slice(0, 2).map((s: any) => s.name).join(', ')}
+                                    {c.applicableShops.length > 2 ? '...' : ''})
+                                  </span>
+                                </span>
+                              ) : c.targetDistrict ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-sky-50 text-sky-800 border border-sky-200">
+                                  <span>🏙️ {c.targetDistrict}{c.targetState ? `, ${c.targetState}` : ''}</span>
+                                </span>
+                              ) : c.targetState ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200">
+                                  <span>📍 {c.targetState} (All Stores)</span>
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
@@ -2737,6 +2890,33 @@ export default function AdminDashboard() {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-800 font-bold mb-1.5 text-xs">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    value={shopState}
+                    onChange={(e) => setShopState(e.target.value)}
+                    placeholder="e.g. Tamil Nadu"
+                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-800 font-bold mb-1.5 text-xs">
+                    District / City
+                  </label>
+                  <input
+                    type="text"
+                    value={shopDistrict}
+                    onChange={(e) => setShopDistrict(e.target.value)}
+                    placeholder="e.g. Madurai"
+                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-slate-800 font-bold mb-1.5 text-xs">
                   Contact Phone
@@ -2844,6 +3024,33 @@ export default function AdminDashboard() {
                   onChange={(e) => setEditShopAddress(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-800 font-bold mb-1.5 text-xs">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    value={editShopState}
+                    onChange={(e) => setEditShopState(e.target.value)}
+                    placeholder="e.g. Tamil Nadu"
+                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-800 font-bold mb-1.5 text-xs">
+                    District / City
+                  </label>
+                  <input
+                    type="text"
+                    value={editShopDistrict}
+                    onChange={(e) => setEditShopDistrict(e.target.value)}
+                    placeholder="e.g. Madurai"
+                    className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs"
+                  />
+                </div>
               </div>
 
               <div>
@@ -3230,7 +3437,7 @@ export default function AdminDashboard() {
       {/* ================= MODAL: CREATE COUPON ================= */}
       {showCouponModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
@@ -3279,31 +3486,332 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Scope (Global vs Store Exclusive) *
-                </label>
-                <select
-                  value={couponShopId}
-                  onChange={(e) => setCouponShopId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs font-semibold"
-                >
-                  <option value="GLOBAL">
-                    🌐 Global Platform Coupon (Valid at ALL Restaurants)
-                  </option>
-                  <optgroup label="Store-Specific Exclusive Coupons">
-                    {shops.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        🏪 {s.name} (Exclusive only to this store)
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  {couponShopId === 'GLOBAL'
-                    ? 'Global coupons apply to cart totals across all restaurant outlets.'
-                    : 'Exclusive coupons will be rejected if applied at any other store.'}
-                </p>
+              {/* Scope & Location Targeting */}
+              <div className="space-y-2.5 pt-1 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Coupon Scope & Location Targeting *
+                  </label>
+                  <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider">
+                    {couponScopeMode}
+                  </span>
+                </div>
+
+                {/* 4 Scope Modes */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCouponScopeMode('GLOBAL');
+                      clearSelectedShops();
+                    }}
+                    className={`py-2 px-2 text-center rounded-lg text-xs font-bold transition cursor-pointer flex flex-col items-center gap-1 ${
+                      couponScopeMode === 'GLOBAL'
+                        ? 'bg-white text-purple-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Globe className="w-4 h-4" />
+                    <span>Global (All)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCouponScopeMode('STATE')}
+                    className={`py-2 px-2 text-center rounded-lg text-xs font-bold transition cursor-pointer flex flex-col items-center gap-1 ${
+                      couponScopeMode === 'STATE'
+                        ? 'bg-white text-purple-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Building2 className="w-4 h-4" />
+                    <span>State-wide</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCouponScopeMode('DISTRICT')}
+                    className={`py-2 px-2 text-center rounded-lg text-xs font-bold transition cursor-pointer flex flex-col items-center gap-1 ${
+                      couponScopeMode === 'DISTRICT'
+                        ? 'bg-white text-purple-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <MapPin className="w-4 h-4" />
+                    <span>District-wide</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCouponScopeMode('CUSTOM');
+                      setCouponApplyToAllFiltered(false);
+                    }}
+                    className={`py-2 px-2 text-center rounded-lg text-xs font-bold transition cursor-pointer flex flex-col items-center gap-1 ${
+                      couponScopeMode === 'CUSTOM'
+                        ? 'bg-white text-purple-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Store className="w-4 h-4" />
+                    <span>Selective</span>
+                  </button>
+                </div>
+
+                {/* Scope: GLOBAL */}
+                {couponScopeMode === 'GLOBAL' && (
+                  <div className="p-3 bg-purple-50/60 border border-purple-100 rounded-xl text-purple-900 text-xs leading-relaxed flex items-start gap-2.5">
+                    <Globe className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Valid Across All Platform Outlets</p>
+                      <p className="text-purple-700 text-[11px] mt-0.5">
+                        This promotional voucher can be used by customers at any current or future restaurant outlet across all states and districts.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Scope: STATE */}
+                {couponScopeMode === 'STATE' && (
+                  <div className="space-y-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Select Target State *
+                      </label>
+                      <select
+                        value={couponTargetState}
+                        onChange={(e) => setCouponTargetState(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                      >
+                        {availableStates.map((st) => (
+                          <option key={st} value={st}>
+                            {st}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="pt-1 space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        Stores in {couponTargetState || 'State'}:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <label
+                          className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition ${
+                            couponApplyToAllFiltered
+                              ? 'bg-purple-50 border-purple-300 text-purple-900 font-bold'
+                              : 'bg-white border-slate-200 text-slate-700 font-medium'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="stateShopScope"
+                            checked={couponApplyToAllFiltered}
+                            onChange={() => setCouponApplyToAllFiltered(true)}
+                            className="text-purple-600 focus:ring-purple-500"
+                          />
+                          <span>All {couponTargetState} Outlets</span>
+                        </label>
+                        <label
+                          className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition ${
+                            !couponApplyToAllFiltered
+                              ? 'bg-purple-50 border-purple-300 text-purple-900 font-bold'
+                              : 'bg-white border-slate-200 text-slate-700 font-medium'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="stateShopScope"
+                            checked={!couponApplyToAllFiltered}
+                            onChange={() => setCouponApplyToAllFiltered(false)}
+                            className="text-purple-600 focus:ring-purple-500"
+                          />
+                          <span>Select Specific Stores</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Scope: DISTRICT */}
+                {couponScopeMode === 'DISTRICT' && (
+                  <div className="space-y-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          State *
+                        </label>
+                        <select
+                          value={couponTargetState}
+                          onChange={(e) => setCouponTargetState(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                        >
+                          {availableStates.map((st) => (
+                            <option key={st} value={st}>
+                              {st}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          District / City *
+                        </label>
+                        <select
+                          value={couponTargetDistrict}
+                          onChange={(e) => setCouponTargetDistrict(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                        >
+                          {availableDistricts.map((dst) => (
+                            <option key={dst} value={dst}>
+                              {dst}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="pt-1 space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        Stores in {couponTargetDistrict || 'District'}:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <label
+                          className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition ${
+                            couponApplyToAllFiltered
+                              ? 'bg-purple-50 border-purple-300 text-purple-900 font-bold'
+                              : 'bg-white border-slate-200 text-slate-700 font-medium'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="districtShopScope"
+                            checked={couponApplyToAllFiltered}
+                            onChange={() => setCouponApplyToAllFiltered(true)}
+                            className="text-purple-600 focus:ring-purple-500"
+                          />
+                          <span>All in {couponTargetDistrict}</span>
+                        </label>
+                        <label
+                          className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition ${
+                            !couponApplyToAllFiltered
+                              ? 'bg-purple-50 border-purple-300 text-purple-900 font-bold'
+                              : 'bg-white border-slate-200 text-slate-700 font-medium'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="districtShopScope"
+                            checked={!couponApplyToAllFiltered}
+                            onChange={() => setCouponApplyToAllFiltered(false)}
+                            className="text-purple-600 focus:ring-purple-500"
+                          />
+                          <span>Pick 1, 2, or 3 Stores</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Selective Store Picker List (shown for CUSTOM or when selective mode is active) */}
+                {(couponScopeMode === 'CUSTOM' ||
+                  ((couponScopeMode === 'STATE' || couponScopeMode === 'DISTRICT') && !couponApplyToAllFiltered)) && (
+                  <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-800">
+                          Select Outlets
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-purple-100 text-purple-800">
+                          {couponSelectedShopIds.length} selected
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={selectAllFilteredShops}
+                          className="px-2 py-0.5 text-purple-700 hover:text-purple-900 font-bold hover:underline cursor-pointer"
+                        >
+                          Select All ({filteredShopsForCoupon.length})
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={clearSelectedShops}
+                          className="px-2 py-0.5 text-slate-500 hover:text-slate-800 font-bold hover:underline cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick search input */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search outlet by name, district, address..."
+                        value={couponShopSearch}
+                        onChange={(e) => setCouponShopSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    {/* Scrollable Shop List */}
+                    <div className="max-h-44 overflow-y-auto space-y-1 pr-1 border border-slate-200 rounded-xl bg-white p-1.5">
+                      {filteredShopsForCoupon.length === 0 ? (
+                        <div className="p-4 text-center text-slate-400 text-xs">
+                          No restaurant outlets match your filter.
+                        </div>
+                      ) : (
+                        filteredShopsForCoupon.map((s) => {
+                          const isSelected = couponSelectedShopIds.includes(s.id);
+                          return (
+                            <div
+                              key={s.id}
+                              onClick={() => toggleCouponShopSelection(s.id)}
+                              className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition ${
+                                isSelected
+                                  ? 'bg-purple-50/90 border border-purple-200'
+                                  : 'hover:bg-slate-50 border border-transparent'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div
+                                  className={`w-4 h-4 rounded-md flex items-center justify-center border transition shrink-0 ${
+                                    isSelected
+                                      ? 'bg-purple-600 border-purple-600 text-white'
+                                      : 'border-slate-300 bg-white'
+                                  }`}
+                                >
+                                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                </div>
+                                <div className="truncate">
+                                  <div className="font-bold text-xs text-slate-800 truncate">
+                                    {s.name}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                                    <span className="font-mono text-purple-600">/{s.slug}</span>
+                                    <span>•</span>
+                                    <span>
+                                      {s.district || 'District N/A'}, {s.state || 'State N/A'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full shrink-0">
+                                  Included
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

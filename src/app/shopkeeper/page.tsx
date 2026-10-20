@@ -171,6 +171,8 @@ export default function ShopkeeperDashboard() {
   const [shopProfile, setShopProfile] = useState<{
     name: string;
     address: string;
+    state: string;
+    district: string;
     phone: string;
     logoUrl: string;
     bannerUrl: string;
@@ -179,6 +181,8 @@ export default function ShopkeeperDashboard() {
   }>({
     name: '',
     address: '',
+    state: '',
+    district: '',
     phone: '',
     logoUrl: '',
     bannerUrl: '',
@@ -423,6 +427,8 @@ export default function ShopkeeperDashboard() {
         setShopProfile({
           name: profileRes.shop.name || '',
           address: profileRes.shop.address || '',
+          state: profileRes.shop.state || '',
+          district: profileRes.shop.district || '',
           phone: profileRes.shop.phone || '',
           logoUrl: profileRes.shop.logoUrl || '',
           bannerUrl: profileRes.shop.bannerUrl || '',
@@ -1088,6 +1094,8 @@ export default function ShopkeeperDashboard() {
       const res = await shopkeeperApi.updateProfile({
         name: shopProfile.name,
         address: shopProfile.address,
+        state: shopProfile.state,
+        district: shopProfile.district,
         phone: shopProfile.phone,
         logoUrl: shopProfile.logoUrl,
         bannerUrl: shopProfile.bannerUrl,
@@ -1101,6 +1109,8 @@ export default function ShopkeeperDashboard() {
         setShopProfile({
           name: res.shop.name || '',
           address: res.shop.address || '',
+          state: res.shop.state || '',
+          district: res.shop.district || '',
           phone: res.shop.phone || '',
           logoUrl: res.shop.logoUrl || '',
           bannerUrl: res.shop.bannerUrl || '',
@@ -4062,7 +4072,7 @@ export default function ShopkeeperDashboard() {
                             type="text"
                             value={shopProfile.address}
                             onChange={(e) => setShopProfile((prev) => ({ ...prev, address: e.target.value }))}
-                            placeholder="Street, City, Landmark"
+                            placeholder="Street, Landmark, Area"
                             className="w-full text-xs px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 text-slate-900"
                           />
                         </div>
@@ -4076,6 +4086,34 @@ export default function ShopkeeperDashboard() {
                             onChange={(e) => setShopProfile((prev) => ({ ...prev, phone: e.target.value }))}
                             placeholder="e.g. +91 98765 43210"
                             className="w-full text-xs px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 text-slate-900"
+                          />
+                        </div>
+                      </div>
+
+                      {/* State & District for Regional Offers & Promotions */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                            State (for Regional Promotions)
+                          </label>
+                          <input
+                            type="text"
+                            value={shopProfile.state}
+                            onChange={(e) => setShopProfile((prev) => ({ ...prev, state: e.target.value }))}
+                            placeholder="e.g. Tamil Nadu, Karnataka, Kerala"
+                            className="w-full text-xs px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 text-slate-900 font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                            District / City (for Local Offers)
+                          </label>
+                          <input
+                            type="text"
+                            value={shopProfile.district}
+                            onChange={(e) => setShopProfile((prev) => ({ ...prev, district: e.target.value }))}
+                            placeholder="e.g. Madurai, Chennai, Coimbatore"
+                            className="w-full text-xs px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 text-slate-900 font-medium"
                           />
                         </div>
                       </div>

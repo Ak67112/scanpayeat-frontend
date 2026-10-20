@@ -375,6 +375,8 @@ export const shopkeeperApi = {
   async updateProfile(data: {
     name?: string;
     address?: string;
+    state?: string;
+    district?: string;
     phone?: string;
     logoUrl?: string;
     bannerUrl?: string;
@@ -534,6 +536,8 @@ export const adminApi = {
     slug: string;
     subdomain: string;
     address?: string;
+    state?: string;
+    district?: string;
     phone?: string;
   }) {
     return apiFetch<{ shop: Shop }>('/api/admin/shops', {
@@ -549,6 +553,8 @@ export const adminApi = {
       slug?: string;
       subdomain?: string;
       address?: string;
+      state?: string;
+      district?: string;
       phone?: string;
       isActive?: boolean;
     }
@@ -644,6 +650,9 @@ export const adminApi = {
     minOrderAmount?: number;
     maxDiscount?: number;
     shopId?: number | null;
+    targetState?: string | null;
+    targetDistrict?: string | null;
+    applicableShopIds?: number[];
     isActive?: boolean;
   }) {
     return apiFetch<{ coupon: Coupon }>('/api/admin/coupons', {
