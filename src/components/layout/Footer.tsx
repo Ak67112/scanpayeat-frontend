@@ -10,6 +10,7 @@ import {
   Headphones,
   Store,
   Sparkles,
+  Mail,
 } from 'lucide-react';
 
 export default function Footer() {
@@ -168,6 +169,12 @@ export default function Footer() {
               <li className="flex items-center gap-2">
                 <Headphones className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                 <span>24/7 Dedicated Support</span>
+              </li>
+              <li className="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+                <Mail className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <a href="mailto:contact@hotelkada.com" className="text-stone-300 hover:text-white transition">
+                  contact@hotelkada.com
+                </a>
               </li>
             </ul>
             <div className="mt-4 p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-stone-400 leading-normal">

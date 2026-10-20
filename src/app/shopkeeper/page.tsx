@@ -57,6 +57,7 @@ import {
   Zap,
   Key,
   Check,
+  Mail,
 } from 'lucide-react';
 import { ShopkeeperWallet, WalletTransaction, ShopGatewaySettings, ShopTaxSettings } from '../../types';
 
@@ -1853,6 +1854,24 @@ export default function ShopkeeperDashboard() {
           </div>
           <ArrowUpRight className="w-3.5 h-3.5 text-slate-500" />
         </a>
+
+        {/* Support & Contact Box */}
+        <div className="p-3 mx-1 my-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-xs space-y-1.5">
+          <div className="flex items-center gap-1.5 text-amber-400 font-extrabold text-[11px] uppercase tracking-wider">
+            <Mail className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>Partner Help &amp; Support</span>
+          </div>
+          <p className="text-[10px] text-slate-400 leading-normal">
+            Need assistance with menu, printer, or account?
+          </p>
+          <a
+            href="mailto:contact@hotelkada.com?subject=Shopkeeper%20Dashboard%20Support%20-%20Hotelkada"
+            className="text-[11px] font-bold text-amber-300 hover:text-amber-200 hover:underline flex items-center gap-1 pt-0.5 truncate"
+          >
+            <span>contact@hotelkada.com</span>
+            <ArrowUpRight className="w-3 h-3 shrink-0" />
+          </a>
+        </div>
       </nav>
 
       {/* Sidebar Footer / User Profile */}
