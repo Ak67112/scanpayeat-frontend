@@ -143,6 +143,26 @@ export const publicApi = {
     return apiFetch<{ coupons: Coupon[] }>(`/api/public/shops/${slug}/coupons`);
   },
 
+  async submitPartnerEnquiry(data: {
+    restaurantName: string;
+    contactName: string;
+    mobile: string;
+    email?: string;
+    city?: string;
+    state?: string;
+    outletType?: string;
+    estimatedTables?: string;
+    message?: string;
+  }) {
+    return apiFetch<{ received: boolean; referenceId: string; supportEmail: string }>(
+      '/api/public/partner-enquiry',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
   async checkDiscounts(params: {
     shopId?: number;
     shopSlug?: string;

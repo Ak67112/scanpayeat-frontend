@@ -9,9 +9,12 @@ import Footer from '../layout/Footer';
 
 function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isDashboard = pathname?.startsWith('/admin') || pathname?.startsWith('/shopkeeper');
+  const isStandalone =
+    pathname?.startsWith('/admin') ||
+    pathname?.startsWith('/shopkeeper') ||
+    pathname?.startsWith('/partner');
 
-  if (isDashboard) {
+  if (isStandalone) {
     return <main className="flex-1 min-h-screen">{children}</main>;
   }
 

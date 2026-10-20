@@ -135,13 +135,19 @@ export default function Footer() {
                   Sign Up as Diner
                 </a>
               </li>
-              <li className="pt-2 border-t border-slate-800">
+              <li className="pt-2 border-t border-slate-800 space-y-1.5">
+                <a
+                  href="/partner"
+                  className="inline-flex items-center gap-1.5 text-amber-400 hover:text-amber-300 text-[11px] font-bold transition"
+                >
+                  <Store className="w-3 h-3 text-amber-400" />
+                  <span>Partner With Us / List Restaurant</span>
+                </a>
                 <a
                   href="/shopkeeper/login"
-                  className="inline-flex items-center gap-1.5 text-stone-500 hover:text-amber-400 text-[11px] transition"
+                  className="inline-flex items-center gap-1.5 text-stone-500 hover:text-stone-300 text-[11px] transition block"
                 >
-                  <Store className="w-3 h-3" />
-                  <span>Restaurant Partner Portal</span>
+                  <span>Kitchen Staff Login →</span>
                 </a>
               </li>
             </ul>

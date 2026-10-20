@@ -188,6 +188,17 @@ function ShopkeeperLoginContent() {
               </p>
             </div>
 
+            {/* Dedicated Partner Landing Page & Enquiry Navigation */}
+            <div className="pt-1 pb-0.5">
+              <a
+                href="/partner"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md shadow-amber-600/25 transition cursor-pointer group"
+              >
+                <span>How Hotelkada Works &amp; Join Us</span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+              </a>
+            </div>
+
             <div className="pt-1 flex flex-col sm:flex-row items-center justify-center gap-2">
               <a
                 href="mailto:contact@hotelkada.com?subject=New%20Restaurant%20Partnership%20-%20Hotelkada&body=Hi%20Hotelkada%20Team,%0D%0A%0D%0AI%20would%20like%20to%20register%20my%20restaurant%20on%20Hotelkada.%0D%0A%0D%0ARestaurant%20Name:%20%0D%0ACity/District:%20%0D%0AContact%20Number:%20%0D%0A%0D%0AThank%20you!"
