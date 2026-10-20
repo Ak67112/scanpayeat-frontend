@@ -10,7 +10,9 @@ import {
   Check,
   Smile,
   Loader2,
-  Edit3,
+  Type,
+  Palette,
+  Sparkles,
 } from 'lucide-react';
 import { FoodStoryData } from '../../types';
 
@@ -23,17 +25,124 @@ interface FoodStoryModalProps {
 
 type StoryTemplateType = 'LOCATION' | 'CRAVING';
 
-const STICKER_OPTIONS = [
-  '🍔', '🔥', '🧡', '🍕', '✨', '🤤',
-  '😋', '🌮', '🍟', '🥤', '💯', '🎉',
+// Font styles inspired by Instagram Stories
+export interface StoryFont {
+  id: string;
+  name: string;
+  label: string;
+  fontFamily: string;
+  extraClass: string;
+}
+
+const STORY_FONTS: StoryFont[] = [
+  {
+    id: 'MODERN',
+    name: 'Modern',
+    label: 'Modern',
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    extraClass: 'font-black tracking-tight',
+  },
+  {
+    id: 'RETRO',
+    name: 'Retro',
+    label: 'Retro',
+    fontFamily:
+      '"Impact", "Arial Black", "Trebuchet MS", "Cooper Black", fantasy, sans-serif',
+    extraClass: 'font-black tracking-wider uppercase',
+  },
+  {
+    id: 'SERIF',
+    name: 'Serif',
+    label: 'Editorial',
+    fontFamily: 'Georgia, "Playfair Display", "Times New Roman", serif',
+    extraClass: 'font-serif font-black italic tracking-normal',
+  },
+  {
+    id: 'TYPEWRITER',
+    name: 'Mono',
+    label: 'Typewriter',
+    fontFamily: '"Courier New", Courier, monospace',
+    extraClass: 'font-mono font-bold tracking-widest uppercase',
+  },
+  {
+    id: 'SCRIPT',
+    name: 'Script',
+    label: 'Handwritten',
+    fontFamily: '"Brush Script MT", "Caveat", "Comic Sans MS", cursive',
+    extraClass: 'font-bold italic tracking-wide',
+  },
 ];
 
-const CAPTION_PRESETS = [
-  "Today's Craving 🍔✨",
-  "Cheat Meal of the Century! 🤤",
-  "Pure Food Bliss 🧡🔥",
-  "Freshly cooked & unbeatable! ✨",
-  "Best food in town! 😋",
+// Color options (like Instagram Story color palette)
+export interface StoryColor {
+  id: string;
+  name: string;
+  colorHex: string;
+  textClass: string;
+  bgClass: string;
+}
+
+const STORY_COLORS: StoryColor[] = [
+  {
+    id: 'WHITE',
+    name: 'White',
+    colorHex: '#FFFFFF',
+    textClass: 'text-white',
+    bgClass: 'bg-white',
+  },
+  {
+    id: 'YELLOW',
+    name: 'Amber',
+    colorHex: '#FACC15',
+    textClass: 'text-amber-300',
+    bgClass: 'bg-amber-400',
+  },
+  {
+    id: 'PINK',
+    name: 'Neon Pink',
+    colorHex: '#F43F5E',
+    textClass: 'text-rose-400',
+    bgClass: 'bg-rose-500',
+  },
+  {
+    id: 'CYAN',
+    name: 'Cyan',
+    colorHex: '#38BDF8',
+    textClass: 'text-sky-300',
+    bgClass: 'bg-sky-400',
+  },
+  {
+    id: 'LIME',
+    name: 'Lime',
+    colorHex: '#4ADE80',
+    textClass: 'text-emerald-300',
+    bgClass: 'bg-emerald-400',
+  },
+  {
+    id: 'ORANGE',
+    name: 'Orange',
+    colorHex: '#FB923C',
+    textClass: 'text-orange-400',
+    bgClass: 'bg-orange-500',
+  },
+];
+
+// Text display modes (like Instagram's "A" background button)
+type TextMode = 'SHADOW' | 'PILL' | 'HIGHLIGHT' | 'GLOW';
+
+const STICKER_OPTIONS = [
+  '🤤', '🔥', '✨', '🍔', '🍕', '😋',
+  '🧡', '🌮', '🍟', '🥤', '💯', '🎉',
+];
+
+const HEADLINE_PRESETS = [
+  "Today's Craving 🤤",
+  'Eat eat 💪',
+  'Cheat Meal Mode 🔥',
+  'Pure Food Bliss ✨',
+  'Midnight Craving 🍕',
+  'Best In Town 😋',
 ];
 
 const InstagramIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
@@ -75,14 +184,21 @@ export default function FoodStoryModal({
   // Template state: Template 1 (Location & Food) vs Template 2 (Today's Craving)
   const [template, setTemplate] = useState<StoryTemplateType>('CRAVING');
 
-  // Customization states
-  const [caption, setCaption] = useState("Today's Craving 🍔✨");
-  const [isEditingCaption, setIsEditingCaption] = useState(false);
+  // Editable headline
+  const [headline, setHeadline] = useState("Today's Craving 🤤");
+
+  // Font typography & styling states
+  const [selectedFont, setSelectedFont] = useState<StoryFont>(STORY_FONTS[0]);
+  const [selectedColor, setSelectedColor] = useState<StoryColor>(STORY_COLORS[0]);
+  const [textMode, setTextMode] = useState<TextMode>('PILL');
+
+  // Emojis & item selection
   const [selectedStickers, setSelectedStickers] = useState<string[]>(['🔥', '✨']);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
+  const [currentTimeStr, setCurrentTimeStr] = useState('2:30 PM');
 
-  // Sharing states
+  // Export / Share state
   const [isExporting, setIsExporting] = useState(false);
   const [shareSuccessMessage, setShareSuccessMessage] = useState<string | null>(null);
 
@@ -91,8 +207,16 @@ export default function FoodStoryModal({
       setShareSuccessMessage(null);
       setIsExporting(false);
       setImageError(false);
-      setCaption("Today's Craving 🍔✨");
-      setIsEditingCaption(false);
+      setHeadline("Today's Craving 🤤");
+      try {
+        const time = new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        setCurrentTimeStr(time);
+      } catch (e) {
+        setCurrentTimeStr('Today');
+      }
     }
   }, [isOpen]);
 
@@ -103,7 +227,6 @@ export default function FoodStoryModal({
   const customerAvatar = storyData?.customer?.profileImage;
   const restaurantName = storyData?.restaurant?.name || 'Restaurant';
   const restaurantLocation = storyData?.restaurant?.location || '';
-  const restaurantLogo = storyData?.restaurant?.logo;
 
   const items =
     storyData?.order?.items && storyData.order.items.length > 0
@@ -181,11 +304,15 @@ export default function FoodStoryModal({
     try {
       const blob = dataUrlToBlob(dataUrl);
       const file = new File([blob], filename, { type: 'image/png' });
-      const shareTitle = `${activeItem.name} at ${restaurantName}`;
-      const shareText = caption.trim() || `Enjoying ${activeItem.name} at ${restaurantName}! 🍔✨`;
+      const shareTitle = `${headline} - ${activeItem.name}`;
+      const shareText = `${headline} at ${restaurantName}! 🍔✨`;
 
       // 1. Mobile Native Web Share API (Directly opens OS share sheet with WhatsApp Status, Instagram Stories, Snapchat)
-      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
         await navigator.share({
           files: [file],
           title: shareTitle,
@@ -212,7 +339,9 @@ export default function FoodStoryModal({
 
       try {
         if (navigator.clipboard && window.ClipboardItem) {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob }),
+          ]);
         }
       } catch (clipErr) {
         // Clipboard fallback
@@ -221,13 +350,19 @@ export default function FoodStoryModal({
       if (app === 'WHATSAPP') {
         const encoded = encodeURIComponent(`${shareText}\n\n${restaurantName}`);
         window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
-        setShareSuccessMessage('Image downloaded & copied! Paste directly into your WhatsApp Status.');
+        setShareSuccessMessage(
+          'Image downloaded & copied! Paste directly into your WhatsApp Status.'
+        );
       } else if (app === 'INSTAGRAM') {
         window.open('https://www.instagram.com', '_blank');
-        setShareSuccessMessage('Image downloaded & copied! Open Instagram to post to your Story.');
+        setShareSuccessMessage(
+          'Image downloaded & copied! Open Instagram to post to your Story.'
+        );
       } else if (app === 'SNAPCHAT') {
         window.open('https://web.snapchat.com', '_blank');
-        setShareSuccessMessage('Image downloaded & copied! Paste or send on Snapchat.');
+        setShareSuccessMessage(
+          'Image downloaded & copied! Paste or send on Snapchat.'
+        );
       }
       setTimeout(() => setShareSuccessMessage(null), 5000);
     } catch (error: any) {
@@ -257,6 +392,72 @@ export default function FoodStoryModal({
     setTimeout(() => setShareSuccessMessage(null), 4000);
   };
 
+  // Helper to render the styled headline based on textMode, font, and color
+  const renderStyledHeadline = () => {
+    const textStyle = {
+      fontFamily: selectedFont.fontFamily,
+    };
+
+    if (textMode === 'PILL') {
+      // Instagram style pill badge (Like Screenshot 1)
+      return (
+        <div className="inline-block max-w-full px-4 py-2 bg-black/75 backdrop-blur-md rounded-full border border-white/20 shadow-2xl">
+          <span
+            style={textStyle}
+            className={`text-base sm:text-lg block truncate ${selectedFont.extraClass} ${selectedColor.textClass} drop-shadow-md`}
+          >
+            {headline}
+          </span>
+        </div>
+      );
+    }
+
+    if (textMode === 'HIGHLIGHT') {
+      // Solid highlight banner
+      return (
+        <div
+          className={`inline-block max-w-full px-4 py-1.5 rounded-xl shadow-2xl ${
+            selectedColor.id === 'WHITE'
+              ? 'bg-white text-stone-950'
+              : `${selectedColor.bgClass} text-stone-950`
+          }`}
+        >
+          <span
+            style={textStyle}
+            className={`text-base sm:text-lg block truncate ${selectedFont.extraClass} font-black`}
+          >
+            {headline}
+          </span>
+        </div>
+      );
+    }
+
+    if (textMode === 'GLOW') {
+      // Neon glow text (Like Screenshot 2)
+      return (
+        <span
+          style={{
+            ...textStyle,
+            textShadow: `0 0 16px ${selectedColor.colorHex}, 0 0 28px ${selectedColor.colorHex}`,
+          }}
+          className={`text-xl sm:text-2xl block leading-tight ${selectedFont.extraClass} ${selectedColor.textClass}`}
+        >
+          {headline}
+        </span>
+      );
+    }
+
+    // Default 'SHADOW': Clean bold text with deep shadow (Like Screenshot 4)
+    return (
+      <span
+        style={textStyle}
+        className={`text-xl sm:text-2xl block leading-tight ${selectedFont.extraClass} ${selectedColor.textClass} drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]`}
+      >
+        {headline}
+      </span>
+    );
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       {/* Dark overlay backdrop */}
@@ -276,7 +477,7 @@ export default function FoodStoryModal({
           <X className="w-5 h-5" />
         </button>
 
-        {/* ================= LEFT / TOP: 9:16 Story Canvas Preview ================= */}
+        {/* ================= LEFT / TOP: 9:16 Full Screen Story Canvas Preview ================= */}
         <div className="w-full md:flex-1 bg-slate-950 p-3 sm:p-5 flex flex-col items-center justify-center overflow-y-auto shrink-0 border-b md:border-b-0 md:border-r border-slate-800">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center space-y-3 py-20 text-white">
@@ -287,27 +488,59 @@ export default function FoodStoryModal({
             </div>
           ) : (
             <div className="w-full flex flex-col items-center">
-              {/* 9:16 Story Canvas (Constrained width prevents mobile horizontal cut-off) */}
+              {/* 9:16 Story Canvas - FULL SCREEN FOOD IMAGE EDGE-TO-EDGE */}
               <div
                 ref={storyRef}
-                className="relative aspect-[9/16] w-full max-w-[305px] sm:max-w-[335px] rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between select-none bg-stone-950 text-white shrink-0 border border-white/10 p-4 sm:p-4.5"
-                style={{
-                  fontFamily:
-                    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-                }}
+                className="relative aspect-[9/16] w-full max-w-[305px] sm:max-w-[335px] rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between select-none bg-stone-950 text-white shrink-0 border border-white/10 p-4 sm:p-5"
               >
-                {/* Background Ambient Glows */}
-                <div className="absolute -top-16 -right-16 w-44 h-44 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-16 -left-16 w-44 h-44 bg-rose-500/15 rounded-full blur-3xl pointer-events-none" />
+                {/* 1. Full Bleed Food Background (Covers 100% of the canvas) */}
+                <div className="absolute inset-0 z-0">
+                  {activeItem?.image && !imageError ? (
+                    <img
+                      src={activeItem.image}
+                      alt={activeItem.name}
+                      crossOrigin="anonymous"
+                      onError={() => setImageError(true)}
+                      className="w-full h-full object-cover object-center filter brightness-95"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-amber-600 via-orange-600 to-rose-700 flex flex-col items-center justify-center p-6 text-center">
+                      <UtensilsCrossed className="w-16 h-16 text-white/40 mb-2" />
+                      <h4 className="font-black text-base text-white/90 drop-shadow-md">
+                        {activeItem?.name}
+                      </h4>
+                    </div>
+                  )}
+
+                  {/* Gradient shading top & bottom for high contrast readability like Instagram */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/60 pointer-events-none" />
+                </div>
+
+                {/* Floating mood stickers (Top Right) */}
+                {selectedStickers.length > 0 && (
+                  <div className="absolute top-4 right-4 z-10 flex items-center gap-1 pointer-events-none">
+                    {selectedStickers.map((s, idx) => (
+                      <span
+                        key={idx}
+                        className="text-2xl sm:text-3xl drop-shadow-2xl filter transform hover:scale-125 transition"
+                        style={{
+                          transform: `rotate(${idx % 2 === 0 ? '-8deg' : '8deg'})`,
+                        }}
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {/* ================= TEMPLATE 1: LOCATION & FOOD ================= */}
                 {template === 'LOCATION' && (
                   <>
-                    {/* Top Header: Location Badge */}
-                    <div className="relative z-10 space-y-1.5">
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-md max-w-full">
-                        <div className="w-4.5 h-4.5 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-white shrink-0 shadow-xs">
-                          <MapPin className="w-3 h-3 text-white" />
+                    {/* Top: Instagram-Style Location Badge */}
+                    <div className="relative z-10 space-y-1.5 pt-1 text-left">
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 shadow-lg max-w-[85%]">
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-white shrink-0 shadow-xs">
+                          <MapPin className="w-2.5 h-2.5 text-white" />
                         </div>
                         <div className="text-left leading-tight min-w-0">
                           <span className="font-black text-[11px] text-white tracking-tight truncate block">
@@ -320,54 +553,25 @@ export default function FoodStoryModal({
                           )}
                         </div>
                       </div>
-
-                      {/* Headline: Today's Craving instead of food name */}
-                      <div className="pt-1 text-left space-y-0.5">
-                        <h2 className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight drop-shadow-md">
-                          Today&apos;s Craving 🤤
-                        </h2>
-                        {activeItem?.name && (
-                          <p className="text-xs font-bold text-amber-300 truncate">
-                            {activeItem.name}
-                          </p>
-                        )}
-                      </div>
                     </div>
 
-                    {/* Center Section: Hero Food Photo Frame */}
-                    <div className="relative z-10 flex-1 my-2 rounded-2xl overflow-hidden shadow-xl border border-white/15 flex flex-col justify-end">
-                      <div className="absolute inset-0 z-0">
-                        {activeItem?.image && !imageError ? (
-                          <img
-                            src={activeItem.image}
-                            alt={activeItem.name}
-                            crossOrigin="anonymous"
-                            onError={() => setImageError(true)}
-                            className="w-full h-full object-cover object-center filter brightness-95"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-amber-600 via-orange-600 to-rose-700 flex flex-col items-center justify-center p-6 text-center">
-                            <UtensilsCrossed className="w-16 h-16 text-white/40 mb-2" />
-                            <h4 className="font-black text-base text-white/90 drop-shadow-md">
-                              {activeItem?.name}
-                            </h4>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25 pointer-events-none" />
+                    {/* Center: Editable Headline + Dish Pill */}
+                    <div className="relative z-10 my-auto text-center px-2 space-y-2">
+                      <div className="flex justify-center">
+                        {renderStyledHeadline()}
                       </div>
 
-                      {/* Caption Callout (renders only if non-empty) */}
-                      {caption && caption.trim().length > 0 && (
-                        <div className="relative z-10 m-2.5 p-2.5 bg-black/70 backdrop-blur-xl rounded-xl border border-white/20 text-center shadow-lg">
-                          <p className="text-xs font-black text-amber-300 tracking-wide drop-shadow-xs">
-                            &ldquo;{caption.trim()}&rdquo;
-                          </p>
+                      {activeItem?.name && (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/15 shadow-md">
+                          <span className="text-[11px] font-black text-amber-300 truncate max-w-[190px]">
+                            {activeItem.name}
+                          </span>
                         </div>
                       )}
                     </div>
 
-                    {/* Bottom: Customer Profile & Small Restaurant Logo */}
-                    <div className="relative z-10 pt-2 border-t border-white/10 flex items-center justify-between">
+                    {/* Bottom: Customer Profile & Brand Logo */}
+                    <div className="relative z-10 pt-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-purple-600 p-0.5 shadow-md shrink-0">
                           <div className="w-full h-full rounded-full bg-stone-900 flex items-center justify-center overflow-hidden">
@@ -387,7 +591,7 @@ export default function FoodStoryModal({
                         </div>
                         <div className="text-left leading-tight min-w-0">
                           <div className="flex items-center gap-1">
-                            <span className="text-xs font-black text-white truncate max-w-[130px]">
+                            <span className="text-xs font-black text-white truncate max-w-[120px]">
                               {customerName}
                             </span>
                             <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-stone-950 text-[9px] font-black inline-flex items-center justify-center shrink-0">
@@ -397,8 +601,8 @@ export default function FoodStoryModal({
                         </div>
                       </div>
 
-                      {/* Our Brand Logo */}
-                      <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-full border border-white/15 shadow-2xs">
+                      {/* Small Brand Logo */}
+                      <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 shadow-xs">
                         <img
                           src="/logo-icon.png"
                           alt="ScanPayEat"
@@ -412,72 +616,36 @@ export default function FoodStoryModal({
                   </>
                 )}
 
-                {/* ================= TEMPLATE 2: TODAY'S CRAVING ================= */}
+                {/* ================= TEMPLATE 2: TODAY'S CRAVING (FULL STORY VIBE) ================= */}
                 {template === 'CRAVING' && (
                   <>
-                    {/* Top: Today's Craving Headline */}
-                    <div className="relative z-10 space-y-0.5 text-center pt-1">
-                      <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">
-                        Today&apos;s Craving 🤤
-                      </h2>
-                      {activeItem?.name && (
-                        <p className="text-xs font-bold text-amber-300 truncate">
-                          {activeItem.name}
-                        </p>
-                      )}
+                    {/* Top: Timestamp / Mood Sticker */}
+                    <div className="relative z-10 pt-1 text-left">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 shadow-md">
+                        <Sparkles className="w-3 h-3 text-amber-400" />
+                        <span className="text-[10px] font-black text-white tracking-wide">
+                          {currentTimeStr}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Center: Hero Food Frame with Floating Emojis */}
-                    <div className="relative z-10 flex-1 my-2 rounded-2xl overflow-hidden shadow-xl border border-white/15 flex flex-col justify-end">
-                      <div className="absolute inset-0 z-0">
-                        {activeItem?.image && !imageError ? (
-                          <img
-                            src={activeItem.image}
-                            alt={activeItem.name}
-                            crossOrigin="anonymous"
-                            onError={() => setImageError(true)}
-                            className="w-full h-full object-cover object-center filter brightness-95 transform scale-105"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-amber-600 via-orange-600 to-rose-700 flex flex-col items-center justify-center p-6 text-center">
-                            <UtensilsCrossed className="w-16 h-16 text-white/40 mb-2" />
-                            <h4 className="font-black text-base text-white/90 drop-shadow-md">
-                              {activeItem?.name}
-                            </h4>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/25 pointer-events-none" />
+                    {/* Center / Lower Center: Full Editable Headline & Dish Tag */}
+                    <div className="relative z-10 my-auto text-center px-2 space-y-2">
+                      <div className="flex justify-center">
+                        {renderStyledHeadline()}
                       </div>
 
-                      {/* Floating mood stickers */}
-                      {selectedStickers.length > 0 && (
-                        <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 pointer-events-none">
-                          {selectedStickers.map((s, idx) => (
-                            <span
-                              key={idx}
-                              className="text-2xl sm:text-3xl drop-shadow-2xl filter transform hover:scale-125 transition"
-                              style={{
-                                transform: `rotate(${idx % 2 === 0 ? '-8deg' : '8deg'})`,
-                              }}
-                            >
-                              {s}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Frosted Glass Caption Banner */}
-                      {caption && caption.trim().length > 0 && (
-                        <div className="relative z-10 m-2.5 p-2.5 bg-black/70 backdrop-blur-xl rounded-xl border border-white/20 text-center shadow-lg">
-                          <p className="text-xs sm:text-sm font-black text-amber-300 tracking-wide drop-shadow-xs">
-                            &ldquo;{caption.trim()}&rdquo;
-                          </p>
+                      {activeItem?.name && (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/15 shadow-md">
+                          <span className="text-[11px] font-black text-amber-300 truncate max-w-[190px]">
+                            {activeItem.name}
+                          </span>
                         </div>
                       )}
                     </div>
 
-                    {/* Bottom: Minimal Foodie Badge & Small Logo */}
-                    <div className="relative z-10 pt-2 border-t border-white/10 flex items-center justify-between">
+                    {/* Bottom: Customer Profile & Small Brand Logo */}
+                    <div className="relative z-10 pt-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400 to-rose-500 p-0.5 shadow-md shrink-0">
                           <div className="w-full h-full rounded-full bg-stone-900 flex items-center justify-center overflow-hidden">
@@ -496,7 +664,7 @@ export default function FoodStoryModal({
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-black text-white truncate max-w-[130px]">
+                          <span className="text-xs font-black text-white truncate max-w-[120px]">
                             {customerName}
                           </span>
                           <span className="w-3.5 h-3.5 rounded-full bg-amber-400 text-stone-950 text-[9px] font-black inline-flex items-center justify-center shrink-0">
@@ -505,8 +673,8 @@ export default function FoodStoryModal({
                         </div>
                       </div>
 
-                      {/* Our Brand Logo */}
-                      <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-full border border-white/15 shadow-2xs">
+                      {/* Small Brand Logo */}
+                      <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 shadow-xs">
                         <img
                           src="/logo-icon.png"
                           alt="ScanPayEat"
@@ -524,25 +692,25 @@ export default function FoodStoryModal({
           )}
         </div>
 
-        {/* ================= RIGHT / BOTTOM: Controls & Direct Social Share Flows ================= */}
-        <div className="w-full md:w-92 bg-slate-900 p-4 sm:p-5 flex flex-col justify-between overflow-y-auto">
+        {/* ================= RIGHT / BOTTOM: Controls & Typography Customization ================= */}
+        <div className="w-full md:w-96 bg-slate-900 p-4 sm:p-5 flex flex-col justify-between overflow-y-auto">
           <div className="space-y-4">
             <div>
               <span className="inline-block text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-400/20">
-                Food Story Generator
+                Story Editor
               </span>
               <h2 className="text-lg font-black text-white mt-1">
-                Customize &amp; Share
+                Customize Your Story
               </h2>
               <p className="text-xs text-slate-400">
-                Pick a template, edit your craving mood, and share directly to your status or story.
+                Full-screen photo, custom fonts, colors &amp; instant social sharing.
               </p>
             </div>
 
             {/* Template Switcher: 2 Templates */}
             <div className="space-y-1.5">
               <label className="text-xs font-black uppercase tracking-wider text-slate-200 block">
-                Select Template:
+                Template:
               </label>
               <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
                 <button
@@ -572,6 +740,153 @@ export default function FoodStoryModal({
               </div>
             </div>
 
+            {/* Editable Headline Input & Quick Presets */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                <Type className="w-3.5 h-3.5 text-amber-400" />
+                <span>Edit Headline Text:</span>
+              </label>
+
+              <input
+                type="text"
+                value={headline}
+                onChange={(e) => setHeadline(e.target.value)}
+                maxLength={45}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-amber-400 focus:ring-1 focus:ring-amber-400 font-bold"
+                placeholder="Type your craving text..."
+              />
+
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                {HEADLINE_PRESETS.map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setHeadline(preset)}
+                    className={`text-[10px] px-2 py-0.5 rounded-lg font-bold transition cursor-pointer ${
+                      headline === preset
+                        ? 'bg-amber-500 text-white shadow-xs'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Font Style Picker (Modern, Retro, Serif, Typewriter, Script) */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-200 block">
+                Choose Font Style:
+              </label>
+              <div className="grid grid-cols-5 gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+                {STORY_FONTS.map((font) => (
+                  <button
+                    key={font.id}
+                    type="button"
+                    onClick={() => setSelectedFont(font)}
+                    style={{ fontFamily: font.fontFamily }}
+                    className={`py-1.5 px-1 rounded-xl text-xs font-bold transition text-center cursor-pointer truncate ${
+                      selectedFont.id === font.id
+                        ? 'bg-amber-500 text-white shadow-md ring-2 ring-amber-400/50'
+                        : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {font.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Text Color & Style Mode Picker */}
+            <div className="grid grid-cols-2 gap-2">
+              {/* Color dots */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-300 flex items-center gap-1">
+                  <Palette className="w-3 h-3 text-amber-400" />
+                  <span>Color:</span>
+                </label>
+                <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+                  {STORY_COLORS.map((col) => (
+                    <button
+                      key={col.id}
+                      type="button"
+                      onClick={() => setSelectedColor(col)}
+                      className={`w-6 h-6 rounded-full transition cursor-pointer flex items-center justify-center shrink-0 ${
+                        col.bgClass
+                      } ${
+                        selectedColor.id === col.id
+                          ? 'ring-2 ring-white scale-110 shadow-md'
+                          : 'opacity-70 hover:opacity-100'
+                      }`}
+                      title={col.name}
+                    >
+                      {selectedColor.id === col.id && (
+                        <Check className="w-3.5 h-3.5 text-stone-950 stroke-[3]" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Text Mode Selector (Shadow, Pill, Highlight, Glow) */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-300 block">
+                  Text Style:
+                </label>
+                <div className="grid grid-cols-4 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[10px] font-black">
+                  <button
+                    type="button"
+                    onClick={() => setTextMode('SHADOW')}
+                    className={`py-1.5 rounded-lg transition cursor-pointer text-center ${
+                      textMode === 'SHADOW'
+                        ? 'bg-amber-500 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Shadow Text"
+                  >
+                    Aa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTextMode('PILL')}
+                    className={`py-1.5 rounded-lg transition cursor-pointer text-center ${
+                      textMode === 'PILL'
+                        ? 'bg-amber-500 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Frosted Pill Bar"
+                  >
+                    (Aa)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTextMode('HIGHLIGHT')}
+                    className={`py-1.5 rounded-lg transition cursor-pointer text-center ${
+                      textMode === 'HIGHLIGHT'
+                        ? 'bg-amber-500 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Highlight Box"
+                  >
+                    [Aa]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTextMode('GLOW')}
+                    className={`py-1.5 rounded-lg transition cursor-pointer text-center ${
+                      textMode === 'GLOW'
+                        ? 'bg-amber-500 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Neon Glow"
+                  >
+                    ✨
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Multiple Items Selector (if order has >1 dish) */}
             {items.length > 1 && (
               <div className="space-y-1.5">
@@ -596,50 +911,6 @@ export default function FoodStoryModal({
               </div>
             )}
 
-            {/* Caption Customizer */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-black uppercase tracking-wider text-slate-200">
-                  Caption / Craving Text:
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setIsEditingCaption(!isEditingCaption)}
-                  className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  {isEditingCaption ? 'Done' : 'Custom'}
-                </button>
-              </div>
-
-              {isEditingCaption ? (
-                <input
-                  type="text"
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  maxLength={60}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-amber-400 focus:ring-1 focus:ring-amber-400 font-medium"
-                  placeholder="Type your craving caption..."
-                />
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {CAPTION_PRESETS.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setCaption(preset)}
-                      className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
-                        caption === preset
-                          ? 'bg-amber-500 text-white shadow-xs'
-                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60'
-                      }`}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Sticker / Emoji Selector */}
             <div className="space-y-1.5">
               <label className="text-xs font-black uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
@@ -653,7 +924,7 @@ export default function FoodStoryModal({
                     <button
                       key={idx}
                       onClick={() => toggleSticker(stk)}
-                      className={`h-9 rounded-lg text-lg flex items-center justify-center transition cursor-pointer ${
+                      className={`h-8 rounded-lg text-lg flex items-center justify-center transition cursor-pointer ${
                         isSelected
                           ? 'bg-amber-500/30 border-2 border-amber-400 scale-105 shadow-md'
                           : 'hover:bg-slate-800 text-slate-300'
@@ -676,7 +947,7 @@ export default function FoodStoryModal({
           </div>
 
           {/* ================= Social Share Flow Buttons (WhatsApp, Insta, Snapchat, Download) ================= */}
-          <div className="space-y-2 pt-4 border-t border-slate-800 mt-4">
+          <div className="space-y-2 pt-3 border-t border-slate-800 mt-4">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block text-center">
               Share to your favorite platform:
             </span>
@@ -692,7 +963,9 @@ export default function FoodStoryModal({
                 title="Share to WhatsApp Status"
               >
                 <WhatsAppIcon className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110" />
-                <span className="text-[10px] sm:text-[11px] font-black leading-tight">WhatsApp Status</span>
+                <span className="text-[10px] sm:text-[11px] font-black leading-tight">
+                  WhatsApp Status
+                </span>
               </button>
 
               {/* 2. Instagram Story */}
@@ -704,7 +977,9 @@ export default function FoodStoryModal({
                 title="Add to Instagram Story"
               >
                 <InstagramIcon className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110" />
-                <span className="text-[10px] sm:text-[11px] font-black leading-tight">Insta Story</span>
+                <span className="text-[10px] sm:text-[11px] font-black leading-tight">
+                  Insta Story
+                </span>
               </button>
 
               {/* 3. Snapchat */}
@@ -716,7 +991,9 @@ export default function FoodStoryModal({
                 title="Share to Snapchat"
               >
                 <SnapchatIcon className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110 fill-black text-black" />
-                <span className="text-[10px] sm:text-[11px] font-black leading-tight">Snapchat</span>
+                <span className="text-[10px] sm:text-[11px] font-black leading-tight">
+                  Snapchat
+                </span>
               </button>
             </div>
 
