@@ -60,6 +60,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { ShopkeeperWallet, WalletTransaction, ShopGatewaySettings, ShopTaxSettings } from '../../types';
+import ActionFeedbackModal, { ActionFeedbackData } from '../../components/ActionFeedbackModal';
 
 type TabView = 'ORDERS' | 'PRODUCTS' | 'CATEGORIES' | 'STATS' | 'DISCOUNTS' | 'PROFILE' | 'WALLET' | 'TAX_SETTINGS';
 
@@ -164,6 +165,24 @@ export default function ShopkeeperDashboard() {
     newBalance?: number;
     message?: string;
   } | null>(null);
+
+  // Universal Animated Feedback Popup for Create, Update, Delete & Errors
+  const [actionFeedback, setActionFeedback] = useState<ActionFeedbackData | null>(null);
+
+  const notifyAction = (
+    type: 'CREATE' | 'UPDATE' | 'DELETE' | 'ERROR',
+    title: string,
+    message?: string,
+    entityName?: string
+  ) => {
+    setActionFeedback({
+      isOpen: true,
+      type,
+      title,
+      message,
+      entityName,
+    });
+  };
 
   // Shop Tax (GST) Settings State
   const [taxSettings, setTaxSettings] = useState<ShopTaxSettings | null>(null);
@@ -631,9 +650,12 @@ export default function ShopkeeperDashboard() {
         setSgstRate(Number(tx.sgstRate ?? 2.5));
       }
       setTaxSuccessMsg('GST tax settings saved successfully!');
+      notifyAction('UPDATE', 'GST Settings Saved!', 'Tax rates and GSTIN updated for customer receipts');
       setTimeout(() => setTaxSuccessMsg(null), 5000);
     } catch (err: any) {
-      setTaxErrorMsg(err.message || 'Failed to update GST settings');
+      const msg = err.message || 'Failed to update GST settings';
+      setTaxErrorMsg(msg);
+      notifyAction('ERROR', 'Failed to Save GST Settings', msg);
     } finally {
       setIsSavingTax(false);
     }
@@ -901,8 +923,14 @@ export default function ShopkeeperDashboard() {
       setSelectedReceiptOrder((prev) =>
         prev && prev.id === orderId ? { ...prev, orderStatus: nextStatus } : prev
       );
+      notifyAction(
+        nextStatus === 'CANCELLED' ? 'DELETE' : 'UPDATE',
+        nextStatus === 'CANCELLED' ? 'Order Cancelled' : `Order Marked as ${nextStatus}`,
+        `Kitchen status changed for Order #${orderId}`,
+        `Order #${orderId}`
+      );
     } catch (err: any) {
-      alert(err.message || 'Failed to update order status');
+      notifyAction('ERROR', 'Failed to Update Order', err.message || 'Status transition failed');
     } finally {
       setUpdatingOrderId(null);
     }
@@ -915,8 +943,15 @@ export default function ShopkeeperDashboard() {
       setProducts((prev) =>
         prev.map((p) => (p.id === prodId ? { ...p, isAvailable: !current } : p))
       );
+      const prod = products.find((p) => p.id === prodId);
+      notifyAction(
+        'UPDATE',
+        !current ? 'Dish Back in Stock!' : 'Dish Marked Sold Out',
+        !current ? 'Item is now available for customers to order' : 'Item is now hidden from customer orders',
+        prod?.name
+      );
     } catch (err: any) {
-      alert(err.message || 'Failed to toggle product availability');
+      notifyAction('ERROR', 'Availability Update Failed', err.message || 'Could not toggle dish status');
     }
   };
 
@@ -939,8 +974,9 @@ export default function ShopkeeperDashboard() {
       setNewProdPrice('');
       setNewProdDesc('');
       setNewProdImage('');
+      notifyAction('CREATE', 'New Dish Added!', 'Item has been added to your live menu', res.product.name);
     } catch (err: any) {
-      alert(err.message || 'Failed to create product');
+      notifyAction('ERROR', 'Failed to Create Dish', err.message || 'Could not add dish');
     } finally {
       setIsSubmittingProd(false);
     }
@@ -977,8 +1013,9 @@ export default function ShopkeeperDashboard() {
         prev.map((p) => (p.id === editProdId ? { ...p, ...res.product } : p))
       );
       setShowEditProductModal(false);
+      notifyAction('UPDATE', 'Dish Updated!', 'Menu item details saved successfully', res.product.name);
     } catch (err: any) {
-      alert(err.message || 'Failed to update product');
+      notifyAction('ERROR', 'Failed to Update Dish', err.message || 'Could not save dish details');
     } finally {
       setIsSubmittingEditProd(false);
     }
@@ -987,13 +1024,15 @@ export default function ShopkeeperDashboard() {
   // Delete Product
   const handleDeleteProduct = async () => {
     if (!deleteProductTarget) return;
+    const targetName = deleteProductTarget.name;
     setIsDeletingProd(true);
     try {
       await shopkeeperApi.deleteProduct(deleteProductTarget.id);
       setProducts((prev) => prev.filter((p) => p.id !== deleteProductTarget.id));
       setDeleteProductTarget(null);
+      notifyAction('DELETE', 'Dish Removed', 'The item has been removed from your kitchen menu', targetName);
     } catch (err: any) {
-      alert(err.message || 'Failed to delete product');
+      notifyAction('ERROR', 'Failed to Delete Dish', err.message || 'Could not remove dish');
     } finally {
       setIsDeletingProd(false);
     }
@@ -1013,8 +1052,9 @@ export default function ShopkeeperDashboard() {
       setShowAddCatModal(false);
       setNewCatName('');
       setNewCatDesc('');
+      notifyAction('CREATE', 'Category Created!', 'New menu section is ready', res.category.name);
     } catch (err: any) {
-      alert(err.message || 'Failed to create category');
+      notifyAction('ERROR', 'Failed to Create Category', err.message || 'Could not add category');
     } finally {
       setIsSubmittingCat(false);
     }
@@ -1042,8 +1082,9 @@ export default function ShopkeeperDashboard() {
         prev.map((c) => (c.id === editCatId ? { ...c, ...res.category } : c))
       );
       setShowEditCatModal(false);
+      notifyAction('UPDATE', 'Category Updated!', 'Menu category updated successfully', res.category.name);
     } catch (err: any) {
-      alert(err.message || 'Failed to update category');
+      notifyAction('ERROR', 'Failed to Update Category', err.message || 'Could not update category');
     } finally {
       setIsSubmittingEditCat(false);
     }
@@ -1052,13 +1093,15 @@ export default function ShopkeeperDashboard() {
   // Delete Category
   const handleDeleteCategory = async () => {
     if (!deleteCatTarget) return;
+    const targetName = deleteCatTarget.name;
     setIsDeletingCat(true);
     try {
       await shopkeeperApi.deleteCategory(deleteCatTarget.id);
       setCategories((prev) => prev.filter((c) => c.id !== deleteCatTarget.id));
       setDeleteCatTarget(null);
+      notifyAction('DELETE', 'Category Deleted', 'The category has been removed', targetName);
     } catch (err: any) {
-      alert(err.message || 'Failed to delete category');
+      notifyAction('ERROR', 'Failed to Delete Category', err.message || 'Could not delete category');
     } finally {
       setIsDeletingCat(false);
     }
@@ -1079,9 +1122,10 @@ export default function ShopkeeperDashboard() {
       });
       if (res?.rule) setRewardRule(res.rule);
       setRewardRuleSuccess(true);
+      notifyAction('UPDATE', 'Milestone Reward Saved!', 'Customer loyalty milestone rules updated');
       setTimeout(() => setRewardRuleSuccess(false), 4000);
     } catch (err: any) {
-      alert(err.message || 'Failed to save milestone rule');
+      notifyAction('ERROR', 'Failed to Save Milestone Rule', err.message || 'Could not save milestone rule');
     } finally {
       setIsSavingRewardRule(false);
     }
@@ -1106,20 +1150,24 @@ export default function ShopkeeperDashboard() {
       setNewCouponValue('');
       setNewCouponMinOrder('');
       setNewCouponMaxDiscount('');
+      notifyAction('CREATE', 'Coupon Code Created!', 'Customers can now apply this discount promo', res.coupon.code);
     } catch (err: any) {
       setCouponFormError(err.message || 'Failed to create coupon');
+      notifyAction('ERROR', 'Failed to Create Coupon', err.message || 'Could not create coupon');
     } finally {
       setIsSubmittingCoupon(false);
     }
   };
 
   const handleDeleteCoupon = async (id: number) => {
+    const coupon = coupons.find((c) => c.id === id);
     if (!window.confirm('Delete this coupon code? Customers will no longer be able to use it.')) return;
     try {
       await shopkeeperApi.deleteCoupon(id);
       setCoupons((prev) => prev.filter((c) => c.id !== id));
+      notifyAction('DELETE', 'Coupon Deleted', 'Coupon offer is no longer available', coupon?.code);
     } catch (err: any) {
-      alert(err.message || 'Failed to delete coupon');
+      notifyAction('ERROR', 'Failed to Delete Coupon', err.message || 'Could not delete coupon');
     }
   };
 
@@ -1157,9 +1205,10 @@ export default function ShopkeeperDashboard() {
         });
       }
       setProfileSuccess(true);
+      notifyAction('UPDATE', 'Profile & Settings Saved!', 'Restaurant information and branding updated successfully');
       setTimeout(() => setProfileSuccess(false), 5000);
     } catch (err: any) {
-      alert(err.message || 'Failed to save restaurant profile');
+      notifyAction('ERROR', 'Failed to Save Profile', err.message || 'Could not update profile');
     } finally {
       setIsSavingProfile(false);
     }
@@ -1172,8 +1221,9 @@ export default function ShopkeeperDashboard() {
     try {
       const url = await shopkeeperApi.uploadImage(file);
       setShopProfile((prev) => ({ ...prev, logoUrl: url }));
+      notifyAction('UPDATE', 'Logo Uploaded!', 'New restaurant logo is now active');
     } catch (err: any) {
-      alert(err.message || 'Failed to upload shop logo');
+      notifyAction('ERROR', 'Failed to Upload Logo', err.message || 'Image upload failed');
     } finally {
       setIsUploadingLogo(false);
     }
@@ -1189,8 +1239,9 @@ export default function ShopkeeperDashboard() {
         ...prev,
         ambienceImages: [...(prev.ambienceImages || []), url],
       }));
+      notifyAction('UPDATE', 'Ambience Photo Added!', 'Photo added to restaurant gallery');
     } catch (err: any) {
-      alert(err.message || 'Failed to upload ambience image');
+      notifyAction('ERROR', 'Failed to Upload Ambience Image', err.message || 'Image upload failed');
     } finally {
       setIsUploadingAmbience(false);
     }
@@ -1201,6 +1252,7 @@ export default function ShopkeeperDashboard() {
       ...prev,
       ambienceImages: (prev.ambienceImages || []).filter((_, i) => i !== index),
     }));
+    notifyAction('DELETE', 'Photo Removed', 'Image removed from ambience gallery');
   };
 
   const handleUploadKeeperAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1210,8 +1262,9 @@ export default function ShopkeeperDashboard() {
     try {
       const url = await shopkeeperApi.uploadImage(file);
       setKeeperProfile((prev) => ({ ...prev, avatarUrl: url }));
+      notifyAction('UPDATE', 'Avatar Uploaded!', 'Profile photo updated');
     } catch (err: any) {
-      alert(err.message || 'Failed to upload avatar');
+      notifyAction('ERROR', 'Failed to Upload Avatar', err.message || 'Avatar upload failed');
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -1552,10 +1605,10 @@ export default function ShopkeeperDashboard() {
           type="button"
           onClick={() => handleStatusChange(order.id, 'PREPARING')}
           disabled={isUpdating}
-          className={`${isFullWidth ? 'flex-1 py-2' : 'px-3 py-1.5'} bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-[11px] rounded-xl shadow-xs transition inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
+          className={`${isFullWidth ? 'w-full py-2.5 px-3' : 'px-3 py-1.5'} bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-[11px] rounded-xl shadow-xs transition inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
         >
-          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ChefHat className="w-3.5 h-3.5" />}
-          <span>Start Cooking</span>
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <ChefHat className="w-3.5 h-3.5 shrink-0" />}
+          <span className="truncate">Start Cooking</span>
         </button>
       );
     }
@@ -1566,10 +1619,10 @@ export default function ShopkeeperDashboard() {
           type="button"
           onClick={() => handleStatusChange(order.id, 'READY')}
           disabled={isUpdating}
-          className={`${isFullWidth ? 'flex-1 py-2' : 'px-3 py-1.5'} bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] rounded-xl shadow-xs transition inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
+          className={`${isFullWidth ? 'w-full py-2.5 px-3' : 'px-3 py-1.5'} bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] rounded-xl shadow-xs transition inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
         >
-          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5" />}
-          <span>Mark Ready</span>
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Bell className="w-3.5 h-3.5 shrink-0" />}
+          <span className="truncate">Mark Ready</span>
         </button>
       );
     }
@@ -1580,10 +1633,10 @@ export default function ShopkeeperDashboard() {
           type="button"
           onClick={() => handleStatusChange(order.id, 'COMPLETED')}
           disabled={isUpdating}
-          className={`${isFullWidth ? 'flex-1 py-2' : 'px-3 py-1.5'} bg-slate-900 hover:bg-black text-white font-extrabold text-[11px] rounded-xl shadow-xs transition inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
+          className={`${isFullWidth ? 'w-full py-2.5 px-3' : 'px-3 py-1.5'} bg-slate-900 hover:bg-black text-white font-extrabold text-[11px] rounded-xl shadow-xs transition inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
         >
-          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-          <span>Complete Order</span>
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+          <span className="truncate">Complete Order</span>
         </button>
       );
     }
@@ -1594,10 +1647,10 @@ export default function ShopkeeperDashboard() {
           type="button"
           onClick={() => handleStatusChange(order.id, 'READY')}
           disabled={isUpdating}
-          className={`${isFullWidth ? 'flex-1 py-2' : 'px-3 py-1.5'} bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-xl transition inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
+          className={`${isFullWidth ? 'w-full py-2.5 px-3' : 'px-3 py-1.5'} bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-xl transition inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
         >
-          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-          <span>Reopen</span>
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <RefreshCw className="w-3.5 h-3.5 shrink-0" />}
+          <span className="truncate">Reopen</span>
         </button>
       );
     }
@@ -1608,15 +1661,137 @@ export default function ShopkeeperDashboard() {
           type="button"
           onClick={() => handleStatusChange(order.id, 'CONFIRMED')}
           disabled={isUpdating}
-          className={`${isFullWidth ? 'flex-1 py-2' : 'px-3 py-1.5'} bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-[11px] rounded-xl transition inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
+          className={`${isFullWidth ? 'w-full py-2.5 px-3' : 'px-3 py-1.5'} bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-[11px] rounded-xl transition inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
         >
-          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-          <span>Restore</span>
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <RefreshCw className="w-3.5 h-3.5 shrink-0" />}
+          <span className="truncate">Restore</span>
         </button>
       );
     }
 
     return null;
+  };
+
+  // Reusable Topbar Profile Dropdown
+  const renderProfileDropdown = () => {
+    const userAvatar = user?.avatar || user?.avatarUrl;
+    return (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+          className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-full border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 transition cursor-pointer shadow-2xs shrink-0"
+        >
+          {userAvatar ? (
+            <img
+              src={userAvatar}
+              alt={user?.name || 'Staff'}
+              className="w-7 h-7 rounded-full object-cover border border-amber-300 shrink-0"
+            />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+              {(user?.name || 'S').charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="text-left hidden sm:block">
+            <span className="text-xs font-bold text-slate-800 block leading-tight truncate max-w-[110px]">
+              {user?.name || 'Restaurant Staff'}
+            </span>
+            <span className="text-[10px] text-amber-600 font-semibold block leading-none">
+              Partner Portal
+            </span>
+          </div>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        </button>
+
+        {isProfileMenuOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-transparent"
+              onClick={() => setIsProfileMenuOpen(false)}
+            />
+            <div
+              className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-left"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-3 bg-gradient-to-br from-slate-50 to-amber-50/50 rounded-xl border border-slate-100 flex items-center gap-3">
+                {userAvatar ? (
+                  <img
+                    src={userAvatar}
+                    alt={user?.name || 'User'}
+                    className="w-10 h-10 rounded-full object-cover border border-amber-400 shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-black text-sm flex items-center justify-center shrink-0">
+                    {(user?.name || 'S').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="overflow-hidden">
+                  <p className="font-bold text-xs text-slate-900 truncate">
+                    {user?.name || 'Restaurant Staff'}
+                  </p>
+                  <p className="text-[11px] text-slate-500 truncate">{user?.email || 'No email'}</p>
+                  <span className="inline-block mt-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800">
+                    {user?.role || 'SHOPKEEPER'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-1.5 space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('PROFILE');
+                    setIsProfileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
+                >
+                  <Store className="w-4 h-4 text-slate-400" />
+                  <span>Restaurant Settings</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('WALLET');
+                    setIsProfileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
+                >
+                  <Wallet className="w-4 h-4 text-slate-400" />
+                  <span>Prepaid Wallet</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('TAX_SETTINGS');
+                    setIsProfileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
+                >
+                  <Receipt className="w-4 h-4 text-slate-400" />
+                  <span>GST / Tax Settings</span>
+                </button>
+
+                <div className="border-t border-slate-100 my-1" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    logout();
+                    router.push('/shopkeeper/login');
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 text-rose-500" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
   };
 
   // Paginated orders
@@ -1672,17 +1847,29 @@ export default function ShopkeeperDashboard() {
     <div className="flex flex-col h-full">
       {/* Brand Header */}
       <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-900/30 shrink-0">
-            <ChefHat className="w-5 h-5" />
-          </div>
+        <div className="flex items-center space-x-3 min-w-0">
+          {shopProfile.logoUrl ? (
+            <img
+              src={shopProfile.logoUrl}
+              alt={user?.shopName || 'Shop Logo'}
+              className="w-10 h-10 rounded-xl object-cover border border-amber-500/40 shadow-md shrink-0 bg-white"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-900/30 shrink-0">
+              <ChefHat className="w-5 h-5" />
+            </div>
+          )}
           <div className="truncate">
             <span className="font-black text-white text-base tracking-tight block leading-tight truncate">
               {user?.shopName || 'Kitchen Operations'}
             </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300/80 bg-amber-950/70 px-1.5 py-0.5 rounded border border-amber-800/50">
-              Shop #{user?.shopId}
-            </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Outlet #{user?.shopId}</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-semibold">• Hotelkada</span>
+            </div>
           </div>
         </div>
         {/* Close button for mobile */}
@@ -1967,264 +2154,154 @@ export default function ShopkeeperDashboard() {
       {/* ================= MAIN CONTENT AREA ================= */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Top Header Bar */}
-        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-40 shadow-xs">
-          <div className="flex items-center space-x-3">
-            {/* Hamburger for mobile */}
-            <button
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 sticky top-0 z-40 shadow-xs">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            {/* Left: Mobile hamburger + Title + Profile Menu on mobile */}
+            <div className="flex items-center justify-between lg:justify-start gap-3 min-w-0">
+              <div className="flex items-center space-x-3 min-w-0">
+                <button
+                  onClick={() => setIsMobileSidebarOpen(true)}
+                  className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 shrink-0"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
 
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-amber-600 uppercase tracking-wide">
-                  Kitchen Display
-                </span>
-                <span className="text-slate-300">•</span>
-                <span className="text-xs font-medium text-slate-500 hidden sm:inline">
-                  {activeTab === 'ORDERS' && 'Live Incoming Order Tickets'}
-                  {activeTab === 'PRODUCTS' && 'Menu Items & Stock Controls'}
-                  {activeTab === 'CATEGORIES' && 'Menu Groupings & Order'}
-                  {activeTab === 'STATS' && "Today, This Week & This Month's Sales Breakdown"}
-                  {activeTab === 'DISCOUNTS' && 'Milestone Rewards & Promo Coupon Codes'}
-                  {activeTab === 'PROFILE' && 'Store Logo, Ambience Photos & Restaurant Story'}
-                  {activeTab === 'WALLET' && 'Prepaid Balance & QR Payment Permission'}
-                  {activeTab === 'TAX_SETTINGS' && 'Restaurant GSTIN & Tax Rates'}
-                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-bold text-amber-600 uppercase tracking-wide">
+                      Kitchen Display
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-xs font-medium text-slate-500 hidden sm:inline truncate">
+                      {activeTab === 'ORDERS' && 'Live Incoming Order Tickets'}
+                      {activeTab === 'PRODUCTS' && 'Menu Items & Stock Controls'}
+                      {activeTab === 'CATEGORIES' && 'Menu Groupings & Order'}
+                      {activeTab === 'STATS' && "Today, This Week & This Month's Sales Breakdown"}
+                      {activeTab === 'DISCOUNTS' && 'Milestone Rewards & Promo Coupon Codes'}
+                      {activeTab === 'PROFILE' && 'Store Logo, Ambience Photos & Restaurant Story'}
+                      {activeTab === 'WALLET' && 'Prepaid Balance & QR Payment Permission'}
+                      {activeTab === 'TAX_SETTINGS' && 'Restaurant GSTIN & Tax Rates'}
+                    </span>
+                  </div>
+                  <h1 className="text-lg sm:text-2xl font-black text-slate-900 mt-0.5 truncate">
+                    {activeTab === 'ORDERS' && 'Live Kitchen Orders (KDS)'}
+                    {activeTab === 'PRODUCTS' && 'Menu Items & Stock Controls'}
+                    {activeTab === 'CATEGORIES' && 'Category Management'}
+                    {activeTab === 'STATS' && 'Sales & Revenue Analytics'}
+                    {activeTab === 'DISCOUNTS' && 'Discounts & Promotional Offers'}
+                    {activeTab === 'PROFILE' && 'Restaurant Profile & Ambience Gallery'}
+                    {activeTab === 'WALLET' && 'Prepaid Wallet & QR Status'}
+                    {activeTab === 'TAX_SETTINGS' && 'GST & Tax Settings'}
+                  </h1>
+                </div>
               </div>
-              <h1 className="text-lg sm:text-2xl font-black text-slate-900 mt-0.5">
-                {activeTab === 'ORDERS' && 'Live Kitchen Orders (KDS)'}
-                {activeTab === 'PRODUCTS' && 'Menu Items & Stock Controls'}
-                {activeTab === 'CATEGORIES' && 'Category Management'}
-                {activeTab === 'STATS' && 'Sales & Revenue Analytics'}
-                {activeTab === 'DISCOUNTS' && 'Discounts & Promotional Offers'}
-                {activeTab === 'PROFILE' && 'Restaurant Profile & Ambience Gallery'}
-                {activeTab === 'WALLET' && 'Prepaid Wallet & QR Status'}
-                {activeTab === 'TAX_SETTINGS' && 'GST & Tax Settings'}
-              </h1>
+
+              {/* Mobile Profile Trigger (hidden on lg) */}
+              <div className="lg:hidden shrink-0">
+                {renderProfileDropdown()}
+              </div>
             </div>
-          </div>
 
-          {/* Action Buttons & Search */}
-          <div className="flex items-center space-x-2 flex-wrap">
-            {(activeTab === 'ORDERS' || activeTab === 'PRODUCTS') && (
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setOrdersPage(1);
-                    setProductsPage(1);
-                  }}
-                  placeholder={activeTab === 'ORDERS' ? 'Search token, order #...' : 'Search dish...'}
-                  className="text-xs pl-8 pr-3 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 w-36 sm:w-56"
-                />
-              </div>
-            )}
+            {/* Right: Actions, Search & Desktop Profile Trigger */}
+            <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap justify-start lg:justify-end">
+              {(activeTab === 'ORDERS' || activeTab === 'PRODUCTS') && (
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setOrdersPage(1);
+                      setProductsPage(1);
+                    }}
+                    placeholder={activeTab === 'ORDERS' ? 'Search token, order #...' : 'Search dish...'}
+                    className="text-xs pl-8 pr-3 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 w-36 sm:w-52"
+                  />
+                </div>
+              )}
 
-            {activeTab === 'PRODUCTS' && (
+              {activeTab === 'PRODUCTS' && (
+                <button
+                  onClick={() => setShowAddProductModal(true)}
+                  className="px-3 py-1.5 sm:py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center space-x-1.5 cursor-pointer shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Dish</span>
+                </button>
+              )}
+
+              {activeTab === 'CATEGORIES' && (
+                <button
+                  onClick={() => setShowAddCatModal(true)}
+                  className="px-3 py-1.5 sm:py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center space-x-1.5 cursor-pointer shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Category</span>
+                </button>
+              )}
+
               <button
-                onClick={() => setShowAddProductModal(true)}
-                className="px-3 py-1.5 sm:py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center space-x-1.5 cursor-pointer shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Dish</span>
-              </button>
-            )}
-
-            {activeTab === 'CATEGORIES' && (
-              <button
-                onClick={() => setShowAddCatModal(true)}
-                className="px-3 py-1.5 sm:py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center space-x-1.5 cursor-pointer shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Category</span>
-              </button>
-            )}
-
-            <button
-              onClick={handleTestAlerts}
-              title="Test kitchen chime & enable desktop notifications"
-              className={`px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer border shrink-0 ${
-                notificationPermission === 'granted'
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                  : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
-              }`}
-            >
-              <Bell
-                className={`w-3.5 h-3.5 ${
-                  hasAudioUnlocked ? 'text-emerald-600' : 'text-amber-600 animate-bounce'
-                }`}
-              />
-              <span className="hidden sm:inline">
-                {notificationPermission === 'granted' ? 'Alerts Active' : 'Test Kitchen Chime'}
-              </span>
-              <span
-                className={`w-2 h-2 rounded-full ${
+                onClick={handleTestAlerts}
+                title="Test kitchen chime & enable desktop notifications"
+                className={`px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer border shrink-0 ${
                   notificationPermission === 'granted'
-                    ? 'bg-emerald-500'
-                    : 'bg-amber-500 animate-ping'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                    : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
                 }`}
-              />
-            </button>
-
-            {walletData.wallet && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('WALLET')}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition cursor-pointer shrink-0 ${
-                  walletData.wallet.balance < walletData.wallet.minWalletLimit || !walletData.wallet.isQrEnabled
-                    ? 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100'
-                    : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-                }`}
-                title="Click to view prepaid wallet details"
               >
-                <Wallet className="w-3.5 h-3.5" />
-                <span className="font-mono">₹{Number(walletData.wallet.balance).toFixed(2)}</span>
-                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-white/80 shadow-2xs">
-                  {walletData.wallet.balance < walletData.wallet.minWalletLimit
-                    ? 'Low Limit'
-                    : !walletData.wallet.isQrEnabled
-                    ? 'QR Paused'
-                    : 'QR Active'}
+                <Bell
+                  className={`w-3.5 h-3.5 ${
+                    hasAudioUnlocked ? 'text-emerald-600' : 'text-amber-600 animate-bounce'
+                  }`}
+                />
+                <span className="hidden sm:inline">
+                  {notificationPermission === 'granted' ? 'Alerts Active' : 'Test Kitchen Chime'}
                 </span>
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    notificationPermission === 'granted'
+                      ? 'bg-emerald-500'
+                      : 'bg-amber-500 animate-ping'
+                  }`}
+                />
               </button>
-            )}
 
-            <button
-              onClick={loadData}
-              title="Refresh Data"
-              className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
+              {walletData.wallet && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('WALLET')}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition cursor-pointer shrink-0 ${
+                    walletData.wallet.balance < walletData.wallet.minWalletLimit || !walletData.wallet.isQrEnabled
+                      ? 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                  }`}
+                  title="Click to view prepaid wallet details"
+                >
+                  <Wallet className="w-3.5 h-3.5" />
+                  <span className="font-mono">₹{Number(walletData.wallet.balance).toFixed(2)}</span>
+                  <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-white/80 shadow-2xs">
+                    {walletData.wallet.balance < walletData.wallet.minWalletLimit
+                      ? 'Low Limit'
+                      : !walletData.wallet.isQrEnabled
+                      ? 'QR Paused'
+                      : 'QR Active'}
+                  </span>
+                </button>
+              )}
 
-            {/* Profile Dropdown Menu in Dashboard Header */}
-            <div className="relative">
-              {(() => {
-                const userAvatar = user?.avatar || user?.avatarUrl;
-                return (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                      className="flex items-center gap-2 p-1 pl-1.5 pr-2 rounded-full border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 transition cursor-pointer shadow-2xs"
-                    >
-                      {userAvatar ? (
-                        <img
-                          src={userAvatar}
-                          alt={user?.name || 'Staff'}
-                          className="w-7 h-7 rounded-full object-cover border border-amber-300 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-black text-xs flex items-center justify-center shrink-0">
-                          {(user?.name || 'S').charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="text-left hidden md:block">
-                        <span className="text-xs font-bold text-slate-800 block leading-tight truncate max-w-[110px]">
-                          {user?.name || 'Restaurant Staff'}
-                        </span>
-                        <span className="text-[10px] text-amber-600 font-semibold block leading-none">
-                          Partner Portal
-                        </span>
-                      </div>
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
+              <button
+                onClick={loadData}
+                title="Refresh Data"
+                className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer shrink-0"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
 
-                    {isProfileMenuOpen && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-40 bg-transparent"
-                          onClick={() => setIsProfileMenuOpen(false)}
-                        />
-                        <div
-                          className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-left"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="p-3 bg-gradient-to-br from-slate-50 to-amber-50/50 rounded-xl border border-slate-100 flex items-center gap-3">
-                            {userAvatar ? (
-                              <img
-                                src={userAvatar}
-                                alt={user?.name || 'User'}
-                                className="w-10 h-10 rounded-full object-cover border border-amber-400 shrink-0"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-black text-sm flex items-center justify-center shrink-0">
-                                {(user?.name || 'S').charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <div className="overflow-hidden">
-                              <p className="font-bold text-xs text-slate-900 truncate">
-                                {user?.name || 'Restaurant Staff'}
-                              </p>
-                              <p className="text-[11px] text-slate-500 truncate">{user?.email || 'No email'}</p>
-                              <span className="inline-block mt-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800">
-                                {user?.role || 'SHOPKEEPER'}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="mt-1.5 space-y-0.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveTab('PROFILE');
-                                setIsProfileMenuOpen(false);
-                              }}
-                              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
-                            >
-                              <Store className="w-4 h-4 text-slate-400" />
-                              <span>Restaurant Settings</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveTab('WALLET');
-                                setIsProfileMenuOpen(false);
-                              }}
-                              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
-                            >
-                              <Wallet className="w-4 h-4 text-slate-400" />
-                              <span>Prepaid Wallet</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveTab('TAX_SETTINGS');
-                                setIsProfileMenuOpen(false);
-                              }}
-                              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
-                            >
-                              <Receipt className="w-4 h-4 text-slate-400" />
-                              <span>GST / Tax Settings</span>
-                            </button>
-
-                            <div className="border-t border-slate-100 my-1" />
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsProfileMenuOpen(false);
-                                logout();
-                                router.push('/shopkeeper/login');
-                              }}
-                              className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition cursor-pointer"
-                            >
-                              <LogOut className="w-4 h-4 text-rose-500" />
-                              <span>Sign Out</span>
-                            </button>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </>
-                );
-              })()}
+              {/* Desktop Profile Trigger (hidden on mobile) */}
+              <div className="hidden lg:block shrink-0">
+                {renderProfileDropdown()}
+              </div>
             </div>
           </div>
         </header>
@@ -2584,37 +2661,17 @@ export default function ShopkeeperDashboard() {
                             )}
                           </div>
 
-                          {/* Ticket Action Button */}
-                          <div className="p-3.5 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
-                            <div className="flex-1">{renderQuickActionBtn(order, true)}</div>
-                            {order.orderStatus !== 'CANCELLED' && order.orderStatus !== 'COMPLETED' ? (
-                              <button
-                                type="button"
-                                onClick={() => setOrderToCancel(order)}
-                                className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 font-bold text-xs rounded-xl border border-rose-200 transition cursor-pointer flex items-center gap-1 shrink-0"
-                                title="Cancel this order"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                                <span>Cancel</span>
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setSelectedReceiptOrder(order)}
-                                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1 shrink-0"
-                                title="View Details"
-                              >
-                                <Receipt className="w-3.5 h-3.5" />
-                                <span>Details</span>
-                              </button>
-                            )}
+                          {/* Ticket Action Button & Details */}
+                          <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
+                            <div className="flex-1 min-w-0">{renderQuickActionBtn(order, true)}</div>
                             <button
                               type="button"
                               onClick={() => setSelectedReceiptOrder(order)}
-                              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-xl transition cursor-pointer"
-                              title="Print Ticket / Receipt"
+                              className="px-3.5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 hover:border-slate-300 shadow-2xs transition cursor-pointer flex items-center gap-1.5 shrink-0"
+                              title="View Order Details & Receipt"
                             >
-                              <Receipt className="w-4 h-4" />
+                              <Receipt className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Details</span>
                             </button>
                           </div>
                         </div>
@@ -2842,30 +2899,18 @@ export default function ShopkeeperDashboard() {
                                 </div>
                               </div>
 
-                              {/* Quick Action Button & Cancel Order */}
+                              {/* Quick Action Button & Details */}
                               <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                                <div className="flex-1">{renderQuickActionBtn(order, true)}</div>
-                                {order.orderStatus !== 'CANCELLED' && order.orderStatus !== 'COMPLETED' ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setOrderToCancel(order)}
-                                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 font-bold text-xs rounded-xl border border-rose-200 transition cursor-pointer flex items-center gap-1 shrink-0"
-                                    title="Cancel this order"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                    <span>Cancel</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectedReceiptOrder(order)}
-                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1 shrink-0"
-                                    title="View Details"
-                                  >
-                                    <Receipt className="w-3.5 h-3.5" />
-                                    <span>Details</span>
-                                  </button>
-                                )}
+                                <div className="flex-1 min-w-0">{renderQuickActionBtn(order, true)}</div>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedReceiptOrder(order)}
+                                  className="px-3.5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 hover:border-slate-300 shadow-2xs transition cursor-pointer flex items-center gap-1.5 shrink-0"
+                                  title="View Order Details & Receipt"
+                                >
+                                  <Receipt className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>Details</span>
+                                </button>
                               </div>
                             </div>
                           );
@@ -6053,6 +6098,12 @@ export default function ShopkeeperDashboard() {
           );
         })}
       </div>
+
+      {/* Universal Animated Feedback Popup for Create, Update, Delete & Errors */}
+      <ActionFeedbackModal
+        data={actionFeedback}
+        onClose={() => setActionFeedback(null)}
+      />
 
       <style jsx global>{`
         @keyframes progressShrink {

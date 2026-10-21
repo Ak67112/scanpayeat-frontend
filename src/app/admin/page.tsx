@@ -61,6 +61,7 @@ import WalletLedgerTab from '../../components/admin/WalletLedgerTab';
 import WalletLimitModal from '../../components/admin/WalletLimitModal';
 import WalletTransactionsModal from '../../components/admin/WalletTransactionsModal';
 import { ShopkeeperGatewayModal } from '../../components/admin/ShopkeeperGatewayModal';
+import ActionFeedbackModal, { ActionFeedbackData } from '../../components/ActionFeedbackModal';
 
 type AdminTab = 'OVERVIEW' | 'OUTLETS_SALES' | 'SHOPS' | 'SHOPKEEPERS' | 'ORDERS' | 'COUPONS' | 'ENQUIRIES' | 'WALLETS' | 'GATEWAY_SETTINGS' | 'LEDGER';
 type DatePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
@@ -68,6 +69,24 @@ type DatePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 export default function AdminDashboard() {
   const { user, logout, isLoading: authLoading } = useAuth();
   const router = useRouter();
+
+  // Universal Animated Feedback Popup for Create, Update, Delete & Errors
+  const [actionFeedback, setActionFeedback] = useState<ActionFeedbackData | null>(null);
+
+  const notifyAction = (
+    type: 'CREATE' | 'UPDATE' | 'DELETE' | 'ERROR',
+    title: string,
+    message?: string,
+    entityName?: string
+  ) => {
+    setActionFeedback({
+      isOpen: true,
+      type,
+      title,
+      message,
+      entityName,
+    });
+  };
 
   const [activeTab, setActiveTab] = useState<AdminTab>('OVERVIEW');
   const [ledgerInitialKeeperId, setLedgerInitialKeeperId] = useState<number | null>(null);
@@ -251,9 +270,16 @@ export default function AdminDashboard() {
       const res = await adminApi.updatePartnerEnquiryStatus(id, newStatus);
       if (res?.enquiry) {
         setEnquiries((prev) => prev.map((e) => (e.id === id ? res.enquiry : e)));
+        notifyAction(
+          'UPDATE',
+          'Lead Status Updated!',
+          `Partner onboarding status changed to ${newStatus}`,
+          res.enquiry.restaurantName
+        );
       }
     } catch (err: any) {
       console.error('Failed to update enquiry status:', err);
+      notifyAction('ERROR', 'Status Update Failed', err.message || 'Could not update partner lead status');
     } finally {
       setUpdatingEnquiryId(null);
     }
@@ -261,13 +287,16 @@ export default function AdminDashboard() {
 
   const handleDeleteEnquiry = async () => {
     if (!deleteEnquiryTarget) return;
+    const targetName = deleteEnquiryTarget.restaurantName;
     setIsDeletingEnquiry(true);
     try {
       await adminApi.deletePartnerEnquiry(deleteEnquiryTarget.id);
       setEnquiries((prev) => prev.filter((e) => e.id !== deleteEnquiryTarget.id));
       setDeleteEnquiryTarget(null);
+      notifyAction('DELETE', 'Partner Lead Deleted', 'The enquiry application has been removed', targetName);
     } catch (err: any) {
       console.error('Failed to delete enquiry:', err);
+      notifyAction('ERROR', 'Failed to Delete Lead', err.message || 'Could not delete partner lead');
     } finally {
       setIsDeletingEnquiry(false);
     }
@@ -387,8 +416,10 @@ export default function AdminDashboard() {
       setCouponTargetDistrict('Madurai');
       setCouponSelectedShopIds([]);
       setCouponApplyToAllFiltered(true);
+      notifyAction('CREATE', 'Global Coupon Created!', 'The coupon is now live and can be redeemed by customers', res.coupon.code);
     } catch (err: any) {
       setCouponError(err.message || 'Failed to create coupon');
+      notifyAction('ERROR', 'Failed to Create Coupon', err.message || 'Could not create coupon');
     } finally {
       setIsSubmittingCoupon(false);
     }
@@ -396,26 +427,35 @@ export default function AdminDashboard() {
 
   const handleDeleteCoupon = async () => {
     if (!deleteCouponTarget) return;
+    const targetCode = deleteCouponTarget.code;
     setIsDeletingCoupon(true);
     try {
       await adminApi.deleteCoupon(deleteCouponTarget.id);
       setCoupons((prev) => prev.filter((c) => c.id !== deleteCouponTarget.id));
       setDeleteCouponTarget(null);
+      notifyAction('DELETE', 'Coupon Deleted', 'Coupon promo code has been removed', targetCode);
     } catch (err: any) {
-      alert(err.message || 'Failed to delete coupon');
+      notifyAction('ERROR', 'Failed to Delete Coupon', err.message || 'Could not delete coupon');
     } finally {
       setIsDeletingCoupon(false);
     }
   };
 
   const handleToggleCouponStatus = async (id: number, current: boolean) => {
+    const coupon = coupons.find((c) => c.id === id);
     try {
       await adminApi.toggleCoupon(id, !current);
       setCoupons((prev) =>
         prev.map((c) => (c.id === id ? { ...c, isActive: !current } : c))
       );
+      notifyAction(
+        'UPDATE',
+        !current ? 'Coupon Activated!' : 'Coupon Paused',
+        !current ? 'Customers can now apply this promo code' : 'Promo code is temporarily disabled',
+        coupon?.code
+      );
     } catch (err: any) {
-      alert(err.message || 'Failed to toggle coupon status');
+      notifyAction('ERROR', 'Failed to Toggle Coupon', err.message || 'Could not update coupon status');
     }
   };
 
@@ -427,25 +467,39 @@ export default function AdminDashboard() {
 
   // Toggle Shop Active status
   const handleToggleShopStatus = async (shopId: number, currentStatus: boolean) => {
+    const shop = shops.find((s) => s.id === shopId);
     try {
       await adminApi.updateShopStatus(shopId, !currentStatus);
       setShops((prev) =>
         prev.map((s) => (s.id === shopId ? { ...s, isActive: !currentStatus } : s))
       );
+      notifyAction(
+        'UPDATE',
+        !currentStatus ? 'Shop Outlet Activated!' : 'Shop Outlet Paused',
+        !currentStatus ? 'Store is open and active on platform' : 'Store is paused from taking orders',
+        shop?.name
+      );
     } catch (err: any) {
-      alert(err.message || 'Failed to update shop status');
+      notifyAction('ERROR', 'Failed to Update Shop Status', err.message || 'Could not update shop status');
     }
   };
 
   // Toggle Shopkeeper Active status
   const handleToggleKeeperStatus = async (keeperId: number, currentStatus: boolean) => {
+    const keeper = shopkeepers.find((k) => k.id === keeperId);
     try {
       await adminApi.updateShopkeeperStatus(keeperId, !currentStatus);
       setShopkeepers((prev) =>
         prev.map((k) => (k.id === keeperId ? { ...k, isActive: !currentStatus } : k))
       );
+      notifyAction(
+        'UPDATE',
+        !currentStatus ? 'Shopkeeper Access Restored' : 'Shopkeeper Access Paused',
+        !currentStatus ? 'Shopkeeper can login and operate kitchen' : 'Shopkeeper login is suspended',
+        keeper?.name
+      );
     } catch (err: any) {
-      alert(err.message || 'Failed to update shopkeeper status');
+      notifyAction('ERROR', 'Failed to Update Shopkeeper Status', err.message || 'Could not update shopkeeper status');
     }
   };
 
@@ -478,8 +532,14 @@ export default function AdminDashboard() {
             : item
         )
       );
+      notifyAction(
+        'UPDATE',
+        !currentStatus ? 'QR Ordering Enabled!' : 'QR Ordering Paused',
+        !currentStatus ? 'Dine-in customers can scan and order' : 'QR order placement temporarily disabled',
+        k.shop?.name || k.name
+      );
     } catch (err: any) {
-      alert(err.message || 'Failed to update QR payment status');
+      notifyAction('ERROR', 'Failed to Update QR Status', err.message || 'Could not update QR payment status');
     } finally {
       setTogglingKeeperQrId(null);
     }
@@ -531,8 +591,9 @@ export default function AdminDashboard() {
       setShopDistrict('Madurai');
       setShopPhone('');
       loadData(true);
+      notifyAction('CREATE', 'Shop Outlet Registered!', 'New restaurant profile has been created', res.shop.name);
     } catch (err: any) {
-      alert(err.message || 'Failed to create shop');
+      notifyAction('ERROR', 'Failed to Create Shop', err.message || 'Could not register new shop outlet');
     } finally {
       setIsSubmittingShop(false);
     }
@@ -571,8 +632,9 @@ export default function AdminDashboard() {
       );
       setShowEditShopModal(false);
       loadData(true);
+      notifyAction('UPDATE', 'Shop Outlet Updated!', 'Restaurant configuration saved', res.shop.name);
     } catch (err: any) {
-      alert(err.message || 'Failed to update shop');
+      notifyAction('ERROR', 'Failed to Update Shop', err.message || 'Could not save shop changes');
     } finally {
       setIsSubmittingEditShop(false);
     }
@@ -581,14 +643,16 @@ export default function AdminDashboard() {
   // Delete Shop
   const handleDeleteShop = async () => {
     if (!deleteShopTarget) return;
+    const targetName = deleteShopTarget.name;
     setIsDeletingShop(true);
     try {
       await adminApi.deleteShop(deleteShopTarget.id);
       setShops((prev) => prev.filter((s) => s.id !== deleteShopTarget.id));
       setDeleteShopTarget(null);
       loadData(true);
+      notifyAction('DELETE', 'Shop Outlet Deleted', 'Restaurant and associated data removed', targetName);
     } catch (err: any) {
-      alert(err.message || 'Failed to delete shop');
+      notifyAction('ERROR', 'Failed to Delete Shop', err.message || 'Could not delete shop outlet');
     } finally {
       setIsDeletingShop(false);
     }
@@ -619,8 +683,9 @@ export default function AdminDashboard() {
       setKeeperShopId('');
       setKeeperPassword('');
       loadData(true);
+      notifyAction('CREATE', 'Shopkeeper Provisioned!', 'Partner credentials created successfully', res.shopkeeper.name);
     } catch (err: any) {
-      alert(err.message || 'Failed to provision shopkeeper');
+      notifyAction('ERROR', 'Failed to Provision Shopkeeper', err.message || 'Could not provision partner account');
     } finally {
       setIsSubmittingKeeper(false);
     }
@@ -660,8 +725,9 @@ export default function AdminDashboard() {
       );
       setShowEditKeeperModal(false);
       loadData(true);
+      notifyAction('UPDATE', 'Shopkeeper Updated!', 'Partner credentials and assignments updated', res.shopkeeper.name);
     } catch (err: any) {
-      alert(err.message || 'Failed to update shopkeeper');
+      notifyAction('ERROR', 'Failed to Update Shopkeeper', err.message || 'Could not update partner account');
     } finally {
       setIsSubmittingEditKeeper(false);
     }
@@ -670,14 +736,16 @@ export default function AdminDashboard() {
   // Delete Shopkeeper
   const handleDeleteKeeper = async () => {
     if (!deleteKeeperTarget) return;
+    const targetName = deleteKeeperTarget.name;
     setIsDeletingKeeper(true);
     try {
       await adminApi.deleteShopkeeper(deleteKeeperTarget.id);
       setShopkeepers((prev) => prev.filter((k) => k.id !== deleteKeeperTarget.id));
       setDeleteKeeperTarget(null);
       loadData(true);
+      notifyAction('DELETE', 'Shopkeeper Removed', 'Partner account has been deactivated', targetName);
     } catch (err: any) {
-      alert(err.message || 'Failed to delete shopkeeper');
+      notifyAction('ERROR', 'Failed to Delete Shopkeeper', err.message || 'Could not delete partner account');
     } finally {
       setIsDeletingKeeper(false);
     }
@@ -4614,6 +4682,12 @@ export default function AdminDashboard() {
         onClose={() => setSelectedGatewayGstKeeper(null)}
         shopkeeper={selectedGatewayGstKeeper}
         onSaved={loadData}
+      />
+
+      {/* Universal Animated Feedback Popup for Create, Update, Delete & Errors */}
+      <ActionFeedbackModal
+        data={actionFeedback}
+        onClose={() => setActionFeedback(null)}
       />
     </div>
   );
