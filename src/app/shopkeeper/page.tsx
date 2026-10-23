@@ -50,6 +50,8 @@ import {
   CalendarRange,
   AlertCircle,
   Printer,
+  QrCode,
+  Copy,
   Wallet,
   CreditCard,
   Lock,
@@ -197,6 +199,8 @@ export default function ShopkeeperDashboard() {
   // Shop & Ambience Profile state
   const [shopProfile, setShopProfile] = useState<{
     name: string;
+    slug?: string;
+    subdomain?: string;
     address: string;
     state: string;
     district: string;
@@ -207,6 +211,8 @@ export default function ShopkeeperDashboard() {
     ambienceImages: string[];
   }>({
     name: '',
+    slug: '',
+    subdomain: '',
     address: '',
     state: '',
     district: '',
@@ -216,6 +222,9 @@ export default function ShopkeeperDashboard() {
     description: '',
     ambienceImages: [],
   });
+
+  // Shopkeeper Table QR Code & Standee Modal
+  const [showQrModal, setShowQrModal] = useState(false);
   const [keeperProfile, setKeeperProfile] = useState<{
     name: string;
     email: string;
@@ -453,6 +462,8 @@ export default function ShopkeeperDashboard() {
       if (profileRes?.shop) {
         setShopProfile({
           name: profileRes.shop.name || '',
+          slug: profileRes.shop.slug || '',
+          subdomain: profileRes.shop.subdomain || '',
           address: profileRes.shop.address || '',
           state: profileRes.shop.state || '',
           district: profileRes.shop.district || '',
@@ -1192,8 +1203,11 @@ export default function ShopkeeperDashboard() {
         keeperAvatarUrl: keeperProfile.avatarUrl,
       });
       if (res?.shop) {
-        setShopProfile({
-          name: res.shop.name || '',
+        setShopProfile((prev) => ({
+          ...prev,
+          name: res.shop.name || prev.name,
+          slug: res.shop.slug || prev.slug,
+          subdomain: res.shop.subdomain || prev.subdomain,
           address: res.shop.address || '',
           state: res.shop.state || '',
           district: res.shop.district || '',
@@ -1202,7 +1216,7 @@ export default function ShopkeeperDashboard() {
           bannerUrl: res.shop.bannerUrl || '',
           description: res.shop.description || '',
           ambienceImages: res.shop.ambienceImages || [],
-        });
+        }));
       }
       setProfileSuccess(true);
       notifyAction('UPDATE', 'Profile & Settings Saved!', 'Restaurant information and branding updated successfully');
@@ -2066,18 +2080,46 @@ export default function ShopkeeperDashboard() {
           Store Front
         </div>
 
-        <a
-          href={user?.shopSlug ? `/shop/${user.shopSlug}` : '/shop/abc'}
-          target="_blank"
-          rel="noreferrer"
-          className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800/70 hover:text-white transition"
-        >
-          <div className="flex items-center space-x-3">
-            <Store className="w-4 h-4 text-amber-400" />
-            <span>Customer QR Menu</span>
-          </div>
-          <ArrowUpRight className="w-3.5 h-3.5 text-slate-500" />
-        </a>
+        {(() => {
+          const currentShopSlug =
+            shopProfile.slug ||
+            user?.shopSlug ||
+            (user as any)?.shop?.slug ||
+            (user?.shopId === 25 ? 'noshtacafe' : user?.shopId ? `shop-${user.shopId}` : 'noshtacafe');
+
+          return (
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => setShowQrModal(true)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-200 hover:bg-slate-800/90 hover:text-white transition cursor-pointer border border-slate-700/80 bg-slate-800/50 shadow-xs group"
+                title="View & Download Table QR Code Standee"
+              >
+                <div className="flex items-center space-x-3">
+                  <QrCode className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+                  <span>Customer QR Menu</span>
+                </div>
+                <span className="text-[10px] font-black text-amber-400 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30">
+                  View QR
+                </span>
+              </button>
+
+              <a
+                href={`/shop/${currentShopSlug}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-800/70 hover:text-white transition"
+                title={`Open /shop/${currentShopSlug} in new tab`}
+              >
+                <div className="flex items-center space-x-3 min-w-0">
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span className="truncate text-[11px]">/shop/{currentShopSlug}</span>
+                </div>
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              </a>
+            </div>
+          );
+        })()}
 
         {/* Support & Contact Box */}
         <div className="p-3 mx-1 my-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-xs space-y-1.5">
@@ -6098,6 +6140,114 @@ export default function ShopkeeperDashboard() {
           );
         })}
       </div>
+
+      {/* ================= MODAL: SHOPKEEPER TABLE QR CODE & STANDEE ================= */}
+      {showQrModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 w-full max-w-sm shadow-2xl border border-slate-200 text-center space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="text-left">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  Outlet #{user?.shopId || '25'} • Table QR
+                </span>
+                <h3 className="text-base font-black text-slate-900 mt-1 truncate">
+                  {shopProfile.name || user?.shopName || 'Noshta Cafe'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQrModal(false)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {(() => {
+              const currentShopSlug =
+                shopProfile.slug ||
+                user?.shopSlug ||
+                (user as any)?.shop?.slug ||
+                (user?.shopId === 25 ? 'noshtacafe' : user?.shopId ? `shop-${user.shopId}` : 'noshtacafe');
+              const liveOrigin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://hotelkada.com';
+              const shopUrl = `${liveOrigin}/shop/${currentShopSlug}`;
+              const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&data=${encodeURIComponent(shopUrl)}`;
+
+              return (
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-b from-slate-50 to-amber-50/40 p-5 rounded-2xl border-2 border-dashed border-amber-300 inline-block w-full text-center">
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                      {shopProfile.logoUrl ? (
+                        <img src={shopProfile.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-cover border border-amber-300 bg-white shadow-2xs" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-black text-xs">
+                          <ChefHat className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="text-left">
+                        <span className="font-black text-slate-900 text-sm tracking-tight block leading-tight">
+                          {shopProfile.name || user?.shopName || 'Noshta Cafe'}
+                        </span>
+                        <span className="text-[10px] text-amber-600 font-bold block">
+                          Dine-in QR Ordering
+                        </span>
+                      </div>
+                    </div>
+
+                    <img
+                      src={qrImageUrl}
+                      alt="Shop QR Code"
+                      className="w-52 h-52 mx-auto rounded-xl shadow-md border border-slate-200 bg-white p-2"
+                    />
+
+                    <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider mt-3">
+                      Scan To View Menu &amp; Order
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-[260px] mx-auto">
+                      {shopUrl}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(shopUrl);
+                        notifyAction('UPDATE', 'Link Copied!', 'Shop menu URL copied to clipboard', shopUrl);
+                      }}
+                      className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Copy Link</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.open(qrImageUrl, '_blank');
+                      }}
+                      className="py-2.5 px-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Print / Save</span>
+                    </button>
+                  </div>
+
+                  <a
+                    href={`/shop/${currentShopSlug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full py-2.5 px-4 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Open /shop/{currentShopSlug}</span>
+                  </a>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* Universal Animated Feedback Popup for Create, Update, Delete & Errors */}
       <ActionFeedbackModal
