@@ -421,6 +421,19 @@ export const shopkeeperApi = {
     });
   },
 
+  async addTable() {
+    return apiFetch<{ hasDining: boolean; tableCount: number; addedTable: number }>('/api/shop/tables/add', {
+      method: 'POST',
+    });
+  },
+
+  async updateTables(data: { tableCount: number; hasDining?: boolean }) {
+    return apiFetch<{ hasDining: boolean; tableCount: number }>('/api/shop/tables', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
   async getWallet() {
     return apiFetch<{ wallet: ShopkeeperWallet; transactions: WalletTransaction[] }>('/api/shop/wallet');
   },

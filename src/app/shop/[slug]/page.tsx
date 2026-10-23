@@ -7,7 +7,7 @@ import { Shop, Category, Product } from '../../../types';
 import ProductCard from '../../../components/shop/ProductCard';
 import CartDrawer from '../../../components/shop/CartDrawer';
 import { useCart } from '../../../context/CartContext';
-import { decodeTableToken } from '../../../lib/tableCrypto';
+import { decodeTableToken, decodeTableTokenWithoutSlug } from '../../../lib/tableCrypto';
 import {
   Store,
   MapPin,
@@ -32,13 +32,28 @@ import {
 export default function ShopMenuPage() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const slug = params?.slug as string;
+  const rawSlug = (params?.slug as string) || '';
   const pathToken = params?.token as string | undefined;
 
   const queryToken = searchParams
     ? searchParams.get('t') || searchParams.get('token') || searchParams.get('table')
     : null;
-  const activeToken = pathToken || queryToken;
+
+  // Detect whether the slug param itself is an encrypted token (Stealth / Hide Shop Name mode: /shop/[token])
+  const stealthInfo = React.useMemo(() => {
+    if (!rawSlug) return null;
+    // Encrypted tokens are hex strings of length >= 16
+    if (rawSlug.length >= 16 && /^[0-9a-fA-F]+$/.test(rawSlug)) {
+      const decoded = decodeTableTokenWithoutSlug(rawSlug);
+      if (decoded.valid && decoded.slug) {
+        return decoded;
+      }
+    }
+    return null;
+  }, [rawSlug]);
+
+  const effectiveSlug = stealthInfo?.slug || rawSlug;
+  const activeToken = stealthInfo ? rawSlug : (pathToken || queryToken);
 
   const { totalItems, subtotal, setIsCartOpen, setTableNumber } = useCart();
 
@@ -85,9 +100,15 @@ export default function ShopMenuPage() {
 
   // Decode & verify table token
   useEffect(() => {
-    if (!slug) return;
+    if (!effectiveSlug) return;
+    if (stealthInfo && stealthInfo.table) {
+      setVerifiedTable(stealthInfo.table);
+      setTableNumber(stealthInfo.table);
+      setTableVerificationFailed(false);
+      return;
+    }
     if (activeToken) {
-      const res = decodeTableToken(slug, activeToken);
+      const res = decodeTableToken(effectiveSlug, activeToken);
       if (res.valid && res.table) {
         setVerifiedTable(res.table);
         setTableNumber(res.table);
@@ -96,14 +117,14 @@ export default function ShopMenuPage() {
         setTableVerificationFailed(true);
       }
     }
-  }, [slug, activeToken, setTableNumber]);
+  }, [effectiveSlug, activeToken, stealthInfo, setTableNumber]);
 
   useEffect(() => {
-    if (!slug) return;
+    if (!effectiveSlug) return;
 
     setIsLoading(true);
     publicApi
-      .getShopMenu(slug)
+      .getShopMenu(effectiveSlug)
       .then((data: any) => {
         setShop(data.shop);
         setCategories(data.categories || []);
@@ -135,7 +156,7 @@ export default function ShopMenuPage() {
       .finally(() => {
         setIsLoading(false);
       });
-  }, [slug]);
+  }, [effectiveSlug]);
 
   if (isLoading) {
     return (

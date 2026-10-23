@@ -9,7 +9,7 @@
 const SECRET_KEY = process.env.NEXT_PUBLIC_TABLE_SECRET || 'HOTELKADA_DINING_SEC_2026_SECURE_QR';
 
 /**
- * 32-bit FNV-1a non-cryptographic fast hash with avalanche properties
+ * 32-bit FNV-1a fast hash with avalanche distribution
  */
 function fnv1a(str: string, seed: number = 0x811c9dc5): number {
   let h = seed;
@@ -37,7 +37,7 @@ function generateKeystream(key: string, length: number): number[] {
 
 /**
  * Encodes and dynamically encrypts a table number for a specific shop.
- * Produces an encrypted hex token bound to the shop slug.
+ * Produces an encrypted hex token containing table number, shop slug, and random nonce.
  */
 export function encodeTableToken(slug: string, tableNumber: string | number): string {
   const normSlug = (slug || '').toLowerCase().trim();
@@ -52,8 +52,8 @@ export function encodeTableToken(slug: string, tableNumber: string | number): st
     payloadBytes.push(payload.charCodeAt(i));
   }
 
-  // Encrypt with keystream
-  const streamKey = `${SECRET_KEY}:${normSlug}:${nonce}`;
+  // Encrypt with keystream from SECRET_KEY + nonce
+  const streamKey = `${SECRET_KEY}:${nonce}`;
   const keystream = generateKeystream(streamKey, payloadBytes.length);
   const cipherHexArr: string[] = [];
   for (let i = 0; i < payloadBytes.length; i++) {
@@ -63,7 +63,7 @@ export function encodeTableToken(slug: string, tableNumber: string | number): st
   const cipherHex = cipherHexArr.join('');
 
   // Signature check: 8-char FNV-1a hash of cipherHex + SECRET_KEY
-  const sig = fnv1a(`${cipherHex}:${SECRET_KEY}:${normSlug}`).toString(16).padStart(8, '0');
+  const sig = fnv1a(`${cipherHex}:${SECRET_KEY}`).toString(16).padStart(8, '0');
 
   // Final token: nonce (6) + sig (8) + cipherHex
   return `${nonce}${sig}${cipherHex}`;
@@ -71,35 +71,34 @@ export function encodeTableToken(slug: string, tableNumber: string | number): st
 
 /**
  * Decodes and cryptographically verifies an encrypted table token.
- * Returns { valid: true, table: "1" } or { valid: false, table: null }.
+ * Optionally verifies against an expected shop slug.
  */
 export function decodeTableToken(
-  slug: string,
+  slug: string | null | undefined,
   token: string | null | undefined
-): { valid: boolean; table: string | null } {
+): { valid: boolean; slug: string | null; table: string | null } {
   try {
     if (!token || typeof token !== 'string') {
-      return { valid: false, table: null };
+      return { valid: false, slug: null, table: null };
     }
 
     const cleanToken = token.trim();
     if (cleanToken.length < 16) {
-      return { valid: false, table: null };
+      return { valid: false, slug: null, table: null };
     }
 
-    const normSlug = (slug || '').toLowerCase().trim();
     const nonce = cleanToken.slice(0, 6);
     const sig = cleanToken.slice(6, 14);
     const cipherHex = cleanToken.slice(14);
 
     // Verify cryptographic signature
-    const expectedSig = fnv1a(`${cipherHex}:${SECRET_KEY}:${normSlug}`).toString(16).padStart(8, '0');
+    const expectedSig = fnv1a(`${cipherHex}:${SECRET_KEY}`).toString(16).padStart(8, '0');
     if (sig.toLowerCase() !== expectedSig.toLowerCase()) {
-      return { valid: false, table: null };
+      return { valid: false, slug: null, table: null };
     }
 
-    // Decrypt cipherHex
-    const streamKey = `${SECRET_KEY}:${normSlug}:${nonce}`;
+    // Decrypt cipherHex with keystream from SECRET_KEY + nonce
+    const streamKey = `${SECRET_KEY}:${nonce}`;
     const cipherBytes: number[] = [];
     for (let i = 0; i < cipherHex.length; i += 2) {
       cipherBytes.push(parseInt(cipherHex.slice(i, i + 2), 16));
@@ -113,34 +112,49 @@ export function decodeTableToken(
 
     const parts = plainText.split('|');
     if (parts.length !== 3) {
-      return { valid: false, table: null };
+      return { valid: false, slug: null, table: null };
     }
 
     const [table, embeddedSlug, embeddedNonce] = parts;
-    if (embeddedSlug !== normSlug || embeddedNonce !== nonce) {
-      return { valid: false, table: null };
+    if (embeddedNonce !== nonce) {
+      return { valid: false, slug: null, table: null };
+    }
+
+    if (slug && embeddedSlug !== slug.toLowerCase().trim()) {
+      return { valid: false, slug: null, table: null };
     }
 
     if (!table || table.trim().length === 0) {
-      return { valid: false, table: null };
+      return { valid: false, slug: null, table: null };
     }
 
-    return { valid: true, table: table.trim() };
+    return { valid: true, slug: embeddedSlug, table: table.trim() };
   } catch {
-    return { valid: false, table: null };
+    return { valid: false, slug: null, table: null };
   }
 }
 
 /**
- * Generates the full encrypted QR URL for a dining table
+ * Decodes token without requiring shop slug beforehand (used when token is the sole parameter)
+ */
+export function decodeTableTokenWithoutSlug(
+  token: string | null | undefined
+): { valid: boolean; slug: string | null; table: string | null } {
+  return decodeTableToken(null, token);
+}
+
+/**
+ * Generates the official production HotelKada encrypted QR URL for a dining table
  */
 export function buildTableQrUrl(
-  baseUrl: string,
   slug: string,
-  tableNumber: string | number
+  tableNumber: string | number,
+  options?: { hideShopName?: boolean }
 ): { url: string; token: string } {
   const token = encodeTableToken(slug, tableNumber);
-  const cleanBase = (baseUrl || 'https://www.hotelkada.com').replace(/\/+$/, '');
-  const url = `${cleanBase}/shop/${slug}/${token}`;
+  const base = 'https://www.hotelkada.com';
+  const url = options?.hideShopName
+    ? `${base}/shop/${token}`
+    : `${base}/shop/${slug}/${token}`;
   return { url, token };
 }

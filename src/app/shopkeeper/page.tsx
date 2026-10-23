@@ -65,7 +65,7 @@ import {
 import { ShopkeeperWallet, WalletTransaction, ShopGatewaySettings, ShopTaxSettings } from '../../types';
 import ActionFeedbackModal, { ActionFeedbackData } from '../../components/ActionFeedbackModal';
 
-type TabView = 'ORDERS' | 'PRODUCTS' | 'CATEGORIES' | 'STATS' | 'DISCOUNTS' | 'PROFILE' | 'WALLET' | 'TAX_SETTINGS';
+type TabView = 'ORDERS' | 'TABLES' | 'PRODUCTS' | 'CATEGORIES' | 'STATS' | 'DISCOUNTS' | 'PROFILE' | 'WALLET' | 'TAX_SETTINGS';
 
 type DashboardFilterKey = 'ALL' | 'NEW' | 'COOKING' | 'READY' | 'COMPLETED';
 
@@ -210,6 +210,9 @@ export default function ShopkeeperDashboard() {
     bannerUrl: string;
     description: string;
     ambienceImages: string[];
+    hasDining?: boolean;
+    tableCount?: number;
+    isOrderingEnabled?: boolean;
   }>({
     name: '',
     slug: '',
@@ -222,7 +225,14 @@ export default function ShopkeeperDashboard() {
     bannerUrl: '',
     description: '',
     ambienceImages: [],
+    hasDining: true,
+    tableCount: 6,
+    isOrderingEnabled: true,
   });
+
+  // Table Management State
+  const [isAddingTable, setIsAddingTable] = useState(false);
+  const [tableQrUrlMode, setTableQrUrlMode] = useState<'STANDARD' | 'HIDE_SHOPNAME'>('STANDARD');
 
   // Kitchen Ordering Live Toggle State
   const [isTogglingOrdering, setIsTogglingOrdering] = useState(false);
@@ -230,7 +240,28 @@ export default function ShopkeeperDashboard() {
   // Shopkeeper Table QR Code & Standee Modal State
   const [showQrModal, setShowQrModal] = useState(false);
   const [selectedTableTab, setSelectedTableTab] = useState<number | 'COUNTER'>(1);
-  const [selectedQrDomain, setSelectedQrDomain] = useState<string>('');
+
+  const handleAddTable = async () => {
+    setIsAddingTable(true);
+    try {
+      const res = await shopkeeperApi.addTable();
+      setShopProfile((prev) => ({
+        ...prev,
+        hasDining: true,
+        tableCount: res.tableCount,
+      }));
+      notifyAction(
+        'CREATE',
+        'New Table Provisioned!',
+        `Table #${res.addedTable} has been added to your dining room. QR standee is ready.`,
+        `Table #${res.addedTable}`
+      );
+    } catch (err: any) {
+      notifyAction('ERROR', 'Failed to add table', err.message || 'Could not add table');
+    } finally {
+      setIsAddingTable(false);
+    }
+  };
 
   const handleToggleOrderingStatus = async () => {
     const currentStatus = (shopProfile as any).isOrderingEnabled !== false;
@@ -499,6 +530,9 @@ export default function ShopkeeperDashboard() {
           bannerUrl: profileRes.shop.bannerUrl || '',
           description: profileRes.shop.description || '',
           ambienceImages: profileRes.shop.ambienceImages || [],
+          hasDining: profileRes.shop.hasDining !== undefined ? Boolean(profileRes.shop.hasDining) : true,
+          tableCount: profileRes.shop.tableCount !== undefined ? Number(profileRes.shop.tableCount) : 6,
+          isOrderingEnabled: profileRes.shop.isOrderingEnabled !== false,
         });
       }
       if (profileRes?.shopkeeper) {
@@ -1956,6 +1990,35 @@ export default function ShopkeeperDashboard() {
           )}
         </button>
 
+        {/* Dining Tables & QRs Sidebar Button */}
+        {(shopProfile as any)?.hasDining !== false && (
+          <button
+            onClick={() => {
+              setActiveTab('TABLES');
+              setIsMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              activeTab === 'TABLES'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-900/20'
+                : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center space-x-3">
+              <TableIcon className="w-4 h-4 text-amber-400" />
+              <span>Dining Tables &amp; QRs</span>
+            </div>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                activeTab === 'TABLES'
+                  ? 'bg-amber-700 text-white'
+                  : 'bg-amber-500/20 text-amber-400'
+              }`}
+            >
+              {(shopProfile as any)?.tableCount || 6}
+            </span>
+          </button>
+        )}
+
         <button
           onClick={() => {
             setActiveTab('PRODUCTS');
@@ -2243,6 +2306,7 @@ export default function ShopkeeperDashboard() {
                     <span className="text-slate-300">•</span>
                     <span className="text-xs font-medium text-slate-500 hidden sm:inline truncate">
                       {activeTab === 'ORDERS' && 'Live Incoming Order Tickets'}
+                      {activeTab === 'TABLES' && 'Physical Dining Tables & Tamper-Proof QRs'}
                       {activeTab === 'PRODUCTS' && 'Menu Items & Stock Controls'}
                       {activeTab === 'CATEGORIES' && 'Menu Groupings & Order'}
                       {activeTab === 'STATS' && "Today, This Week & This Month's Sales Breakdown"}
@@ -2254,6 +2318,7 @@ export default function ShopkeeperDashboard() {
                   </div>
                   <h1 className="text-lg sm:text-2xl font-black text-slate-900 mt-0.5 truncate">
                     {activeTab === 'ORDERS' && 'Live Kitchen Orders (KDS)'}
+                    {activeTab === 'TABLES' && 'Dining Tables & Standees'}
                     {activeTab === 'PRODUCTS' && 'Menu Items & Stock Controls'}
                     {activeTab === 'CATEGORIES' && 'Category Management'}
                     {activeTab === 'STATS' && 'Sales & Revenue Analytics'}
@@ -2438,6 +2503,295 @@ export default function ShopkeeperDashboard() {
 
         {/* Page Content Body */}
         <main className="p-4 sm:p-6 max-w-7xl w-full mx-auto space-y-6">
+          {/* ================= VIEW: DINING TABLES & QRS ================= */}
+          {activeTab === 'TABLES' && (
+            <div className="space-y-6">
+              {(() => {
+                const currentShopSlug =
+                  shopProfile.slug ||
+                  user?.shopSlug ||
+                  (user as any)?.shop?.slug ||
+                  (user?.shopId === 25 ? 'noshtacafe' : user?.shopId ? `shop-${user.shopId}` : 'noshtacafe');
+
+                const tableCount = Math.max(1, Number(shopProfile.tableCount) || 6);
+                const activeDomain = 'https://www.hotelkada.com';
+
+                // Multi-Table Standees Print Sheet
+                const handlePrintAll = () => {
+                  const printWin = window.open('', '_blank');
+                  if (!printWin) {
+                    alert('Popup blocker prevented opening the print sheet. Please allow popups for this site.');
+                    return;
+                  }
+
+                  let cardsHtml = '';
+                  for (let t = 1; t <= tableCount; t++) {
+                    const token = encodeTableToken(currentShopSlug, t);
+                    const tableUrl =
+                      tableQrUrlMode === 'HIDE_SHOPNAME'
+                        ? `${activeDomain}/shop/${token}`
+                        : `${activeDomain}/shop/${currentShopSlug}/${token}`;
+                    const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(tableUrl)}`;
+
+                    cardsHtml += `
+                      <div class="standee-card">
+                        <div class="card-inner">
+                          <div class="shop-badge">
+                            ${shopProfile.logoUrl ? `<img src="${shopProfile.logoUrl}" class="shop-logo" />` : ''}
+                            <div class="shop-name">${shopProfile.name || 'Noshta Cafe'}</div>
+                          </div>
+                          <div class="table-pill">
+                            <span class="table-title">TABLE #${t}</span>
+                            <span class="table-sub">Dine-in Order</span>
+                          </div>
+                          <div class="qr-container">
+                            <img src="${qrImg}" class="qr-img" />
+                          </div>
+                          <div class="scan-text">SCAN TO VIEW MENU &amp; ORDER</div>
+                          <div class="url-sub">${tableUrl}</div>
+                          <div class="footer-note">Orders served directly to Table #${t}</div>
+                        </div>
+                      </div>
+                    `;
+                  }
+
+                  printWin.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                      <head>
+                        <title>Table Standees - ${shopProfile.name || 'HotelKada'}</title>
+                        <style>
+                          @page { size: A4; margin: 10mm; }
+                          * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+                          body { background: #f8fafc; padding: 12px; }
+                          .print-header { text-align: center; margin-bottom: 16px; }
+                          .print-header h1 { font-size: 18px; color: #0f172a; margin-bottom: 4px; }
+                          .print-header p { font-size: 12px; color: #64748b; }
+                          .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; page-break-inside: auto; }
+                          .standee-card {
+                            background: #fff;
+                            border: 2px dashed #d97706;
+                            border-radius: 16px;
+                            padding: 18px;
+                            text-align: center;
+                            page-break-inside: avoid;
+                          }
+                          .card-inner { display: flex; flex-direction: column; align-items: center; }
+                          .shop-badge { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; }
+                          .shop-logo { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; }
+                          .shop-name { font-size: 14px; font-weight: 800; color: #0f172a; }
+                          .table-pill {
+                            background: #fef3c7;
+                            border: 1.5px solid #f59e0b;
+                            color: #92400e;
+                            padding: 4px 14px;
+                            border-radius: 9999px;
+                            margin-bottom: 12px;
+                          }
+                          .table-title { font-size: 15px; font-weight: 900; letter-spacing: 0.5px; display: block; }
+                          .table-sub { font-size: 10px; font-weight: 700; text-transform: uppercase; }
+                          .qr-container { background: #fff; padding: 8px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
+                          .qr-img { width: 180px; height: 180px; display: block; }
+                          .scan-text { font-size: 11px; font-weight: 900; color: #0f172a; letter-spacing: 0.5px; margin-bottom: 2px; }
+                          .url-sub { font-size: 8px; color: #64748b; font-family: monospace; word-break: break-all; max-width: 220px; margin-bottom: 4px; }
+                          .footer-note { font-size: 9px; font-weight: 700; color: #b45309; }
+                          @media print {
+                            body { background: #fff; padding: 0; }
+                            .no-print { display: none; }
+                          }
+                        </style>
+                      </head>
+                      <body>
+                        <div class="print-header no-print">
+                          <h1>${shopProfile.name || 'Noshta Cafe'} • All ${tableCount} Table QR Standees</h1>
+                          <p>Ready to print on cardstock, cut along dotted lines, and fold into tent standees.</p>
+                          <button onclick="window.print()" style="margin-top:8px; padding: 8px 18px; background:#d97706; color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">🖨️ Print Now</button>
+                        </div>
+                        <div class="grid">
+                          ${cardsHtml}
+                        </div>
+                      </body>
+                    </html>
+                  `);
+                  printWin.document.close();
+                };
+
+                return (
+                  <div className="space-y-6">
+                    {/* Header Banner */}
+                    <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 rounded-3xl p-6 sm:p-7 text-white shadow-lg relative overflow-hidden">
+                      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="space-y-2 max-w-2xl">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-xs text-white text-xs font-black tracking-wide uppercase">
+                              <TableIcon className="w-3.5 h-3.5 text-amber-200" />
+                              Dine-in Table Service
+                            </span>
+                            <span className="px-3 py-1 rounded-full bg-amber-900/40 text-amber-100 text-xs font-bold border border-white/20">
+                              {tableCount} Physical Tables
+                            </span>
+                          </div>
+                          <h2 className="text-xl sm:text-3xl font-black font-display tracking-tight text-white">
+                            Dining Room Tables &amp; Encrypted QRs
+                          </h2>
+                          <p className="text-xs sm:text-sm text-amber-100 leading-relaxed">
+                            Each dining table has its own unique, dynamically encrypted QR code. When diners scan at their table, the table number is cryptographically verified and attached to incoming kitchen tickets.
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={handleAddTable}
+                            disabled={isAddingTable}
+                            className="px-4 py-2.5 bg-white hover:bg-amber-50 text-amber-900 font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                          >
+                            {isAddingTable ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Plus className="w-4 h-4 text-amber-600" />
+                            )}
+                            <span>+ Add Table #{tableCount + 1}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handlePrintAll}
+                            className="px-4 py-2.5 bg-amber-900/80 hover:bg-amber-950 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer border border-white/20"
+                          >
+                            <Printer className="w-4 h-4 text-amber-300" />
+                            <span>Print All {tableCount} Standees</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Operational Settings Bar */}
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-slate-700">QR Link Style:</span>
+                        <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => setTableQrUrlMode('STANDARD')}
+                            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
+                              tableQrUrlMode === 'STANDARD'
+                                ? 'bg-amber-500 text-white shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            /shop/{currentShopSlug}/[token]
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTableQrUrlMode('HIDE_SHOPNAME')}
+                            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
+                              tableQrUrlMode === 'HIDE_SHOPNAME'
+                                ? 'bg-amber-500 text-white shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            Hide Shop Name (/shop/[token])
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <span>Production Domain:</span>
+                        <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                          https://www.hotelkada.com
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Tables Cards Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                      {Array.from({ length: tableCount }, (_, idx) => idx + 1).map((tNum) => {
+                        const token = encodeTableToken(currentShopSlug, tNum);
+                        const tableUrl =
+                          tableQrUrlMode === 'HIDE_SHOPNAME'
+                            ? `${activeDomain}/shop/${token}`
+                            : `${activeDomain}/shop/${currentShopSlug}/${token}`;
+                        const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(tableUrl)}`;
+
+                        return (
+                          <div
+                            key={tNum}
+                            className="bg-white rounded-3xl border-2 border-slate-200 hover:border-amber-400 p-5 shadow-xs hover:shadow-lg transition flex flex-col justify-between text-center relative group"
+                          >
+                            <div className="space-y-3">
+                              {/* Table Header */}
+                              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-full font-black text-xs uppercase tracking-wider shadow-2xs">
+                                  <span>🍽️</span>
+                                  <span>TABLE #{tNum}</span>
+                                </span>
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                  ✓ QR Active
+                                </span>
+                              </div>
+
+                              {/* QR Preview Standee */}
+                              <div className="p-3 bg-gradient-to-b from-slate-50 to-amber-50/30 rounded-2xl border border-dashed border-amber-200">
+                                <img
+                                  src={qrImg}
+                                  alt={`Table ${tNum} QR Code`}
+                                  className="w-40 h-40 mx-auto rounded-xl shadow-xs bg-white p-2 border border-slate-200"
+                                />
+                                <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider mt-2">
+                                  Scan to Order to Table #{tNum}
+                                </p>
+                                <p className="text-[9px] font-mono text-slate-400 truncate max-w-[220px] mx-auto mt-0.5">
+                                  {tableUrl}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Card Actions */}
+                            <div className="pt-4 border-t border-slate-100 space-y-2 mt-4">
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(tableUrl);
+                                    notifyAction('UPDATE', 'Link Copied!', `Table #${tNum} URL copied to clipboard`, tableUrl);
+                                  }}
+                                  className="py-2 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl transition flex items-center justify-center gap-1 cursor-pointer border border-slate-200"
+                                >
+                                  <Copy className="w-3.5 h-3.5 text-slate-600" />
+                                  <span>Copy Link</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => window.open(qrImg, '_blank')}
+                                  className="py-2 px-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                  <span>Print</span>
+                                </button>
+                              </div>
+
+                              <a
+                                href={tableUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="w-full py-2 px-3 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Test Table #{tNum} Menu</span>
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {/* ================= VIEW: ORDERS ================= */}
           {activeTab === 'ORDERS' && (
             <div className="space-y-6">
@@ -6241,12 +6595,7 @@ export default function ShopkeeperDashboard() {
                 (user as any)?.shop?.slug ||
                 (user?.shopId === 25 ? 'noshtacafe' : user?.shopId ? `shop-${user.shopId}` : 'noshtacafe');
 
-              const isHostVercel = typeof window !== 'undefined' && window.location.host.includes('vercel.app');
-              const defaultDomain = isHostVercel
-                ? 'https://scanpayeat-frontend.vercel.app'
-                : 'https://www.hotelkada.com';
-              const activeDomain = selectedQrDomain || defaultDomain;
-
+              const activeDomain = 'https://www.hotelkada.com';
               const hasDining = Boolean((shopProfile as any)?.hasDining);
               const tableCount = Math.max(1, Number((shopProfile as any)?.tableCount) || 1);
 
@@ -6259,7 +6608,10 @@ export default function ShopkeeperDashboard() {
 
               if (hasDining && selectedTableTab !== 'COUNTER') {
                 const token = encodeTableToken(currentShopSlug, currentTableNum);
-                qrTargetUrl = `${activeDomain}/shop/${currentShopSlug}/${token}`;
+                qrTargetUrl =
+                  tableQrUrlMode === 'HIDE_SHOPNAME'
+                    ? `${activeDomain}/shop/${token}`
+                    : `${activeDomain}/shop/${currentShopSlug}/${token}`;
                 displayTableLabel = `Table #${currentTableNum}`;
               }
 
@@ -6276,7 +6628,10 @@ export default function ShopkeeperDashboard() {
                 let cardsHtml = '';
                 for (let t = 1; t <= tableCount; t++) {
                   const token = encodeTableToken(currentShopSlug, t);
-                  const tableUrl = `${activeDomain}/shop/${currentShopSlug}/${token}`;
+                  const tableUrl =
+                    tableQrUrlMode === 'HIDE_SHOPNAME'
+                      ? `${activeDomain}/shop/${token}`
+                      : `${activeDomain}/shop/${currentShopSlug}/${token}`;
                   const tableQrImg = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(tableUrl)}`;
 
                   cardsHtml += `
@@ -6364,36 +6719,46 @@ export default function ShopkeeperDashboard() {
 
               return (
                 <div className="space-y-4">
-                  {/* Domain Selector */}
-                  <div className="bg-slate-50 p-2 rounded-2xl border border-slate-200 text-left">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1 px-1">
-                      Target Domain:
-                    </span>
-                    <div className="grid grid-cols-2 gap-1.5 text-xs font-bold">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedQrDomain('https://www.hotelkada.com')}
-                        className={`py-1.5 px-2 rounded-xl text-[11px] transition cursor-pointer text-center truncate ${
-                          activeDomain.includes('hotelkada')
-                            ? 'bg-amber-500 text-white shadow-xs'
-                            : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                        }`}
-                      >
-                        🌐 www.hotelkada.com
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSelectedQrDomain('https://scanpayeat-frontend.vercel.app')}
-                        className={`py-1.5 px-2 rounded-xl text-[11px] transition cursor-pointer text-center truncate ${
-                          activeDomain.includes('vercel.app')
-                            ? 'bg-amber-500 text-white shadow-xs'
-                            : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                        }`}
-                      >
-                        ⚡ vercel.app Preview
-                      </button>
+                  {/* Official Domain & URL Style Selector */}
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-left space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Production Domain:
+                      </span>
+                      <span className="text-[11px] font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                        www.hotelkada.com
+                      </span>
                     </div>
+
+                    {hasDining && selectedTableTab !== 'COUNTER' && (
+                      <div className="pt-1.5 border-t border-slate-200 flex items-center justify-between text-xs">
+                        <span className="text-[11px] font-bold text-slate-700">Link Style:</span>
+                        <div className="inline-flex p-0.5 bg-white rounded-lg border border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => setTableQrUrlMode('STANDARD')}
+                            className={`px-2 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
+                              tableQrUrlMode === 'STANDARD'
+                                ? 'bg-amber-500 text-white shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            /shop/{currentShopSlug}/[token]
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTableQrUrlMode('HIDE_SHOPNAME')}
+                            className={`px-2 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
+                              tableQrUrlMode === 'HIDE_SHOPNAME'
+                                ? 'bg-amber-500 text-white shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            Hide Shop Name (/shop/[token])
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Dining Table Tabs */}
