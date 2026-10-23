@@ -49,6 +49,9 @@ export interface Shop {
   bannerUrl?: string | null;
   description?: string | null;
   ambienceImages?: string[];
+  hasDining?: boolean;
+  tableCount?: number;
+  isOrderingEnabled?: boolean;
   shopkeepers?: { id: number; name: string; avatarUrl?: string | null }[];
   isActive: boolean;
   createdAt: string;
@@ -133,6 +136,7 @@ export interface Order {
   customerName?: string | null;
   customerPhone?: string | null;
   tokenNumber?: string | null;
+  tableNumber?: string | null;
   orderStatus: OrderStatus;
   paymentStatus: PaymentStatus;
   subtotal: number;

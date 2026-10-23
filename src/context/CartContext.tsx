@@ -7,6 +7,8 @@ interface CartContextType {
   items: CartItem[];
   shopId: number | null;
   shopSlug: string | null;
+  tableNumber: string | null;
+  setTableNumber: (table: string | null) => void;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
   addToCart: (product: Product, shopId: number, shopSlug: string) => void;
@@ -24,6 +26,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [items, setItems] = useState<CartItem[]>([]);
   const [shopId, setShopId] = useState<number | null>(null);
   const [shopSlug, setShopSlug] = useState<string | null>(null);
+  const [tableNumber, setTableNumber] = useState<string | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
@@ -36,6 +39,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setItems(parsed.items);
           setShopId(parsed.shopId ?? null);
           setShopSlug(parsed.shopSlug ?? null);
+          if (parsed.tableNumber) {
+            setTableNumber(String(parsed.tableNumber));
+          }
         }
       } catch (e) {
         // ignore
@@ -43,14 +49,30 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const saveCart = (newItems: CartItem[], newShopId: number | null, newShopSlug: string | null) => {
+  const saveCart = (
+    newItems: CartItem[],
+    newShopId: number | null,
+    newShopSlug: string | null,
+    newTable: string | null = tableNumber
+  ) => {
     setItems(newItems);
     setShopId(newShopId);
     setShopSlug(newShopSlug);
+    setTableNumber(newTable);
     localStorage.setItem(
       'hotelkada_cart',
-      JSON.stringify({ items: newItems, shopId: newShopId, shopSlug: newShopSlug })
+      JSON.stringify({
+        items: newItems,
+        shopId: newShopId,
+        shopSlug: newShopSlug,
+        tableNumber: newTable,
+      })
     );
+  };
+
+  const updateTableNumber = (table: string | null) => {
+    setTableNumber(table);
+    saveCart(items, shopId, shopSlug, table);
   };
 
   const addToCart = (product: Product, targetShopId: number, targetShopSlug: string) => {
@@ -122,6 +144,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         items,
         shopId,
         shopSlug,
+        tableNumber,
+        setTableNumber: updateTableNumber,
         isCartOpen,
         setIsCartOpen,
         addToCart,

@@ -6,6 +6,7 @@ import { shopkeeperApi } from '../../lib/api';
 import { getSocket, joinShopRoom } from '../../lib/socket';
 import { Order, OrderStatus, Product, Category, ShopkeeperStats } from '../../types';
 import { useRouter } from 'next/navigation';
+import { encodeTableToken } from '../../lib/tableCrypto';
 import {
   ChefHat,
   UtensilsCrossed,
@@ -223,8 +224,34 @@ export default function ShopkeeperDashboard() {
     ambienceImages: [],
   });
 
-  // Shopkeeper Table QR Code & Standee Modal
+  // Kitchen Ordering Live Toggle State
+  const [isTogglingOrdering, setIsTogglingOrdering] = useState(false);
+
+  // Shopkeeper Table QR Code & Standee Modal State
   const [showQrModal, setShowQrModal] = useState(false);
+  const [selectedTableTab, setSelectedTableTab] = useState<number | 'COUNTER'>(1);
+  const [selectedQrDomain, setSelectedQrDomain] = useState<string>('');
+
+  const handleToggleOrderingStatus = async () => {
+    const currentStatus = (shopProfile as any).isOrderingEnabled !== false;
+    const nextStatus = !currentStatus;
+    setIsTogglingOrdering(true);
+    try {
+      await shopkeeperApi.updateOrderingStatus(nextStatus);
+      setShopProfile((prev: any) => ({ ...prev, isOrderingEnabled: nextStatus }));
+      notifyAction(
+        nextStatus ? 'CREATE' : 'UPDATE',
+        nextStatus ? 'Kitchen Ordering Activated' : 'Kitchen Ordering Paused',
+        nextStatus
+          ? 'Online ordering is active. Diners scanning table QRs can place orders.'
+          : 'Online ordering is paused. Diners cannot place new orders.'
+      );
+    } catch (err: any) {
+      notifyAction('ERROR', 'Failed to update ordering status', err.message || 'Network error');
+    } finally {
+      setIsTogglingOrdering(false);
+    }
+  };
   const [keeperProfile, setKeeperProfile] = useState<{
     name: string;
     email: string;
@@ -2283,6 +2310,26 @@ export default function ShopkeeperDashboard() {
                 </button>
               )}
 
+              {/* Kitchen Online Ordering Live Switch */}
+              <button
+                type="button"
+                onClick={handleToggleOrderingStatus}
+                disabled={isTogglingOrdering}
+                title={(shopProfile as any).isOrderingEnabled !== false ? 'Kitchen is Taking Orders (Click to Pause)' : 'Kitchen is Paused (Click to Resume)'}
+                className={`px-3 py-1.5 sm:py-2 rounded-xl text-xs font-black transition flex items-center space-x-1.5 cursor-pointer border shrink-0 shadow-xs ${
+                  (shopProfile as any).isOrderingEnabled !== false
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-emerald-600/20'
+                    : 'bg-rose-600 hover:bg-rose-700 text-white border-rose-700 shadow-rose-600/20 animate-pulse'
+                }`}
+              >
+                {isTogglingOrdering ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-white shrink-0" />
+                )}
+                <span>{(shopProfile as any).isOrderingEnabled !== false ? '🟢 Orders ON' : '🔴 Orders PAUSED'}</span>
+              </button>
+
               <button
                 onClick={handleTestAlerts}
                 title="Test kitchen chime & enable desktop notifications"
@@ -2619,6 +2666,11 @@ export default function ShopkeeperDashboard() {
                               <span className="text-xs text-slate-500 font-bold">
                                 #{order.id}
                               </span>
+                              {order.tableNumber && (
+                                <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                                  🍽️ Table #{order.tableNumber}
+                                </span>
+                              )}
                               {highlightedOrderId === order.id && (
                                 <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-600 text-white animate-bounce flex items-center gap-1 shadow-xs">
                                   <Sparkles className="w-3 h-3" />
@@ -2782,9 +2834,21 @@ export default function ShopkeeperDashboard() {
                                               {order.customerPhone}
                                             </span>
                                           )}
+                                          {order.tableNumber && (
+                                            <span className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                                              🍽️ Table #{order.tableNumber}
+                                            </span>
+                                          )}
                                         </div>
                                       ) : (
-                                        <span className="text-slate-400 italic">Dine-in Guest</span>
+                                        <div>
+                                          <span className="text-slate-400 italic block">Dine-in Guest</span>
+                                          {order.tableNumber && (
+                                            <span className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                                              🍽️ Table #{order.tableNumber}
+                                            </span>
+                                          )}
+                                        </div>
                                       )}
                                     </td>
                                     <td className="p-4">
@@ -6143,13 +6207,20 @@ export default function ShopkeeperDashboard() {
 
       {/* ================= MODAL: SHOPKEEPER TABLE QR CODE & STANDEE ================= */}
       {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 w-full max-w-sm shadow-2xl border border-slate-200 text-center space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-5 sm:p-7 w-full max-w-lg shadow-2xl border border-slate-200 text-center space-y-4 my-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="text-left">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                  Outlet #{user?.shopId || '25'} • Table QR
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                    Outlet #{user?.shopId || '25'} • {(shopProfile as any)?.hasDining ? 'Table QR Standees' : 'Counter QR Menu'}
+                  </span>
+                  {(shopProfile as any)?.hasDining && (
+                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {(shopProfile as any)?.tableCount || 0} Tables
+                    </span>
+                  )}
+                </div>
                 <h3 className="text-base font-black text-slate-900 mt-1 truncate">
                   {shopProfile.name || user?.shopName || 'Noshta Cafe'}
                 </h3>
@@ -6169,14 +6240,207 @@ export default function ShopkeeperDashboard() {
                 user?.shopSlug ||
                 (user as any)?.shop?.slug ||
                 (user?.shopId === 25 ? 'noshtacafe' : user?.shopId ? `shop-${user.shopId}` : 'noshtacafe');
-              const liveOrigin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://hotelkada.com';
-              const shopUrl = `${liveOrigin}/shop/${currentShopSlug}`;
-              const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&data=${encodeURIComponent(shopUrl)}`;
+
+              const isHostVercel = typeof window !== 'undefined' && window.location.host.includes('vercel.app');
+              const defaultDomain = isHostVercel
+                ? 'https://scanpayeat-frontend.vercel.app'
+                : 'https://www.hotelkada.com';
+              const activeDomain = selectedQrDomain || defaultDomain;
+
+              const hasDining = Boolean((shopProfile as any)?.hasDining);
+              const tableCount = Math.max(1, Number((shopProfile as any)?.tableCount) || 1);
+
+              const isTableNumber = typeof selectedTableTab === 'number';
+              const currentTableNum = isTableNumber ? selectedTableTab : 1;
+
+              // Generate URL: For dining table, use dynamic encrypted token!
+              let qrTargetUrl = `${activeDomain}/shop/${currentShopSlug}`;
+              let displayTableLabel = 'Counter / Storefront';
+
+              if (hasDining && selectedTableTab !== 'COUNTER') {
+                const token = encodeTableToken(currentShopSlug, currentTableNum);
+                qrTargetUrl = `${activeDomain}/shop/${currentShopSlug}/${token}`;
+                displayTableLabel = `Table #${currentTableNum}`;
+              }
+
+              const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&margin=12&data=${encodeURIComponent(qrTargetUrl)}`;
+
+              // Multi-Table Standees Print Handler
+              const handlePrintAllTables = () => {
+                const printWindow = window.open('', '_blank');
+                if (!printWindow) {
+                  alert('Popup blocker prevented opening the print sheet. Please allow popups.');
+                  return;
+                }
+
+                let cardsHtml = '';
+                for (let t = 1; t <= tableCount; t++) {
+                  const token = encodeTableToken(currentShopSlug, t);
+                  const tableUrl = `${activeDomain}/shop/${currentShopSlug}/${token}`;
+                  const tableQrImg = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(tableUrl)}`;
+
+                  cardsHtml += `
+                    <div class="standee-card">
+                      <div class="card-inner">
+                        <div class="shop-badge">
+                          ${shopProfile.logoUrl ? `<img src="${shopProfile.logoUrl}" class="shop-logo" />` : ''}
+                          <div class="shop-name">${shopProfile.name || 'Restaurant'}</div>
+                        </div>
+                        <div class="table-pill">
+                          <span class="table-title">TABLE #${t}</span>
+                          <span class="table-sub">Dine-in Order</span>
+                        </div>
+                        <div class="qr-container">
+                          <img src="${tableQrImg}" class="qr-img" />
+                        </div>
+                        <div class="scan-text">SCAN TO VIEW MENU &amp; ORDER</div>
+                        <div class="url-sub">${tableUrl}</div>
+                        <div class="footer-note">Served directly to Table #${t}</div>
+                      </div>
+                    </div>
+                  `;
+                }
+
+                printWindow.document.write(`
+                  <!DOCTYPE html>
+                  <html>
+                    <head>
+                      <title>Table Standees - ${shopProfile.name || 'HotelKada'}</title>
+                      <style>
+                        @page { size: A4; margin: 10mm; }
+                        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+                        body { background: #f8fafc; padding: 12px; }
+                        .print-header { text-align: center; margin-bottom: 16px; }
+                        .print-header h1 { font-size: 18px; color: #0f172a; margin-bottom: 4px; }
+                        .print-header p { font-size: 12px; color: #64748b; }
+                        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; page-break-inside: auto; }
+                        .standee-card {
+                          background: #fff;
+                          border: 2px dashed #d97706;
+                          border-radius: 16px;
+                          padding: 18px;
+                          text-align: center;
+                          page-break-inside: avoid;
+                        }
+                        .card-inner { display: flex; flex-direction: column; align-items: center; }
+                        .shop-badge { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; }
+                        .shop-logo { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; }
+                        .shop-name { font-size: 14px; font-weight: 800; color: #0f172a; }
+                        .table-pill {
+                          background: #fef3c7;
+                          border: 1.5px solid #f59e0b;
+                          color: #92400e;
+                          padding: 4px 14px;
+                          border-radius: 9999px;
+                          margin-bottom: 12px;
+                        }
+                        .table-title { font-size: 15px; font-weight: 900; letter-spacing: 0.5px; display: block; }
+                        .table-sub { font-size: 10px; font-weight: 700; text-transform: uppercase; }
+                        .qr-container { background: #fff; padding: 8px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
+                        .qr-img { width: 180px; height: 180px; display: block; }
+                        .scan-text { font-size: 11px; font-weight: 900; color: #0f172a; letter-spacing: 0.5px; margin-bottom: 2px; }
+                        .url-sub { font-size: 8px; color: #64748b; font-family: monospace; word-break: break-all; max-width: 200px; margin-bottom: 4px; }
+                        .footer-note { font-size: 9px; font-weight: 700; color: #b45309; }
+                        @media print {
+                          body { background: #fff; padding: 0; }
+                          .no-print { display: none; }
+                        }
+                      </style>
+                    </head>
+                    <body>
+                      <div class="print-header no-print">
+                        <h1>${shopProfile.name || 'Restaurant'} • All ${tableCount} Table QR Standees</h1>
+                        <p>Print on sturdy paper or cardstock, cut along dotted guides, and display on tables.</p>
+                        <button onclick="window.print()" style="margin-top:8px; padding: 8px 16px; background:#d97706; color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">Print Now</button>
+                      </div>
+                      <div class="grid">
+                        ${cardsHtml}
+                      </div>
+                    </body>
+                  </html>
+                `);
+                printWindow.document.close();
+              };
 
               return (
                 <div className="space-y-4">
+                  {/* Domain Selector */}
+                  <div className="bg-slate-50 p-2 rounded-2xl border border-slate-200 text-left">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1 px-1">
+                      Target Domain:
+                    </span>
+                    <div className="grid grid-cols-2 gap-1.5 text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedQrDomain('https://www.hotelkada.com')}
+                        className={`py-1.5 px-2 rounded-xl text-[11px] transition cursor-pointer text-center truncate ${
+                          activeDomain.includes('hotelkada')
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        🌐 www.hotelkada.com
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedQrDomain('https://scanpayeat-frontend.vercel.app')}
+                        className={`py-1.5 px-2 rounded-xl text-[11px] transition cursor-pointer text-center truncate ${
+                          activeDomain.includes('vercel.app')
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        ⚡ vercel.app Preview
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dining Table Tabs */}
+                  {hasDining && tableCount > 0 && (
+                    <div className="text-left space-y-1.5">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                          Select Dining Table:
+                        </span>
+                        <span className="text-[10px] text-amber-600 font-bold">
+                          {displayTableLabel}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                        {Array.from({ length: tableCount }, (_, i) => i + 1).map((tNum) => (
+                          <button
+                            key={tNum}
+                            type="button"
+                            onClick={() => setSelectedTableTab(tNum)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition whitespace-nowrap cursor-pointer shrink-0 ${
+                              selectedTableTab === tNum
+                                ? 'bg-amber-500 text-white shadow-xs'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            Table {tNum}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTableTab('COUNTER')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black transition whitespace-nowrap cursor-pointer shrink-0 ${
+                            selectedTableTab === 'COUNTER'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          Counter QR
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Standee Card Preview */}
                   <div className="bg-gradient-to-b from-slate-50 to-amber-50/40 p-5 rounded-2xl border-2 border-dashed border-amber-300 inline-block w-full text-center">
-                    <div className="flex items-center justify-center gap-2 mb-3">
+                    <div className="flex items-center justify-center gap-2 mb-2">
                       {shopProfile.logoUrl ? (
                         <img src={shopProfile.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-cover border border-amber-300 bg-white shadow-2xs" />
                       ) : (
@@ -6189,31 +6453,50 @@ export default function ShopkeeperDashboard() {
                           {shopProfile.name || user?.shopName || 'Noshta Cafe'}
                         </span>
                         <span className="text-[10px] text-amber-600 font-bold block">
-                          Dine-in QR Ordering
+                          {hasDining && selectedTableTab !== 'COUNTER' ? 'Table Service Dine-in' : 'Counter QR Ordering'}
                         </span>
                       </div>
                     </div>
 
+                    {/* Prominent Table Badge */}
+                    {hasDining && selectedTableTab !== 'COUNTER' && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-full my-1.5">
+                        <span className="text-xs">🍽️</span>
+                        <span className="font-black text-xs uppercase tracking-wide">
+                          TABLE #{currentTableNum}
+                        </span>
+                        <span className="text-[9px] font-bold text-amber-700 uppercase bg-amber-200/60 px-1.5 py-0.2 rounded-sm">
+                          Encrypted
+                        </span>
+                      </div>
+                    )}
+
                     <img
                       src={qrImageUrl}
-                      alt="Shop QR Code"
-                      className="w-52 h-52 mx-auto rounded-xl shadow-md border border-slate-200 bg-white p-2"
+                      alt={`${displayTableLabel} QR Code`}
+                      className="w-48 h-48 mx-auto rounded-xl shadow-md border border-slate-200 bg-white p-2 mt-1"
                     />
 
-                    <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider mt-3">
+                    <p className="text-[11px] font-black text-slate-800 uppercase tracking-wider mt-2.5">
                       Scan To View Menu &amp; Order
                     </p>
-                    <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-[260px] mx-auto">
-                      {shopUrl}
+                    {hasDining && selectedTableTab !== 'COUNTER' && (
+                      <p className="text-[10px] font-bold text-amber-700">
+                        Orders placed will be served to Table #{currentTableNum}
+                      </p>
+                    )}
+                    <p className="text-[9px] text-slate-500 font-mono mt-0.5 truncate max-w-[280px] mx-auto">
+                      {qrTargetUrl}
                     </p>
                   </div>
 
+                  {/* Action Buttons */}
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <button
                       type="button"
                       onClick={() => {
-                        navigator.clipboard.writeText(shopUrl);
-                        notifyAction('UPDATE', 'Link Copied!', 'Shop menu URL copied to clipboard', shopUrl);
+                        navigator.clipboard.writeText(qrTargetUrl);
+                        notifyAction('UPDATE', 'Link Copied!', `${displayTableLabel} URL copied to clipboard`, qrTargetUrl);
                       }}
                       className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200"
                     >
@@ -6229,18 +6512,30 @@ export default function ShopkeeperDashboard() {
                       className="py-2.5 px-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Printer className="w-3.5 h-3.5" />
-                      <span>Print / Save</span>
+                      <span>Print Standee</span>
                     </button>
                   </div>
 
+                  {/* Print All Tables Action */}
+                  {hasDining && tableCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handlePrintAllTables}
+                      className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>🖨️ Print All {tableCount} Table Standees (Multi-Card Sheet)</span>
+                    </button>
+                  )}
+
                   <a
-                    href={`/shop/${currentShopSlug}`}
+                    href={qrTargetUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="w-full py-2.5 px-4 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
                     <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Open /shop/{currentShopSlug}</span>
+                    <span>Open {displayTableLabel} Link</span>
                   </a>
                 </div>
               );

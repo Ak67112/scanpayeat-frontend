@@ -32,6 +32,7 @@ export default function CartDrawer({ shop }: CartDrawerProps = {}) {
     items,
     shopId,
     shopSlug,
+    tableNumber,
     isCartOpen,
     setIsCartOpen,
     updateQuantity,
@@ -192,6 +193,7 @@ export default function CartDrawer({ shop }: CartDrawerProps = {}) {
       // 1. Create order on backend (recalculates prices server-side)
       const checkoutPayload = {
         shopId,
+        tableNumber: tableNumber || undefined,
         items: items.map((i) => ({
           productId: i.product.id,
           quantity: i.quantity,
@@ -374,7 +376,14 @@ export default function CartDrawer({ shop }: CartDrawerProps = {}) {
                 <ShoppingBag className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-display font-black text-stone-900 text-lg sm:text-xl tracking-tight uppercase">Your Order</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-display font-black text-stone-900 text-lg sm:text-xl tracking-tight uppercase">Your Order</h3>
+                  {tableNumber && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                      🍽️ Table #{tableNumber}
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-stone-500 font-medium">
                   {totalItems} {totalItems === 1 ? 'dish' : 'dishes'} selected
                 </p>
@@ -399,7 +408,7 @@ export default function CartDrawer({ shop }: CartDrawerProps = {}) {
           {/* Scrollable Body: Holds items list, notes, and coupon offers */}
           <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4">
             {/* Warning if QR Ordering is Paused */}
-            {shopTaxInfo?.isQrActive === false && (
+            {shopTaxInfo?.isQrActive === false ? (
               <div className="p-3 bg-rose-50 border border-rose-300 rounded-2xl flex items-start gap-2.5 text-rose-900 text-xs">
                 <AlertCircle className="w-4 h-4 text-rose-700 shrink-0 mt-0.5" />
                 <div>
@@ -409,7 +418,17 @@ export default function CartDrawer({ shop }: CartDrawerProps = {}) {
                   </span>
                 </div>
               </div>
-            )}
+            ) : shop?.isOrderingEnabled === false ? (
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded-2xl flex items-start gap-2.5 text-amber-950 text-xs">
+                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block">Kitchen Ordering Temporarily Paused</span>
+                  <span className="text-[11px] text-amber-800 font-medium">
+                    The kitchen has paused taking new online orders. You can keep dishes in your tray or check back shortly.
+                  </span>
+                </div>
+              </div>
+            ) : null}
 
             {/* Cart Items List */}
             {items.length === 0 ? (
@@ -609,6 +628,11 @@ export default function CartDrawer({ shop }: CartDrawerProps = {}) {
                   <div className="w-full py-3.5 px-4 bg-stone-100 border border-stone-300 text-stone-500 font-display font-black text-xs uppercase tracking-wider rounded-xl flex items-center justify-center space-x-2">
                     <AlertCircle className="w-4 h-4 text-stone-400" />
                     <span>Online Ordering Paused by Outlet</span>
+                  </div>
+                ) : shop?.isOrderingEnabled === false ? (
+                  <div className="w-full py-3.5 px-4 bg-amber-50 border border-amber-300 text-amber-900 font-display font-black text-xs uppercase tracking-wider rounded-xl flex items-center justify-center space-x-2">
+                    <AlertCircle className="w-4 h-4 text-amber-700" />
+                    <span>Kitchen Ordering Paused</span>
                   </div>
                 ) : user ? (
                   <button

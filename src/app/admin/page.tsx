@@ -169,6 +169,9 @@ export default function AdminDashboard() {
   const [shopState, setShopState] = useState('Tamil Nadu');
   const [shopDistrict, setShopDistrict] = useState('Madurai');
   const [shopPhone, setShopPhone] = useState('');
+  const [shopHasDining, setShopHasDining] = useState(false);
+  const [shopTableCount, setShopTableCount] = useState<number | ''>('');
+  const [shopIsOrderingEnabled, setShopIsOrderingEnabled] = useState(true);
   const [isSubmittingShop, setIsSubmittingShop] = useState(false);
 
   // Edit Shop modal
@@ -181,6 +184,9 @@ export default function AdminDashboard() {
   const [editShopState, setEditShopState] = useState('');
   const [editShopDistrict, setEditShopDistrict] = useState('');
   const [editShopPhone, setEditShopPhone] = useState('');
+  const [editShopHasDining, setEditShopHasDining] = useState(false);
+  const [editShopTableCount, setEditShopTableCount] = useState<number | ''>('');
+  const [editShopIsOrderingEnabled, setEditShopIsOrderingEnabled] = useState(true);
   const [isSubmittingEditShop, setIsSubmittingEditShop] = useState(false);
 
   // Delete Shop confirmation
@@ -580,6 +586,9 @@ export default function AdminDashboard() {
         state: shopState || undefined,
         district: shopDistrict || undefined,
         phone: shopPhone || undefined,
+        hasDining: shopHasDining,
+        tableCount: shopHasDining ? Number(shopTableCount) || 0 : 0,
+        isOrderingEnabled: shopIsOrderingEnabled,
       });
       setShops((prev) => [res.shop, ...prev]);
       setShowShopModal(false);
@@ -590,6 +599,9 @@ export default function AdminDashboard() {
       setShopState('Tamil Nadu');
       setShopDistrict('Madurai');
       setShopPhone('');
+      setShopHasDining(false);
+      setShopTableCount('');
+      setShopIsOrderingEnabled(true);
       loadData(true);
       notifyAction('CREATE', 'Shop Outlet Registered!', 'New restaurant profile has been created', res.shop.name);
     } catch (err: any) {
@@ -609,6 +621,9 @@ export default function AdminDashboard() {
     setEditShopState(shop.state || 'Tamil Nadu');
     setEditShopDistrict(shop.district || 'Madurai');
     setEditShopPhone(shop.phone || '');
+    setEditShopHasDining(Boolean(shop.hasDining));
+    setEditShopTableCount(shop.tableCount || 0);
+    setEditShopIsOrderingEnabled(shop.isOrderingEnabled !== false);
     setShowEditShopModal(true);
   };
 
@@ -626,6 +641,9 @@ export default function AdminDashboard() {
         state: editShopState || undefined,
         district: editShopDistrict || undefined,
         phone: editShopPhone || undefined,
+        hasDining: editShopHasDining,
+        tableCount: editShopHasDining ? Number(editShopTableCount) || 0 : 0,
+        isOrderingEnabled: editShopIsOrderingEnabled,
       });
       setShops((prev) =>
         prev.map((s) => (s.id === editShopId ? { ...s, ...res.shop } : s))
@@ -1988,15 +2006,17 @@ export default function AdminDashboard() {
                     <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
                       <th className="p-4">Shop Name & Address</th>
                       <th className="p-4">Slug / Subdomain</th>
+                      <th className="p-4">Model & Tables</th>
                       <th className="p-4">Phone</th>
                       <th className="p-4">Status</th>
+                      <th className="p-4">Ordering</th>
                       <th className="p-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {paginatedShops.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-slate-400">
+                        <td colSpan={7} className="p-8 text-center text-slate-400">
                           No shops match your search criteria.
                         </td>
                       </tr>
@@ -2022,6 +2042,17 @@ export default function AdminDashboard() {
                               /shop/{s.slug}
                             </span>
                           </td>
+                          <td className="p-4">
+                            {s.hasDining ? (
+                              <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-50 text-amber-900 border border-amber-300 inline-flex items-center gap-1 shadow-2xs">
+                                🍽️ Dine-in ({s.tableCount || 0} Tables)
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1">
+                                🛍️ Counter / Takeaway
+                              </span>
+                            )}
+                          </td>
                           <td className="p-4 font-medium text-slate-600">
                             {s.phone || '—'}
                           </td>
@@ -2040,6 +2071,17 @@ export default function AdminDashboard() {
                               />
                               {s.isActive ? 'ACTIVE' : 'SUSPENDED'}
                             </span>
+                          </td>
+                          <td className="p-4">
+                            {s.isOrderingEnabled !== false ? (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                🟢 ON
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200">
+                                🔴 OFF
+                              </span>
+                            )}
                           </td>
                           <td className="p-4 text-right space-x-1.5">
                             <button
@@ -3406,6 +3448,105 @@ export default function AdminDashboard() {
                 />
               </div>
 
+              {/* Operational Model: Dining (Table Service) vs Non-Dining */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <div>
+                  <label className="block text-slate-900 font-extrabold text-xs mb-1">
+                    Restaurant Model *
+                  </label>
+                  <p className="text-[11px] text-slate-500 mb-2">
+                    Controls whether this outlet supports multi-table QR dining or simple counter service.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShopHasDining(true);
+                        if (!shopTableCount) setShopTableCount(6);
+                      }}
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex items-center space-x-2 ${
+                        shopHasDining
+                          ? 'bg-amber-500 text-white border-amber-600 shadow-xs font-bold'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 font-medium'
+                      }`}
+                    >
+                      <span className="text-base">🍽️</span>
+                      <div>
+                        <span className="text-xs block leading-tight">Dine-in Service</span>
+                        <span className={`text-[10px] block ${shopHasDining ? 'text-amber-100' : 'text-slate-400'}`}>
+                          Multiple Tables
+                        </span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShopHasDining(false);
+                        setShopTableCount(0);
+                      }}
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex items-center space-x-2 ${
+                        !shopHasDining
+                          ? 'bg-purple-600 text-white border-purple-700 shadow-xs font-bold'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 font-medium'
+                      }`}
+                    >
+                      <span className="text-base">🛍️</span>
+                      <div>
+                        <span className="text-xs block leading-tight">Non-Dining</span>
+                        <span className={`text-[10px] block ${!shopHasDining ? 'text-purple-100' : 'text-slate-400'}`}>
+                          Counter / Takeaway
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {shopHasDining && (
+                  <div>
+                    <label className="block text-slate-900 font-bold mb-1 text-xs">
+                      Number of Physical Tables *
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={500}
+                      required={shopHasDining}
+                      value={shopTableCount}
+                      onChange={(e) => setShopTableCount(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                      placeholder="e.g. 6"
+                      className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs font-bold"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Individual encrypted table QRs (Table 1 to {shopTableCount || 'N'}) will be automatically generated in the shopkeeper dashboard.
+                    </p>
+                  </div>
+                )}
+
+                {/* Online Ordering Toggle */}
+                <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">
+                      Online Kitchen Ordering
+                    </span>
+                    <span className="text-[10px] text-slate-500 block">
+                      Enable or pause customer order placement via QR
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShopIsOrderingEnabled(!shopIsOrderingEnabled)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border ${
+                      shopIsOrderingEnabled
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-rose-100 text-rose-800 border-rose-300'
+                    }`}
+                  >
+                    {shopIsOrderingEnabled ? '🟢 Orders ON' : '🔴 Orders OFF'}
+                  </button>
+                </div>
+              </div>
+
               <div className="pt-2">
                 <button
                   type="submit"
@@ -3554,6 +3695,105 @@ export default function AdminDashboard() {
                   onChange={(e) => setEditShopPhone(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 text-xs"
                 />
+              </div>
+
+              {/* Operational Model: Dining vs Non-Dining */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <div>
+                  <label className="block text-slate-900 font-extrabold text-xs mb-1">
+                    Restaurant Model *
+                  </label>
+                  <p className="text-[11px] text-slate-500 mb-2">
+                    Controls whether this outlet supports multi-table QR dining or simple counter service.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditShopHasDining(true);
+                        if (!editShopTableCount) setEditShopTableCount(6);
+                      }}
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex items-center space-x-2 ${
+                        editShopHasDining
+                          ? 'bg-amber-500 text-white border-amber-600 shadow-xs font-bold'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 font-medium'
+                      }`}
+                    >
+                      <span className="text-base">🍽️</span>
+                      <div>
+                        <span className="text-xs block leading-tight">Dine-in Service</span>
+                        <span className={`text-[10px] block ${editShopHasDining ? 'text-amber-100' : 'text-slate-400'}`}>
+                          Multiple Tables
+                        </span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditShopHasDining(false);
+                        setEditShopTableCount(0);
+                      }}
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex items-center space-x-2 ${
+                        !editShopHasDining
+                          ? 'bg-purple-600 text-white border-purple-700 shadow-xs font-bold'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 font-medium'
+                      }`}
+                    >
+                      <span className="text-base">🛍️</span>
+                      <div>
+                        <span className="text-xs block leading-tight">Non-Dining</span>
+                        <span className={`text-[10px] block ${!editShopHasDining ? 'text-purple-100' : 'text-slate-400'}`}>
+                          Counter / Takeaway
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {editShopHasDining && (
+                  <div>
+                    <label className="block text-slate-900 font-bold mb-1 text-xs">
+                      Number of Physical Tables *
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={500}
+                      required={editShopHasDining}
+                      value={editShopTableCount}
+                      onChange={(e) => setEditShopTableCount(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                      placeholder="e.g. 6"
+                      className="w-full px-3.5 py-2.5 text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs font-bold"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Individual encrypted table QRs (Table 1 to {editShopTableCount || 'N'}) will be automatically generated in the shopkeeper dashboard.
+                    </p>
+                  </div>
+                )}
+
+                {/* Online Ordering Toggle */}
+                <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">
+                      Online Kitchen Ordering
+                    </span>
+                    <span className="text-[10px] text-slate-500 block">
+                      Enable or pause customer order placement via QR
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditShopIsOrderingEnabled(!editShopIsOrderingEnabled)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border ${
+                      editShopIsOrderingEnabled
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-rose-100 text-rose-800 border-rose-300'
+                    }`}
+                  >
+                    {editShopIsOrderingEnabled ? '🟢 Orders ON' : '🔴 Orders OFF'}
+                  </button>
+                </div>
               </div>
 
               <div className="pt-2">

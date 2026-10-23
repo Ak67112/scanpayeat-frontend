@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { publicApi } from '../../../lib/api';
 import { Shop, Category, Product } from '../../../types';
 import ProductCard from '../../../components/shop/ProductCard';
 import CartDrawer from '../../../components/shop/CartDrawer';
 import { useCart } from '../../../context/CartContext';
+import { decodeTableToken } from '../../../lib/tableCrypto';
 import {
   Store,
   MapPin,
@@ -30,9 +31,16 @@ import {
 
 export default function ShopMenuPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = params?.slug as string;
+  const pathToken = params?.token as string | undefined;
 
-  const { totalItems, subtotal, setIsCartOpen } = useCart();
+  const queryToken = searchParams
+    ? searchParams.get('t') || searchParams.get('token') || searchParams.get('table')
+    : null;
+  const activeToken = pathToken || queryToken;
+
+  const { totalItems, subtotal, setIsCartOpen, setTableNumber } = useCart();
 
   const [shop, setShop] = useState<Shop | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -43,6 +51,10 @@ export default function ShopMenuPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [isAmbienceOpen, setIsAmbienceOpen] = useState(false);
+
+  // Table QR Verification State
+  const [verifiedTable, setVerifiedTable] = useState<string | null>(null);
+  const [tableVerificationFailed, setTableVerificationFailed] = useState(false);
 
   // Ambience photo carousel state & ref
   const ambienceRef = React.useRef<HTMLDivElement>(null);
@@ -70,6 +82,21 @@ export default function ShopMenuPage() {
     }, 4500);
     return () => clearInterval(interval);
   }, [shop?.ambienceImages, currentAmbienceIdx]);
+
+  // Decode & verify table token
+  useEffect(() => {
+    if (!slug) return;
+    if (activeToken) {
+      const res = decodeTableToken(slug, activeToken);
+      if (res.valid && res.table) {
+        setVerifiedTable(res.table);
+        setTableNumber(res.table);
+        setTableVerificationFailed(false);
+      } else {
+        setTableVerificationFailed(true);
+      }
+    }
+  }, [slug, activeToken, setTableNumber]);
 
   useEffect(() => {
     if (!slug) return;
@@ -221,6 +248,70 @@ export default function ShopMenuPage() {
                 <p className="text-xs text-rose-800 mt-0.5 font-medium leading-relaxed">
                   {shop.qrClosedReason || 'This outlet is currently not accepting online QR payments. Please place your order directly at the restaurant counter.'}
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Kitchen Ordering Paused Banner */}
+          {shop.isOrderingEnabled === false && (
+            <div className="mt-4 p-4 sm:p-5 bg-amber-500 text-white rounded-2xl flex items-start gap-3.5 shadow-md animate-in fade-in">
+              <div className="p-2 bg-white/20 text-white rounded-xl shrink-0 mt-0.5">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-display font-black text-sm uppercase tracking-wide">
+                  Kitchen Ordering is Currently Paused
+                </h3>
+                <p className="text-xs text-amber-50 mt-0.5 font-medium leading-relaxed">
+                  The restaurant has temporarily paused taking online orders. You can browse all dishes and prices below, but checkout is disabled until ordering resumes.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Verified Table Banner */}
+          {verifiedTable && (
+            <div className="mt-4 p-3.5 sm:p-4 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white rounded-2xl flex items-center justify-between shadow-lg shadow-amber-600/20 border border-amber-400">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🍽️</span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-black text-base tracking-tight">
+                      Table #{verifiedTable}
+                    </span>
+                    <span className="bg-white/25 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider text-amber-100 border border-white/30">
+                      ✓ QR Verified
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-amber-100 font-medium block">
+                    Orders will be served straight to your table
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs font-bold bg-white text-amber-900 px-3 py-1.5 rounded-xl shadow-xs hidden sm:inline-block">
+                Dine-in Order
+              </span>
+            </div>
+          )}
+
+          {/* Table Verification Failed */}
+          {tableVerificationFailed && (
+            <div className="mt-4 p-3 bg-rose-50 border border-rose-300 rounded-2xl flex items-center gap-2.5 text-rose-900 text-xs">
+              <AlertCircle className="w-4 h-4 text-rose-700 shrink-0" />
+              <span>
+                <strong>Unverified Table Code:</strong> The table code in your link could not be authenticated. Please scan the QR standee on your dining table.
+              </span>
+            </div>
+          )}
+
+          {/* Dining without Table Notice */}
+          {shop.hasDining && !verifiedTable && !tableVerificationFailed && (
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-2.5 text-amber-900 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🍽️</span>
+                <span>
+                  <strong>Dine-in Restaurant:</strong> For table service, scan the QR standee located at your dining table to link your table automatically.
+                </span>
               </div>
             </div>
           )}
@@ -440,7 +531,7 @@ export default function ShopMenuPage() {
                 product={product}
                 shopId={shop.id}
                 shopSlug={shop.slug}
-                isQrActive={shop.isQrActive !== false}
+                isQrActive={shop.isQrActive !== false && shop.isOrderingEnabled !== false}
               />
             ))}
           </div>
@@ -453,7 +544,7 @@ export default function ShopMenuPage() {
           <button
             onClick={() => setIsCartOpen(true)}
             className={`w-full py-4 px-6 rounded-2xl shadow-2xl flex items-center justify-between border-2 border-white transform active:scale-98 transition cursor-pointer ${
-              shop.isQrActive !== false
+              shop.isQrActive !== false && shop.isOrderingEnabled !== false
                 ? 'bg-red-700 hover:bg-red-800 text-white shadow-red-900/40'
                 : 'bg-stone-800 text-stone-200 shadow-stone-900/40'
             }`}
@@ -469,7 +560,7 @@ export default function ShopMenuPage() {
             </div>
 
             <div className="flex items-center space-x-2 text-xs font-black uppercase tracking-wider">
-              <span>{shop.isQrActive !== false ? 'View Cart & Checkout' : 'View Tray (Ordering Paused)'}</span>
+              <span>{shop.isQrActive !== false && shop.isOrderingEnabled !== false ? 'View Cart & Checkout' : 'View Tray (Ordering Paused)'}</span>
               <ArrowRight className="w-4 h-4" />
             </div>
           </button>

@@ -179,6 +179,7 @@ export const publicApi = {
 
   async checkout(data: {
     shopId: number;
+    tableNumber?: string;
     items: { productId: number; quantity: number }[];
     notes?: string;
     couponCode?: string;
@@ -405,10 +406,18 @@ export const shopkeeperApi = {
     keeperName?: string;
     keeperMobile?: string;
     keeperAvatarUrl?: string;
+    isOrderingEnabled?: boolean;
   }) {
     return apiFetch<{ shop: Shop }>('/api/shop/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  },
+
+  async updateOrderingStatus(isOrderingEnabled: boolean) {
+    return apiFetch<{ isOrderingEnabled: boolean }>('/api/shop/ordering-status', {
+      method: 'PATCH',
+      body: JSON.stringify({ isOrderingEnabled }),
     });
   },
 
@@ -559,6 +568,9 @@ export const adminApi = {
     state?: string;
     district?: string;
     phone?: string;
+    hasDining?: boolean;
+    tableCount?: number;
+    isOrderingEnabled?: boolean;
   }) {
     return apiFetch<{ shop: Shop }>('/api/admin/shops', {
       method: 'POST',
@@ -576,6 +588,9 @@ export const adminApi = {
       state?: string;
       district?: string;
       phone?: string;
+      hasDining?: boolean;
+      tableCount?: number;
+      isOrderingEnabled?: boolean;
       isActive?: boolean;
     }
   ) {
