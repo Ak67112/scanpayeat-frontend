@@ -1943,7 +1943,7 @@ export default function ShopkeeperDashboard() {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span>Outlet #{user?.shopId}</span>
               </span>
-              <span className="text-[10px] text-slate-400 font-semibold">• Hotelkada</span>
+              <span className="text-[10px] text-slate-400 font-semibold">• Hotel Kada</span>
             </div>
           </div>
         </div>
@@ -2221,7 +2221,7 @@ export default function ShopkeeperDashboard() {
             Need assistance with menu, printer, or account?
           </p>
           <a
-            href="mailto:contact@hotelkada.com?subject=Shopkeeper%20Dashboard%20Support%20-%20Hotelkada"
+            href="mailto:contact@hotelkada.com?subject=Shopkeeper%20Dashboard%20Support%20-%20Hotel%20Kada"
             className="text-[11px] font-bold text-amber-300 hover:text-amber-200 hover:underline flex items-center gap-1 pt-0.5 truncate"
           >
             <span>contact@hotelkada.com</span>
@@ -2559,7 +2559,7 @@ export default function ShopkeeperDashboard() {
                     <!DOCTYPE html>
                     <html>
                       <head>
-                        <title>Table Standees - ${shopProfile.name || 'HotelKada'}</title>
+                        <title>Table Standees - ${shopProfile.name || 'Hotel Kada'}</title>
                         <style>
                           @page { size: A4; margin: 10mm; }
                           * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -6660,7 +6660,7 @@ export default function ShopkeeperDashboard() {
                   <!DOCTYPE html>
                   <html>
                     <head>
-                      <title>Table Standees - ${shopProfile.name || 'HotelKada'}</title>
+                      <title>Table Standees - ${shopProfile.name || 'Hotel Kada'}</title>
                       <style>
                         @page { size: A4; margin: 10mm; }
                         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }

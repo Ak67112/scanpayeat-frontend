@@ -584,11 +584,11 @@ export default function FoodStoryModal({
                       <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/20 shadow-xs shrink-0">
                         <img
                           src="/logo-icon.png"
-                          alt="Hotelkada"
+                          alt="Hotel Kada"
                           className="w-4 h-4 rounded-full object-contain shrink-0"
                         />
                         <span className="text-[10px] font-black text-white tracking-tight">
-                          Hotelkada
+                          Hotel Kada
                         </span>
                       </div>
                     </div>
@@ -646,11 +646,11 @@ export default function FoodStoryModal({
                       <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/20 shadow-xs shrink-0">
                         <img
                           src="/logo-icon.png"
-                          alt="Hotelkada"
+                          alt="Hotel Kada"
                           className="w-4 h-4 rounded-full object-contain shrink-0"
                         />
                         <span className="text-[10px] font-black text-white tracking-tight">
-                          Hotelkada
+                          Hotel Kada
                         </span>
                       </div>
                     </div>

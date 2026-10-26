@@ -94,7 +94,7 @@ function RegisterContent() {
           <a href="/" className="inline-block mb-4">
             <img
               src="/logo.png"
-              alt="Hotelkada"
+              alt="Hotel Kada"
               className="h-10 mx-auto object-contain"
             />
           </a>
@@ -102,7 +102,7 @@ function RegisterContent() {
             Create Customer Account
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Order seamlessly across any restaurant on the Hotelkada platform
+            Order seamlessly across any restaurant on the Hotel Kada platform
           </p>
         </div>
 

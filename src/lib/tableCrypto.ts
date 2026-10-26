@@ -144,7 +144,7 @@ export function decodeTableTokenWithoutSlug(
 }
 
 /**
- * Generates the official production HotelKada encrypted QR URL for a dining table
+ * Generates the official production Hotel Kada encrypted QR URL for a dining table
  */
 export function buildTableQrUrl(
   slug: string,

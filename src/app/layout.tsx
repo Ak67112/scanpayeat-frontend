@@ -4,8 +4,8 @@ import './globals.css';
 import AppProviders from '../components/providers/AppProviders';
 
 export const metadata: Metadata = {
-  title: 'Hotelkada | Seamless QR Dining & Instant Checkout',
-  description: 'Contactless table QR ordering, instant UPI checkout, live kitchen token tracking, and rewards with Hotelkada.',
+  title: 'Hotel Kada | Seamless QR Dining & Instant Checkout',
+  description: 'Contactless table QR ordering, instant UPI checkout, live kitchen token tracking, and rewards with Hotel Kada.',
   icons: {
     icon: '/icon.png',
     apple: '/icon.png',

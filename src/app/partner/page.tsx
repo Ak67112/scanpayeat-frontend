@@ -93,7 +93,7 @@ export default function RestaurantPartnerPage() {
 
   // Pre-filled WhatsApp and Mailto links
   const whatsappText = encodeURIComponent(
-    `Hello Hotelkada Team, I would like to onboard my restaurant.\n\nRestaurant Name: ${restaurantName || '[Name]'}\nContact Person: ${contactName || '[Name]'}\nPhone: ${mobile || '[Mobile]'}\nCity: ${city || '[City]'}\nState: ${state || 'Tamil Nadu'}`
+    `Hello Hotel Kada Team, I would like to onboard my restaurant.\n\nRestaurant Name: ${restaurantName || '[Name]'}\nContact Person: ${contactName || '[Name]'}\nPhone: ${mobile || '[Mobile]'}\nCity: ${city || '[City]'}\nState: ${state || 'Tamil Nadu'}`
   );
   const whatsappUrl = `https://wa.me/917200446380?text=${whatsappText}`;
 
@@ -108,7 +108,7 @@ export default function RestaurantPartnerPage() {
               <a href="/" className="flex items-center group py-1">
                 <img
                   src="/logo.png"
-                  alt="Hotelkada"
+                  alt="Hotel Kada"
                   className="h-10 sm:h-12 w-auto object-contain transition-transform group-hover:scale-105"
                 />
               </a>
@@ -181,7 +181,7 @@ export default function RestaurantPartnerPage() {
               </h1>
 
               <p className="text-sm sm:text-base text-slate-700 leading-relaxed font-normal max-w-2xl mx-auto lg:mx-0">
-                Hotelkada is an all-in-one system for hotels, cafes, and food courts. Customers scan a QR code on their table to view photos of your food and order directly. Your kitchen sees every order on a tablet or screen instantly — no waiting for waiters, no lost paper slips, and faster billing.
+                Hotel Kada is an all-in-one system for hotels, cafes, and food courts. Customers scan a QR code on their table to view photos of your food and order directly. Your kitchen sees every order on a tablet or screen instantly — no waiting for waiters, no lost paper slips, and faster billing.
               </p>
 
               {/* Quick Key Highlights */}
@@ -206,7 +206,7 @@ export default function RestaurantPartnerPage() {
                   href="#enquiry-form"
                   className="px-8 py-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-amber-600/25 transition-all transform hover:-translate-y-0.5 flex items-center gap-2 cursor-pointer"
                 >
-                  <span>Apply to Join Hotelkada</span>
+                  <span>Apply to Join Hotel Kada</span>
                   <ArrowRight className="w-4 h-4" />
                 </a>
 
@@ -229,7 +229,7 @@ export default function RestaurantPartnerPage() {
                       <Store className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="font-black text-sm text-slate-900">Your Restaurant on Hotelkada</h3>
+                      <h3 className="font-black text-sm text-slate-900">Your Restaurant on Hotel Kada</h3>
                       <p className="text-[11px] text-slate-500">How it looks inside your outlet</p>
                     </div>
                   </div>
@@ -295,13 +295,13 @@ export default function RestaurantPartnerPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">
             <span className="text-xs font-black uppercase tracking-widest text-amber-700 bg-amber-100 px-3.5 py-1 rounded-full border border-amber-300">
-              Why Restaurant Owners Love Hotelkada
+              Why Restaurant Owners Love Hotel Kada
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-950 font-display">
               Everything Your Hotel Needs, Explained Simply
             </h2>
             <p className="text-sm text-slate-600 leading-relaxed font-normal">
-              No complicated computers or difficult software. If you know how to use WhatsApp, you and your staff can run Hotelkada easily on day one.
+              No complicated computers or difficult software. If you know how to use WhatsApp, you and your staff can run Hotel Kada easily on day one.
             </p>
           </div>
 
@@ -442,7 +442,7 @@ export default function RestaurantPartnerPage() {
                 <span>Restaurant Partner Application</span>
               </div>
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-950 font-display">
-                Join Hotelkada Today
+                Join Hotel Kada Today
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 Fill this quick form. Our onboarding team will call you within 2 hours to setup your restaurant, QR codes, and kitchen portal.
@@ -721,7 +721,7 @@ export default function RestaurantPartnerPage() {
             {/* Col 1 */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <img src="/logo.png" alt="Hotelkada" className="h-8 w-auto object-contain brightness-125" />
+                <img src="/logo.png" alt="Hotel Kada" className="h-8 w-auto object-contain brightness-125" />
                 <span className="font-bold text-white text-xs tracking-wider uppercase">Partner Desk</span>
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -782,7 +782,7 @@ export default function RestaurantPartnerPage() {
           </div>
 
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
-            <p>© {new Date().getFullYear()} Hotelkada. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Hotel Kada. All rights reserved.</p>
             <p>Built for dining halls, cafes, and food courts across India.</p>
           </div>
         </div>

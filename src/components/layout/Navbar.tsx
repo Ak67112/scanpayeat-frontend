@@ -29,7 +29,7 @@ export default function Navbar() {
             <a href="/" className="flex items-center group py-1">
               <img
                 src="/logo.png"
-                alt="Hotelkada"
+                alt="Hotel Kada"
                 className="h-10 sm:h-12 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
               />
             </a>

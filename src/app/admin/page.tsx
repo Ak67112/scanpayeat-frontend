@@ -1160,12 +1160,16 @@ export default function AdminDashboard() {
       {/* Brand Header */}
       <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-900/30 shrink-0">
-            <ShieldAlert className="w-5 h-5" />
+          <div className="bg-white/95 px-2.5 py-1.5 rounded-xl shadow-md border border-slate-700/50 shrink-0">
+            <img
+              src="/logo.png"
+              alt="Hotel Kada"
+              className="h-7 w-auto object-contain"
+            />
           </div>
           <div className="truncate">
             <span className="font-black text-white text-base tracking-tight block leading-tight">
-              Scan-Pay-Eat
+              Hotel Kada
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300 bg-purple-950 px-1.5 py-0.5 rounded border border-purple-800/50">
               Super Admin Console
@@ -2793,7 +2797,7 @@ export default function AdminDashboard() {
                     <span>Platform Promotional Coupons & Discounts</span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Create global coupons valid across <strong className="text-purple-700">ALL restaurants</strong> on Hotelkada, or manage restaurant-exclusive discounts.
+                    Create global coupons valid across <strong className="text-purple-700">ALL restaurants</strong> on Hotel Kada, or manage restaurant-exclusive discounts.
                   </p>
                 </div>
                 <button
@@ -3104,7 +3108,7 @@ export default function AdminDashboard() {
                         paginatedEnquiries.map((enq) => {
                           const cleanPhone = enq.mobile.replace(/\D/g, '');
                           const waMessage = encodeURIComponent(
-                            `Hello ${enq.contactName}, thank you for contacting Hotelkada for ${enq.restaurantName}! We would love to discuss setting up QR table ordering and digital kitchen management for your restaurant. When is a good time to speak?`
+                            `Hello ${enq.contactName}, thank you for contacting Hotel Kada for ${enq.restaurantName}! We would love to discuss setting up QR table ordering and digital kitchen management for your restaurant. When is a good time to speak?`
                           );
                           const waUrl = `https://wa.me/91${cleanPhone}?text=${waMessage}`;
 
@@ -3223,7 +3227,7 @@ export default function AdminDashboard() {
                                   {/* Direct Email */}
                                   {enq.email && (
                                     <a
-                                      href={`mailto:${enq.email}?subject=Hotelkada%20Partnership%20-%20${encodeURIComponent(enq.restaurantName)}`}
+                                      href={`mailto:${enq.email}?subject=Hotel%20Kada%20Partnership%20-%20${encodeURIComponent(enq.restaurantName)}`}
                                       title="Email partner"
                                       className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition inline-flex items-center gap-1 font-bold text-[11px]"
                                     >

@@ -52,7 +52,7 @@ function ShopkeeperLoginContent() {
         <a href="/" className="inline-block mb-3">
           <img
             src="/logo.png"
-            alt="Hotelkada"
+            alt="Hotel Kada"
             className="h-10 mx-auto object-contain"
           />
         </a>
@@ -176,7 +176,7 @@ function ShopkeeperLoginContent() {
               href="/partner"
               className="font-bold text-amber-600 hover:text-amber-700 transition"
             >
-              Partner with Hotelkada
+              Partner with Hotel Kada
             </a>
           </p>
           <p className="text-xs text-slate-500">

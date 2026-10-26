@@ -57,7 +57,7 @@ function AdminLoginContent() {
           <div className="bg-white/95 px-3 py-1.5 rounded-2xl inline-block shadow-md border border-slate-700/50 mb-4">
             <img
               src="/logo.png"
-              alt="Hotelkada"
+              alt="Hotel Kada"
               className="h-8 w-auto object-contain"
             />
           </div>
