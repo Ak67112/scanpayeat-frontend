@@ -116,8 +116,8 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="/#featured-dishes" className="hover:text-emerald-400 transition">
-                  Featured Specialties & Combos
+                <a href="/#famous-hotels" className="hover:text-emerald-400 transition">
+                  Famous Partner Hotels
                 </a>
               </li>
               <li>

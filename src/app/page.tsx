@@ -22,55 +22,62 @@ import {
   CreditCard,
   BellRing,
   UtensilsCrossed,
+  MapPin,
+  Store,
 } from 'lucide-react';
 import CartDrawer from '../components/shop/CartDrawer';
 
 export default function HomePage() {
-  // Signature dishes preview for diners
-  const featuredMenu = [
+  // Famous partner hotels & dining outlets on Hotel Kada
+  const famousHotels = [
     {
-      id: 991,
-      name: 'Roasted Herb Platter',
-      category: 'Signature Mains',
-      price: 180,
-      description: 'Slow-roasted chicken breast glazed with rosemary, garlic butter, and char-grilled lemon.',
-      image: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=600&auto=format&fit=crop&q=80',
+      id: 1,
+      name: 'Noshta Cafe',
+      category: 'Specialty Cafe & Grills',
+      badge: 'VERIFIED OUTLET',
+      location: 'Main Road • Near City Center',
+      description: 'Specialty pour-over coffees, sizzling hot platters, artisan burgers, and gourmet desserts with instant table QR service.',
+      image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=600&auto=format&fit=crop&q=80',
       rating: 4.9,
-      prepTime: '8 min',
-      tag: 'Chef Special',
+      tablesCount: '6 Dining Tables',
+      slug: 'noshtacafe',
+      isLive: true,
     },
     {
-      id: 992,
-      name: 'Spicy Dip Chicken Bites',
-      category: 'Hot Deals',
-      price: 150,
-      description: 'Crispy grilled tender cuts served with homemade roasted paprika sauce and dipping dips.',
-      image: 'https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=600&auto=format&fit=crop&q=80',
+      id: 2,
+      name: 'Grand Thalassery Hotel',
+      category: 'Traditional & Dum Biryani',
+      badge: 'POPULAR DINING',
+      location: 'Station Road • Near Clock Tower',
+      description: 'Authentic Thalassery kaima dum biryanis, fresh seafood tawa fries, and flaky hot parottas served straight to your table.',
+      image: 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600&auto=format&fit=crop&q=80',
       rating: 4.8,
-      prepTime: '6 min',
-      tag: 'Best Seller',
+      tablesCount: '12 Dining Tables',
+      isLive: false,
     },
     {
-      id: 993,
-      name: 'Artisan Gourmet Cheeseburger',
-      category: 'Burgers',
-      price: 130,
-      description: 'Double melted cheddar, caramelized red onion, brioche bun, and signature smoked glaze.',
-      image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop&q=80',
+      id: 3,
+      name: 'Royal Chettinad Court',
+      category: 'Chettinad & Tandoor',
+      badge: 'FAMILY RESTAURANT',
+      location: 'Bazaar Street • Near Heritage Zone',
+      description: 'Rich slow-cooked pepper chicken, tender mutton chukka, spicy Chettinad gravies, and hot clay-oven tandoori breads.',
+      image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&auto=format&fit=crop&q=80',
       rating: 4.9,
-      prepTime: '7 min',
-      tag: 'Popular',
+      tablesCount: '16 Dining Tables',
+      isLive: false,
     },
     {
-      id: 994,
-      name: 'Mediterranean Salad Bowl',
-      category: 'Healthy & Fresh',
-      price: 110,
-      description: 'Cherry tomatoes, sliced cucumber, kalamata olives, feta crumbles, and lemon oregano vinaigrette.',
-      image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&auto=format&fit=crop&q=80',
-      rating: 4.7,
-      prepTime: '5 min',
-      tag: 'Farm Fresh',
+      id: 4,
+      name: 'Saffron Pure Veg Bistro',
+      category: 'Pure Veg & Tiffin',
+      badge: '100% PURE VEG',
+      location: 'Temple Road • Near Bus Terminal',
+      description: 'Golden crispy ghee podi dosas, rich paneer butter masala, traditional multi-course thalis, and authentic degree filter coffee.',
+      image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&auto=format&fit=crop&q=80',
+      rating: 4.8,
+      tablesCount: '10 Dining Tables',
+      isLive: false,
     },
   ];
 
@@ -115,10 +122,10 @@ export default function HomePage() {
               {/* Customer CTA Action Buttons */}
               <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-4">
                 <a
-                  href="#featured-dishes"
+                  href="#famous-hotels"
                   className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm uppercase tracking-wider rounded-2xl shadow-xl shadow-emerald-600/25 transition-all transform hover:-translate-y-0.5 flex items-center gap-2 group cursor-pointer"
                 >
-                  <span>EXPLORE DISHES</span>
+                  <span>EXPLORE FAMOUS HOTELS</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </a>
 
@@ -164,10 +171,10 @@ export default function HomePage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                 </div>
 
-                {/* Overlapping Price Circular Badge */}
-                <div className="absolute -top-4 -left-4 sm:top-2 sm:left-2 w-20 h-20 sm:w-24 sm:h-24 bg-emerald-600 text-white rounded-full flex flex-col items-center justify-center shadow-xl shadow-emerald-600/40 border-2 border-white transform -rotate-12 hover:rotate-0 transition-transform">
-                  <span className="text-[9px] uppercase font-black tracking-widest text-emerald-200">SPECIAL</span>
-                  <span className="text-lg sm:text-xl font-black font-display leading-none">₹180</span>
+                {/* Overlapping Verified Partner Network Badge (Replaced Price Tag) */}
+                <div className="absolute -top-4 -left-4 sm:top-2 sm:left-2 w-20 h-20 sm:w-24 sm:h-24 bg-emerald-600 text-white rounded-full flex flex-col items-center justify-center shadow-xl shadow-emerald-600/40 border-2 border-white transform -rotate-12 hover:rotate-0 transition-transform text-center p-1">
+                  <span className="text-[8px] sm:text-[9px] uppercase font-black tracking-widest text-emerald-200">VERIFIED</span>
+                  <span className="text-xs sm:text-sm font-black font-display leading-tight">HOTEL<br/>NETWORK</span>
                 </div>
 
                 {/* Floating "Hot & Crispy" pill */}
@@ -316,10 +323,10 @@ export default function HomePage() {
 
             <div className="mt-8 pt-4 flex items-center justify-between relative z-10 border-t border-[#E2D7C3]">
               <a
-                href="#featured-dishes"
+                href="#famous-hotels"
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-1.5"
               >
-                <span>View Dishes</span>
+                <span>Explore Hotels</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </a>
 
@@ -363,10 +370,10 @@ export default function HomePage() {
 
             <div className="mt-8 pt-4 flex items-center justify-between relative z-10 border-t border-[#E2D7C3]">
               <a
-                href="#featured-dishes"
+                href="#famous-hotels"
                 className="px-5 py-2.5 bg-stone-900 hover:bg-black text-white font-bold text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-1.5"
               >
-                <span>Browse Menu</span>
+                <span>View Partner Hotels</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </a>
 
@@ -382,72 +389,88 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ================= SIGNATURE SPECIAL MENU SHOWCASE ================= */}
-      <section id="featured-dishes" className="bg-white py-16 sm:py-24 border-y border-[#E8DFC8]">
+      {/* ================= FAMOUS HOTELS & PARTNER OUTLETS SHOWCASE ================= */}
+      <section id="famous-hotels" className="bg-white py-16 sm:py-24 border-y border-[#E8DFC8]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14 space-y-2">
             <span className="text-xs font-black uppercase tracking-widest text-emerald-700">
-              Our Signature Delicacies
+              Partner Outlets Network
             </span>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-950 font-display">
-              FOOD YOU LOVE, PREPARED FRESH
+              FAMOUS HOTELS &amp; CAFES ON HOTEL KADA
             </h2>
             <p className="text-sm text-stone-600">
-              Hand-crafted daily with wholesome, high quality ingredients. Experience top dishes available across our partner restaurant network.
+              Dine at top-rated hotels, cafes, and family restaurants near you with seamless, contactless table QR ordering and live kitchen tracking.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredMenu.map((item) => (
+            {famousHotels.map((hotel) => (
               <div
-                key={item.id}
+                key={hotel.id}
                 className="bg-[#FAF7F2] rounded-3xl p-5 border border-[#E8DFC8] shadow-xs hover:shadow-xl transition-all flex flex-col justify-between group"
               >
                 <div>
-                  {/* Circular Plate Presentation */}
+                  {/* Hotel Ambience Photo Presentation */}
                   <div className="relative mb-5 flex justify-center">
-                    <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-lg group-hover:rotate-3 transition-transform duration-300">
+                    <div className="w-40 h-40 rounded-3xl overflow-hidden border-4 border-white shadow-lg group-hover:scale-105 transition-transform duration-300">
                       <img
-                        src={item.image}
-                        alt={item.name}
+                        src={hotel.image}
+                        alt={hotel.name}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    {/* Floating circular price tag */}
-                    <div className="absolute top-0 right-4 bg-emerald-600 text-white rounded-full w-12 h-12 flex flex-col items-center justify-center font-display font-black text-xs shadow-md border-2 border-white">
-                      <span>₹{item.price}</span>
+                    {/* Floating verified partner badge (replaces price circle) */}
+                    <div className="absolute -top-2 -right-2 bg-emerald-600 text-white rounded-2xl px-2.5 py-1 flex items-center justify-center font-display font-black text-[9px] uppercase tracking-wider shadow-md border-2 border-white">
+                      <span>{hotel.badge}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs mb-1">
+                  <div className="flex items-center justify-between text-xs mb-1.5">
                     <span className="text-stone-500 font-bold uppercase tracking-wider text-[10px]">
-                      {item.category}
+                      {hotel.category}
                     </span>
                     <span className="flex items-center gap-1 text-amber-600 font-bold text-[11px]">
-                      <Star className="w-3.5 h-3.5 fill-current" /> {item.rating}
+                      <Star className="w-3.5 h-3.5 fill-current" /> {hotel.rating}
                     </span>
                   </div>
 
                   <h3 className="font-extrabold text-slate-900 text-base font-display group-hover:text-emerald-700 transition">
-                    {item.name}
+                    {hotel.name}
                   </h3>
-                  <p className="text-xs text-stone-600 mt-1.5 line-clamp-2 leading-relaxed">
-                    {item.description}
+
+                  <div className="flex items-center gap-1.5 text-[11px] text-stone-500 font-medium mt-1">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="truncate">{hotel.location}</span>
+                  </div>
+
+                  <p className="text-xs text-stone-600 mt-2 line-clamp-2 leading-relaxed">
+                    {hotel.description}
                   </p>
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-[#E8DFC8] flex items-center justify-between">
                   <span className="text-[10px] font-bold text-stone-500 flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-emerald-600" /> {item.prepTime}
+                    <UtensilsCrossed className="w-3 h-3 text-emerald-600" /> {hotel.tablesCount}
                   </span>
 
-                  <a
-                    href="#how-it-works"
-                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-xs hover:shadow cursor-pointer flex items-center gap-1.5"
-                  >
-                    <QrCode className="w-3.5 h-3.5" />
-                    <span>Scan to Order</span>
-                  </a>
+                  {hotel.isLive && hotel.slug ? (
+                    <a
+                      href={`/shop/${hotel.slug}`}
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-xs hover:shadow cursor-pointer flex items-center gap-1.5"
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      <span>View Menu</span>
+                    </a>
+                  ) : (
+                    <a
+                      href="#how-it-works"
+                      className="px-3.5 py-2 bg-stone-900 hover:bg-black text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-xs hover:shadow cursor-pointer flex items-center gap-1.5"
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      <span>Scan Table QR</span>
+                    </a>
+                  )}
                 </div>
               </div>
             ))}
@@ -456,7 +479,7 @@ export default function HomePage() {
           <div className="mt-12 text-center">
             <div className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-stone-100 border border-stone-200 text-stone-700 text-xs font-bold">
               <QrCode className="w-4 h-4 text-emerald-600" />
-              <span>To order at your table, scan the QR code located on your dining standee</span>
+              <span>Visiting a partner hotel? Scan the Hotel Kada QR standee on your dining table to order.</span>
             </div>
           </div>
         </div>

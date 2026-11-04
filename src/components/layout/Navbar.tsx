@@ -47,10 +47,10 @@ export default function Navbar() {
             </a>
 
             <a
-              href="/#featured-dishes"
+              href="/#famous-hotels"
               className="text-xs font-bold uppercase tracking-wider text-stone-700 hover:text-emerald-700 transition"
             >
-              Featured Dishes
+              Famous Hotels
             </a>
 
             <a
@@ -231,11 +231,11 @@ export default function Navbar() {
             </a>
 
             <a
-              href="/#featured-dishes"
+              href="/#famous-hotels"
               onClick={() => setMobileMenuOpen(false)}
               className="px-3.5 py-2.5 text-xs font-bold text-stone-800 rounded-xl hover:bg-white border border-transparent hover:border-[#E8DFC8] transition"
             >
-              Featured Dishes
+              Famous Hotels
             </a>
 
             <a
