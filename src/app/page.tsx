@@ -21,7 +21,6 @@ import {
   Gift,
   CreditCard,
   BellRing,
-  UtensilsCrossed,
   MapPin,
   Store,
 } from 'lucide-react';
@@ -408,70 +407,44 @@ export default function HomePage() {
             {famousHotels.map((hotel) => (
               <div
                 key={hotel.id}
-                className="bg-[#FAF7F2] rounded-3xl p-5 border border-[#E8DFC8] shadow-xs hover:shadow-xl transition-all flex flex-col justify-between group"
+                className="bg-[#FAF7F2] rounded-3xl p-5 border border-[#E8DFC8] shadow-xs hover:shadow-xl transition-all group"
               >
-                <div>
-                  {/* Hotel Ambience Photo Presentation */}
-                  <div className="relative mb-5 flex justify-center">
-                    <div className="w-40 h-40 rounded-3xl overflow-hidden border-4 border-white shadow-lg group-hover:scale-105 transition-transform duration-300">
-                      <img
-                        src={hotel.image}
-                        alt={hotel.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    {/* Floating verified partner badge (replaces price circle) */}
-                    <div className="absolute -top-2 -right-2 bg-emerald-600 text-white rounded-2xl px-2.5 py-1 flex items-center justify-center font-display font-black text-[9px] uppercase tracking-wider shadow-md border-2 border-white">
-                      <span>{hotel.badge}</span>
-                    </div>
+                {/* Hotel Ambience Photo Presentation */}
+                <div className="relative mb-5 flex justify-center">
+                  <div className="w-40 h-40 rounded-3xl overflow-hidden border-4 border-white shadow-lg group-hover:scale-105 transition-transform duration-300">
+                    <img
+                      src={hotel.image}
+                      alt={hotel.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="text-stone-500 font-bold uppercase tracking-wider text-[10px]">
-                      {hotel.category}
-                    </span>
-                    <span className="flex items-center gap-1 text-amber-600 font-bold text-[11px]">
-                      <Star className="w-3.5 h-3.5 fill-current" /> {hotel.rating}
-                    </span>
+                  {/* Floating verified partner badge */}
+                  <div className="absolute -top-2 -right-2 bg-emerald-600 text-white rounded-2xl px-2.5 py-1 flex items-center justify-center font-display font-black text-[9px] uppercase tracking-wider shadow-md border-2 border-white">
+                    <span>{hotel.badge}</span>
                   </div>
-
-                  <h3 className="font-extrabold text-slate-900 text-base font-display group-hover:text-emerald-700 transition">
-                    {hotel.name}
-                  </h3>
-
-                  <div className="flex items-center gap-1.5 text-[11px] text-stone-500 font-medium mt-1">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span className="truncate">{hotel.location}</span>
-                  </div>
-
-                  <p className="text-xs text-stone-600 mt-2 line-clamp-2 leading-relaxed">
-                    {hotel.description}
-                  </p>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-[#E8DFC8] flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-stone-500 flex items-center gap-1">
-                    <UtensilsCrossed className="w-3 h-3 text-emerald-600" /> {hotel.tablesCount}
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="text-stone-500 font-bold uppercase tracking-wider text-[10px]">
+                    {hotel.category}
                   </span>
-
-                  {hotel.isLive && hotel.slug ? (
-                    <a
-                      href={`/shop/${hotel.slug}`}
-                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-xs hover:shadow cursor-pointer flex items-center gap-1.5"
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      <span>View Menu</span>
-                    </a>
-                  ) : (
-                    <a
-                      href="#how-it-works"
-                      className="px-3.5 py-2 bg-stone-900 hover:bg-black text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-xs hover:shadow cursor-pointer flex items-center gap-1.5"
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      <span>Scan Table QR</span>
-                    </a>
-                  )}
+                  <span className="flex items-center gap-1 text-amber-600 font-bold text-[11px]">
+                    <Star className="w-3.5 h-3.5 fill-current" /> {hotel.rating}
+                  </span>
                 </div>
+
+                <h3 className="font-extrabold text-slate-900 text-base font-display group-hover:text-emerald-700 transition">
+                  {hotel.name}
+                </h3>
+
+                <div className="flex items-center gap-1.5 text-[11px] text-stone-500 font-medium mt-1">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="truncate">{hotel.location}</span>
+                </div>
+
+                <p className="text-xs text-stone-600 mt-2 line-clamp-2 leading-relaxed">
+                  {hotel.description}
+                </p>
               </div>
             ))}
           </div>
