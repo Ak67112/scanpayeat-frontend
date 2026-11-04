@@ -504,7 +504,7 @@ export default function ShopkeeperDashboard() {
       if (walletRes && 'wallet' in walletRes && walletRes.wallet) {
         setWalletData({
           wallet: walletRes.wallet,
-          transactions: walletRes.transactions || [],
+          transactions: walletRes.transactions || (walletRes.wallet as any).recentTransactions || [],
         });
       }
 
@@ -556,7 +556,7 @@ export default function ShopkeeperDashboard() {
       const res = await shopkeeperApi.getWallet();
       setWalletData({
         wallet: res.wallet || null,
-        transactions: res.transactions || [],
+        transactions: res.transactions || (res.wallet as any)?.recentTransactions || [],
       });
     } catch (err) {
       console.error('Failed to reload wallet:', err);
@@ -2287,23 +2287,24 @@ export default function ShopkeeperDashboard() {
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Top Header Bar */}
         <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 sticky top-0 z-40 shadow-xs">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-4">
             {/* Left: Mobile hamburger + Title + Profile Menu on mobile */}
-            <div className="flex items-center justify-between lg:justify-start gap-3 min-w-0">
+            <div className="flex items-center justify-between xl:justify-start gap-3 min-w-0">
               <div className="flex items-center space-x-3 min-w-0">
                 <button
                   onClick={() => setIsMobileSidebarOpen(true)}
                   className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 shrink-0"
+                  aria-label="Open sidebar menu"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
 
                 <div className="min-w-0">
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-amber-600 uppercase tracking-wide">
+                    <span className="text-xs font-bold text-amber-600 uppercase tracking-wide shrink-0">
                       Kitchen Display
                     </span>
-                    <span className="text-slate-300">•</span>
+                    <span className="text-slate-300 shrink-0">•</span>
                     <span className="text-xs font-medium text-slate-500 hidden sm:inline truncate">
                       {activeTab === 'ORDERS' && 'Live Incoming Order Tickets'}
                       {activeTab === 'TABLES' && 'Physical Dining Tables & Tamper-Proof QRs'}
@@ -2337,9 +2338,9 @@ export default function ShopkeeperDashboard() {
             </div>
 
             {/* Right: Actions, Search & Desktop Profile Trigger */}
-            <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap justify-start lg:justify-end">
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap justify-start xl:justify-end">
               {(activeTab === 'ORDERS' || activeTab === 'PRODUCTS') && (
-                <div className="relative">
+                <div className="relative shrink-0">
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
@@ -2350,7 +2351,7 @@ export default function ShopkeeperDashboard() {
                       setProductsPage(1);
                     }}
                     placeholder={activeTab === 'ORDERS' ? 'Search token, order #...' : 'Search dish...'}
-                    className="text-xs pl-8 pr-3 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 w-36 sm:w-52"
+                    className="text-xs pl-8 pr-3 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 w-40 sm:w-52 transition-all"
                   />
                 </div>
               )}
@@ -2409,7 +2410,7 @@ export default function ShopkeeperDashboard() {
                     hasAudioUnlocked ? 'text-emerald-600' : 'text-amber-600 animate-bounce'
                   }`}
                 />
-                <span className="hidden sm:inline">
+                <span className="hidden xl:inline">
                   {notificationPermission === 'granted' ? 'Alerts Active' : 'Test Kitchen Chime'}
                 </span>
                 <span
@@ -2425,7 +2426,7 @@ export default function ShopkeeperDashboard() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('WALLET')}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition cursor-pointer shrink-0 ${
+                  className={`px-3 py-1.5 sm:py-2 rounded-xl border text-xs font-bold flex items-center gap-2 transition cursor-pointer shrink-0 ${
                     walletData.wallet.balance < walletData.wallet.minWalletLimit || !walletData.wallet.isQrEnabled
                       ? 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100'
                       : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
@@ -2433,7 +2434,7 @@ export default function ShopkeeperDashboard() {
                   title="Click to view prepaid wallet details"
                 >
                   <Wallet className="w-3.5 h-3.5" />
-                  <span className="font-mono">₹{Number(walletData.wallet.balance).toFixed(2)}</span>
+                  <span className="font-mono font-bold">₹{Number(walletData.wallet.balance).toFixed(2)}</span>
                   <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-white/80 shadow-2xs">
                     {walletData.wallet.balance < walletData.wallet.minWalletLimit
                       ? 'Low Limit'
@@ -2447,7 +2448,7 @@ export default function ShopkeeperDashboard() {
               <button
                 onClick={loadData}
                 title="Refresh Data"
-                className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer shrink-0"
+                className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer shrink-0 border border-slate-200"
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
