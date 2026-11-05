@@ -64,11 +64,50 @@ export interface Shop {
   gstNumber?: string | null;
   isQrActive?: boolean;
   qrClosedReason?: string | null;
+  totalQrScans?: number;
+  counterQrScans?: number;
+  tableQrScans?: Record<string, number>;
   _count?: {
     products?: number;
     orders?: number;
     shopkeepers?: number;
+    qrScans?: number;
   };
+}
+
+export interface ShopQrAnalytics {
+  shop: {
+    id: number;
+    name: string;
+    slug: string;
+    hasDining?: boolean;
+    tableCount?: number;
+    qrUrl?: string | null;
+  };
+  summary: {
+    totalScans: number;
+    scansToday: number;
+    scansWeek: number;
+    scansMonth: number;
+    counterScans: number;
+    counterPercentage: number;
+    diningScans: number;
+  };
+  tables: Array<{
+    tableNumber: number;
+    label: string;
+    scans: number;
+    percentage: number;
+    lastScannedAt: string | null;
+  }>;
+  recentScans: Array<{
+    id: number;
+    tableNumber?: string | null;
+    qrType: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    createdAt: string;
+  }>;
 }
 
 export interface Category {

@@ -15,6 +15,7 @@ import {
   ShopTaxSettings,
   WalletRechargeOrder,
   FoodStoryData,
+  ShopQrAnalytics,
 } from '../types';
 
 const API_BASE_URL =
@@ -137,6 +138,16 @@ export const publicApi = {
       categories: Category[];
       products: Product[];
     }>(`/api/public/shops/${slug}/menu`);
+  },
+
+  async recordQrScan(slug: string, data?: { tableNumber?: string | null; qrType?: string; token?: string | null }) {
+    return apiFetch<{ recorded: boolean; scanId?: number; totalScans?: number }>(
+      `/api/public/shops/${slug}/scan`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data || {}),
+      }
+    ).catch(() => ({ recorded: false }));
   },
 
   async getShopCoupons(slug: string) {
@@ -393,6 +404,10 @@ export const shopkeeperApi = {
     return apiFetch<{ shop: Shop; shopkeeper: any }>('/api/shop/profile');
   },
 
+  async getQrAnalytics() {
+    return apiFetch<ShopQrAnalytics>('/api/shop/qr-analytics');
+  },
+
   async updateProfile(data: {
     name?: string;
     address?: string;
@@ -571,6 +586,10 @@ export const adminApi = {
 
   async getShops() {
     return apiFetch<{ shops: Shop[] }>('/api/admin/shops');
+  },
+
+  async getShopQrAnalytics(shopId: number) {
+    return apiFetch<ShopQrAnalytics>(`/api/admin/shops/${shopId}/qr-analytics`);
   },
 
   async createShop(data: {

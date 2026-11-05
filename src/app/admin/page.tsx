@@ -54,6 +54,7 @@ import {
   MessageSquare,
   PhoneCall,
   Mail,
+  Eye,
 } from 'lucide-react';
 import WalletsManagementTab from '../../components/admin/WalletsManagementTab';
 import PaymentGatewaySettingsTab from '../../components/admin/PaymentGatewaySettingsTab';
@@ -61,6 +62,7 @@ import WalletLedgerTab from '../../components/admin/WalletLedgerTab';
 import WalletLimitModal from '../../components/admin/WalletLimitModal';
 import WalletTransactionsModal from '../../components/admin/WalletTransactionsModal';
 import { ShopkeeperGatewayModal } from '../../components/admin/ShopkeeperGatewayModal';
+import ShopQrAnalyticsModal from '../../components/admin/ShopQrAnalyticsModal';
 import ActionFeedbackModal, { ActionFeedbackData } from '../../components/ActionFeedbackModal';
 
 type AdminTab = 'OVERVIEW' | 'OUTLETS_SALES' | 'SHOPS' | 'SHOPKEEPERS' | 'ORDERS' | 'COUPONS' | 'ENQUIRIES' | 'WALLETS' | 'GATEWAY_SETTINGS' | 'LEDGER';
@@ -216,8 +218,9 @@ export default function AdminDashboard() {
   const [deleteKeeperTarget, setDeleteKeeperTarget] = useState<User | null>(null);
   const [isDeletingKeeper, setIsDeletingKeeper] = useState(false);
 
-  // QR Modal
+  // QR Modal & QR Analytics
   const [selectedQrShop, setSelectedQrShop] = useState<Shop | null>(null);
+  const [analyticsShop, setAnalyticsShop] = useState<Shop | null>(null);
 
   // Shopkeeper Wallet Modals & Actions
   const [selectedLimitKeeper, setSelectedLimitKeeper] = useState<any | null>(null);
@@ -2011,6 +2014,7 @@ export default function AdminDashboard() {
                       <th className="p-4">Shop Name & Address</th>
                       <th className="p-4">Slug / Subdomain</th>
                       <th className="p-4">Model & Tables</th>
+                      <th className="p-4">QR Scans</th>
                       <th className="p-4">Phone</th>
                       <th className="p-4">Status</th>
                       <th className="p-4">Ordering</th>
@@ -2020,7 +2024,7 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-slate-100">
                     {paginatedShops.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-400">
+                        <td colSpan={8} className="p-8 text-center text-slate-400">
                           No shops match your search criteria.
                         </td>
                       </tr>
@@ -2057,6 +2061,28 @@ export default function AdminDashboard() {
                               </span>
                             )}
                           </td>
+                          <td className="p-4">
+                            <button
+                              type="button"
+                              onClick={() => setAnalyticsShop(s)}
+                              className="group text-left cursor-pointer transition flex flex-col items-start"
+                              title="Click to view detailed per-table QR scan breakdown"
+                            >
+                              <span className="font-mono font-black text-xs text-purple-900 group-hover:text-purple-700 bg-purple-50 group-hover:bg-purple-100 px-2 py-0.5 rounded-lg border border-purple-200 transition inline-flex items-center gap-1 shadow-2xs">
+                                <Eye className="w-3 h-3 text-purple-600" />
+                                {s.totalQrScans ?? s._count?.qrScans ?? 0} scans
+                              </span>
+                              {s.hasDining && s.tableQrScans ? (
+                                <span className="text-[10px] text-slate-500 font-medium block mt-1">
+                                  🍽️ {s.totalQrScans ? Math.max(0, s.totalQrScans - (s.counterQrScans || 0)) : 0} dining • 🛍️ {s.counterQrScans || 0} counter
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 font-medium block mt-1">
+                                  🛍️ Counter / Takeaway
+                                </span>
+                              )}
+                            </button>
+                          </td>
                           <td className="p-4 font-medium text-slate-600">
                             {s.phone || '—'}
                           </td>
@@ -2089,11 +2115,20 @@ export default function AdminDashboard() {
                           </td>
                           <td className="p-4 text-right space-x-1.5">
                             <button
+                              onClick={() => setAnalyticsShop(s)}
+                              className="px-2 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-purple-200 text-[11px]"
+                              title="View Per-Table QR Scan Breakdown & Analytics"
+                            >
+                              <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
+                              <span>Scans</span>
+                            </button>
+
+                            <button
                               onClick={() => setSelectedQrShop(s)}
-                              className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-slate-200"
+                              className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-slate-200 text-[11px]"
                               title="Show QR Code"
                             >
-                              <QrCode className="w-3.5 h-3.5 text-purple-600" />
+                              <QrCode className="w-3.5 h-3.5 text-slate-600" />
                               <span className="hidden sm:inline">QR</span>
                             </button>
 
@@ -4180,6 +4215,21 @@ export default function AdminDashboard() {
                     <p className="text-[11px] font-mono text-purple-700 mt-1 break-all select-all">
                       {shopUrl}
                     </p>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = selectedQrShop;
+                        setSelectedQrShop(null);
+                        setAnalyticsShop(target);
+                      }}
+                      className="mt-2.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl transition inline-flex items-center gap-1.5 border border-purple-200 cursor-pointer shadow-2xs"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-purple-600" />
+                      <span>
+                        {selectedQrShop.totalQrScans ?? selectedQrShop._count?.qrScans ?? 0} Scans Recorded (View Breakdown)
+                      </span>
+                    </button>
                   </div>
 
                   <div className="pt-2 flex items-center gap-2">
@@ -4926,6 +4976,13 @@ export default function AdminDashboard() {
         onClose={() => setSelectedGatewayGstKeeper(null)}
         shopkeeper={selectedGatewayGstKeeper}
         onSaved={loadData}
+      />
+
+      {/* QR Scan Analytics & Per-Table Breakdown Modal */}
+      <ShopQrAnalyticsModal
+        isOpen={!!analyticsShop}
+        onClose={() => setAnalyticsShop(null)}
+        shop={analyticsShop}
       />
 
       {/* Universal Animated Feedback Popup for Create, Update, Delete & Errors */}

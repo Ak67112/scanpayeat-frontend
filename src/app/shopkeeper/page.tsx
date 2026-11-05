@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { shopkeeperApi } from '../../lib/api';
 import { getSocket, joinShopRoom } from '../../lib/socket';
-import { Order, OrderStatus, Product, Category, ShopkeeperStats } from '../../types';
+import { Order, OrderStatus, Product, Category, ShopkeeperStats, ShopQrAnalytics } from '../../types';
 import { useRouter } from 'next/navigation';
 import { encodeTableToken } from '../../lib/tableCrypto';
 import {
@@ -58,6 +58,7 @@ import {
   Lock,
   ShieldCheck,
   Zap,
+  Eye,
   Key,
   Check,
   Mail,
@@ -147,6 +148,9 @@ export default function ShopkeeperDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [stats, setStats] = useState<ShopkeeperStats | null>(null);
+
+  // QR Scan Analytics state
+  const [qrAnalytics, setQrAnalytics] = useState<ShopQrAnalytics | null>(null);
 
   // Wallet & QR state
   const [walletData, setWalletData] = useState<{
@@ -475,6 +479,7 @@ export default function ShopkeeperDashboard() {
         profileRes,
         walletRes,
         taxRes,
+        qrRes,
       ] = await Promise.all([
         shopkeeperApi.getOrders().catch(() => ({ orders: [] })),
         shopkeeperApi.getProducts().catch(() => ({ products: [] })),
@@ -485,6 +490,7 @@ export default function ShopkeeperDashboard() {
         shopkeeperApi.getProfile().catch(() => ({ shop: null, shopkeeper: null })),
         shopkeeperApi.getWallet().catch(() => ({ wallet: null, transactions: [] })),
         shopkeeperApi.getTaxSettings().catch(() => null),
+        shopkeeperApi.getQrAnalytics().catch(() => null),
       ]);
 
       const incomingCats = Array.isArray(catsRes) ? catsRes : (catsRes?.categories || []);
@@ -515,6 +521,10 @@ export default function ShopkeeperDashboard() {
         setGstNumber(tx.gstNumber || '');
         setCgstRate(Number(tx.cgstRate ?? 2.5));
         setSgstRate(Number(tx.sgstRate ?? 2.5));
+      }
+
+      if (qrRes) {
+        setQrAnalytics(qrRes);
       }
 
       if (profileRes?.shop) {
@@ -2631,6 +2641,12 @@ export default function ShopkeeperDashboard() {
                             <span className="px-3 py-1 rounded-full bg-amber-900/40 text-amber-100 text-xs font-bold border border-white/20">
                               {tableCount} Physical Tables
                             </span>
+                            {qrAnalytics && (
+                              <span className="px-3 py-1 rounded-full bg-white/25 text-white text-xs font-extrabold border border-white/30 inline-flex items-center gap-1.5 shadow-2xs">
+                                <Eye className="w-3.5 h-3.5 text-amber-200" />
+                                {qrAnalytics.summary.totalScans} Total Scans ({qrAnalytics.summary.scansToday} today)
+                              </span>
+                            )}
                           </div>
                           <h2 className="text-xl sm:text-3xl font-black font-display tracking-tight text-white">
                             Dining Room Tables &amp; Encrypted QRs
@@ -2727,9 +2743,15 @@ export default function ShopkeeperDashboard() {
                                   <span>🍽️</span>
                                   <span>TABLE #{tNum}</span>
                                 </span>
-                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                  ✓ QR Active
-                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-extrabold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200 inline-flex items-center gap-1 shadow-2xs">
+                                    <Eye className="w-2.5 h-2.5 text-purple-600" />
+                                    {qrAnalytics?.tables?.find((t) => t.tableNumber === tNum)?.scans ?? 0} scans
+                                  </span>
+                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
+                                    ✓ Active
+                                  </span>
+                                </div>
                               </div>
 
                               {/* QR Preview Standee */}

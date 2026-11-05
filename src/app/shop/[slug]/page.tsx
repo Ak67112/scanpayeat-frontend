@@ -119,6 +119,34 @@ export default function ShopMenuPage() {
     }
   }, [effectiveSlug, activeToken, stealthInfo, setTableNumber]);
 
+  // Record QR scan event for shop & table
+  useEffect(() => {
+    if (!effectiveSlug) return;
+    const resolvedTable =
+      verifiedTable ||
+      stealthInfo?.table ||
+      (pathToken ? decodeTableToken(effectiveSlug, pathToken).table : null);
+    const sessionKey = `hk_scanned_${effectiveSlug}_${resolvedTable || 'counter'}`;
+
+    // Prevent repeated scan calls in the same tab session
+    if (typeof window !== 'undefined' && sessionStorage.getItem(sessionKey)) {
+      return;
+    }
+
+    publicApi
+      .recordQrScan(effectiveSlug, {
+        tableNumber: resolvedTable || null,
+        qrType: resolvedTable ? 'TABLE' : 'COUNTER',
+        token: activeToken || null,
+      })
+      .then(() => {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(sessionKey, String(Date.now()));
+        }
+      })
+      .catch(() => {});
+  }, [effectiveSlug, verifiedTable, stealthInfo, pathToken, activeToken]);
+
   useEffect(() => {
     if (!effectiveSlug) return;
 
