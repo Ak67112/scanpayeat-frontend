@@ -11,6 +11,9 @@ export const metadata: Metadata = {
     apple: '/icon.png',
     shortcut: '/favicon.ico',
   },
+  verification: {
+    google: 'rH-XJRIuJYK5XRb-9AVcWo6H2E5PCiSEbw3K86t-VDk',
+  },
 };
 
 export default function RootLayout({
@@ -21,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
       <head>
+        <meta name="google-site-verification" content="rH-XJRIuJYK5XRb-9AVcWo6H2E5PCiSEbw3K86t-VDk" />
         <link rel="icon" type="image/png" href="/icon.png" />
         <link rel="apple-touch-icon" href="/icon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
